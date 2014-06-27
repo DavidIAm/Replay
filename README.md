@@ -84,13 +84,13 @@ State data model
  * control - framework state transitions
 
 ##Components
-* Worm 
+### Worm 
  * to be implimented 
  * listens to all origin events
  * writes event log
  * tags with replay window
  * emits derived events
-* StorageEngine 
+### StorageEngine 
  * absorb new atoms
    * uses 'compare' business rule method to sort
    * emits on control channel 'Reducable'
@@ -110,7 +110,7 @@ State data model
  * snapshot
    * to be implemented
    * create the ability to revert to this current state across the entire domain.
-* Mapper 
+### Mapper 
  * listens to all derived events
  * uses match method of business rule to determine relevancy
  * uses window method of business rule to tag time grouping
@@ -125,14 +125,14 @@ State data model
      * business rule may emit new messages encapsulating state transitions on 
         * derived channel
    * checks in new state to storage
-* RuleSource
+### RuleSource
  * encapsulates the rules available to the system
-* ReportStore
+### ReportStore
  * to be implemented
  * store - update the current working copy
  * freeze - preserve the current copy as a revision 
  * retrieve - deliver the requested revision
-* Bureaucrat
+### Bureaucrat
  * to be implemented
  * listens to control channel 'NewCanonical' events
    * retrieve state from StorageEngine
@@ -144,21 +144,24 @@ State data model
    * windowAll state from StorageEngine
    * uses summarize method of business rule to format window documents to store in ReportStore
    * emits on control channel 'NewSummary'
-* Clerk
+### Clerk
  * to be implemented
  * probably a REST service consumed by mashups and client programs
  * poorly defined functionality regarding comparing disparate windows and
     * versions
-* Replay
+### Replay
  * to be implemented
  * listens on the control channel
  * upon appropriate signal event, reads some sequence of information previously
 	 recorded from the WORM into the derived event channel of the indicated domain.
-* SubscriptionService
+### SubscriptionService
  * to be implemented
  * listens on the control channel
  * handles external requests regarding interesting transitions, makes
 	 Rest/queue/whatever sorts of actions in response to internal system messages
+
+
+##How it works
 
 Thanks, I know that was long and confusing.  What does it all mean?
 How does it work?  Let me walk you through.
