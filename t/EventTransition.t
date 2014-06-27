@@ -72,14 +72,19 @@ use Replay::Reducer;
 use Replay::Mapper;
 use Time::HiRes qw/gettimeofday/;
 use Test::Most;
-use CgtConfig;
+use Config::Locale;
 use JSON;
+
 
 # test the event transition interface
 
 # an event transition has a match/map
 
-my $locale = CgtConfig::locale('test');
+my $locale = return Config::Locale->new(
+            identity         => [ 'test', undef ],
+            directory        => 't/conf',
+            require_defaults => 1,
+    );
 
 my $interesting = { interesting => 1 };
 

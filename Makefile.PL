@@ -18,7 +18,7 @@ WriteMakefile(
         'Amazon::SNS'                  => '1.3',
         'Amazon::SQS::Simple'          => '2.03',
         'AnyEvent'                     => '7.07',
-        'CgtConfig'                    => '1.0',
+        'Config::Locale'               => '0.05',
         'Data::Dumper'                 => '2.121_08',
         'Data::UUID'                   => '1.217',
         'EV'                           => '4.17',
