@@ -21,7 +21,7 @@ business rules.
 
 Bear with me while I go over some of the structures and pieces here:
 
-![Replay diagram]()
+![Replay diagram](Replay diagram)
 
 State data model
 
