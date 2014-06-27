@@ -51,7 +51,7 @@ Components
  * writes event log
  * tags with replay window
  * emits derived events
- * StorageEngine 
+* StorageEngine 
  * absorb new atoms
    * uses 'compare' business rule method to sort
    * emits on control channel 'Reducable'
