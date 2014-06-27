@@ -22,17 +22,17 @@ business rules.
 
 State data model
 
-Domain (to be implimented)
- Rule
- * version
-  * window
-   * key
-    * atom
+*Domain (to be implimented)
+ * Rule
+   * version
+     * window
+       * key
+         * atom
 
 Business Rule
  * match
- * indow
- * ersion
+ * window
+ * version
  * compare
  * keyValueSet
  * reduce
@@ -100,9 +100,7 @@ Components
    * emits on control channel 'NewReport'
  * listens to control channel 'NewReport' events
    * windowAll state from StorageEngine
-   * uses summarize method of business rule to format window documents to
-      * summary
-   * store in ReportStore
+   * uses summarize method of business rule to format window documents to store in ReportStore
    * emits on control channel 'NewSummary'
 * Clerk
  * to be implemented
