@@ -14,27 +14,40 @@ native rather than derivative in a fully scalable architecture
 Bitemporality is the concept that things have an effective date, as well
 as a first-heard-about or action date.
 
-Imagine an application as a finite state machine.
+Imagine an application as a finite state machine. Shouldn't be hard,
+because that is what most are.
 
-Each state of the program consists of a series of atoms that are relevant
-to that state, grouped by window and key.
+A state's transitions are determined by a business rule of a particular
+version configured in a domain.  We will have many business rules.
+There will be different time groups relevant for each new input that
+arrives. The rule can extract the relevant bits from the event for its
+own state transitions, grouping them by key.
 
-Those which are relevant to each other in time have the same window.
+Imagine that those atomic pieces of state were divided into bins by
+domain, rule, version, window, and key
 
-Those which are relevant to each other for state transition purposes
-have the same key.
+Each state transition is detectable by examining only the atoms under
+a single key bin.
 
-A state's transitions are determined by a business rule.  We will have
-many business rules.
+State transitions have many layers, so when a state transition is
+detected, another event can be emitted, which can be processed by still
+other rules.
 
-Imagine you found a bug you introduced last week.  It has mucked up
-your reports and output.  Imagine that you could change your repaired
-code's effective date to *last week*. The snapshot and replay capability
-will not only allows you to see how your new code works with your old
-input - but you can do so for testing or proof without interrupting
-your production systems.  AND you can automatically get a complete and
-exhaustive report on how your system's reports have changed *solely* as a
-matter of the change. Auditability and proof of correct operation, anyone?
+Imagine your system output has a metadata component that will inform you
+of every business rule and version used, along with enough information
+to derive all of the original input that was given to it.  This will
+make it plenty easy to debug, don't you think?  Its like every report
+coming with a trace and input log!
+
+Imagine you are repairing a bug you accidentally introduced last week.
+It has mucked up your reports and output.  Imagine that you could change
+your repaired code's effective date to *last week*. The snapshot and
+replay capability will not only allows you to see how your new code works
+with your old input - but you can do so for testing or proof without
+interrupting your production systems.  AND you can automatically get a
+complete and exhaustive report on how your system's reports have changed
+*solely* as a matter of the change. Auditability and proof of correct
+operation, anyone?
 
 Now imagine you missed a series of transactions for your books that
 happened months ago, books that are now of course closed.  What a
