@@ -1,4 +1,4 @@
-use 5.006;
+use 5.8.8;
 use strict;
 use warnings FATAL => 'all';
 use ExtUtils::MakeMaker;
@@ -10,7 +10,7 @@ WriteMakefile(
     ABSTRACT_FROM      => 'lib/Replay.pm',
     LICENSE            => 'Artistic_2_0',
     PL_FILES           => {},
-    MIN_PERL_VERSION   => 5.006,
+    MIN_PERL_VERSION   => 5.8.8,
     CONFIGURE_REQUIRES => { 'ExtUtils::MakeMaker' => 0, },
     BUILD_REQUIRES =>
         { 'Test::More' => 0, 'Test::More' => 1.001003, 'Test::Most' => 0.33, },
