@@ -5,7 +5,7 @@ Replay
 
 This concept is an original development of David Ihnen over a period
 of about five years, refined with many thanks through discussions with
-Glen Hinkle.
+[Glen Hinkle](https://github.com/Tempire)
 
 TL;DR? - bitemporal finite state machine application engine modular down
 to the fundamental state transition level using a variant of map-reduce
