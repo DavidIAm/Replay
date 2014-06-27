@@ -4,7 +4,8 @@ Replay
 Perl implimentation of Replay idea
 
 TL;DR? - finite state machine application engine modular down to the basic
-state transition level
+state transition level using a variant of map-reduce methodology with the goal
+of making instrospection, revision, and proofing native rather than derivative
 
 Imagine an application as a finite state machine.
 
