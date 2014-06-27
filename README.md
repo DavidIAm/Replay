@@ -3,8 +3,9 @@ Replay
 
 #Perl implimentation of Replay idea
 
-This concept is an original development of David Ihnen, refined with
-many thanks through discussions with Glen Hinkle.
+This concept is an original development of David Ihnen over a period
+of about five years, refined with many thanks through discussions with
+Glen Hinkle.
 
 TL;DR? - bitemporal finite state machine application engine modular down
 to the fundamental state transition level using a variant of map-reduce
