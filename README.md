@@ -84,12 +84,14 @@ State data model
  * control - framework state transitions
 
 ##Components
+
 ### Worm 
  * to be implimented 
  * listens to all origin events
  * writes event log
  * tags with replay window
  * emits derived events
+
 ### StorageEngine 
  * absorb new atoms
    * uses 'compare' business rule method to sort
@@ -110,6 +112,7 @@ State data model
  * snapshot
    * to be implemented
    * create the ability to revert to this current state across the entire domain.
+
 ### Mapper 
  * listens to all derived events
  * uses match method of business rule to determine relevancy
@@ -125,13 +128,16 @@ State data model
      * business rule may emit new messages encapsulating state transitions on 
         * derived channel
    * checks in new state to storage
+
 ### RuleSource
  * encapsulates the rules available to the system
+
 ### ReportStore
  * to be implemented
  * store - update the current working copy
  * freeze - preserve the current copy as a revision 
  * retrieve - deliver the requested revision
+
 ### Bureaucrat
  * to be implemented
  * listens to control channel 'NewCanonical' events
@@ -144,16 +150,19 @@ State data model
    * windowAll state from StorageEngine
    * uses summarize method of business rule to format window documents to store in ReportStore
    * emits on control channel 'NewSummary'
+
 ### Clerk
  * to be implemented
  * probably a REST service consumed by mashups and client programs
  * poorly defined functionality regarding comparing disparate windows and
     * versions
+
 ### Replay
  * to be implemented
  * listens on the control channel
  * upon appropriate signal event, reads some sequence of information previously
 	 recorded from the WORM into the derived event channel of the indicated domain.
+
 ### SubscriptionService
  * to be implemented
  * listens on the control channel
