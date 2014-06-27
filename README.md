@@ -1,24 +1,58 @@
 Replay
 ======
 
-Perl implimentation of Replay idea
+#Perl implimentation of Replay idea
 
-TL;DR? - finite state machine application engine modular down to the basic
-state transition level using a variant of map-reduce methodology with the goal
-of making instrospection, revision, and proofing native rather than derivative
+This concept is an original development of David Ihnen, refined with
+many thanks through discussions with Glen Hinkle.
+
+TL;DR? - bitemporal finite state machine application engine modular down
+to the fundamental state transition level using a variant of map-reduce
+methodology with the goal of making instrospection, revision, and proofing
+native rather than derivative in a fully scalable architecture
+
+Bitemporality is the concept that things have an effective date, as well
+as a first-heard-about or action date.
 
 Imagine an application as a finite state machine.
 
-Each state of the program consists of a series of atoms that are relevant to
-that state, grouped by window and key.
+Each state of the program consists of a series of atoms that are relevant
+to that state, grouped by window and key.
 
-Those which are relevant to each other in time have the same window. 
+Those which are relevant to each other in time have the same window.
 
-Those which are relevant to each other for state transition purposes have the
-same key.
+Those which are relevant to each other for state transition purposes
+have the same key.
 
-A state's transitions are determined by a business rule.  We will have many
-business rules.
+A state's transitions are determined by a business rule.  We will have
+many business rules.
+
+Imagine you found a bug you introduced last week.  It has mucked up
+your reports and output.  Imagine that you could change your repaired
+code's effective date to *last week*. The snapshot and replay capability
+will not only allows you to see how your new code works with your old
+input - but you can do so for testing or proof without interrupting
+your production systems.  AND you can automatically get a complete and
+exhaustive report on how your system's reports have changed *solely* as a
+matter of the change. Auditability and proof of correct operation, anyone?
+
+Now imagine you missed a series of transactions for your books that
+happened months ago, books that are now of course closed.  What a
+mess, right?  All the corrections can be a neverending rabbit warren.
+This system allows the separation of backdated effective information
+from the previously frozen reports.  Individual, per-account reports on
+the changes that are introduced by the backdated information generated
+automatically per the original business rules with no manual intervention
+or research required.
+
+Imagine you need a bit of instrumentation in your application, to
+check into the rate of change of a particular state. Easy-peasy - all
+the states of the application are available, all the state transitions
+are on an event bus. Add a new business rule that reduces out to the
+appropriate instrumentation report, subscribe your monitoring system
+to the external event stream and *boom* - instant application metrics
+available in near-time in your monitoring
+	application of choice.
 
 Bear with me while I go over some of the structures and pieces here:
 
@@ -26,7 +60,7 @@ Bear with me while I go over some of the structures and pieces here:
 
 State data model
 
-IdKey
+##IdKey
  * Domain (to be implimented)
    * Rule
      * version
@@ -34,7 +68,7 @@ IdKey
          * key
            * atom
 
-Business Rule
+##Business Rule
  * match
  * window
  * version
@@ -44,12 +78,12 @@ Business Rule
  * deliver
  * summarize
 
-Event Channels
+##Event Channels
  * origin - new input to the application space
  * derived - application data state transitions
  * control - framework state transitions
 
-Components
+##Components
 * Worm 
  * to be implimented 
  * listens to all origin events
