@@ -53,22 +53,22 @@ Components
  * emits derived events
  * StorageEngine 
  * absorb new atoms
-  * uses 'compare' business rule method to sort
-  * emits on control channel 'Reducable'
-  * unaffected by locks
+   * uses 'compare' business rule method to sort
+   * emits on control channel 'Reducable'
+   * unaffected by locks
  * checkout state document
-  * locks against other checkouts
-  * emits on control channel 'Reducing'
+   * locks against other checkouts
+   * emits on control channel 'Reducing'
  * checkin state document
-  * emits on control channel 'NewCanonical'
-  * when more is still reducable, emits on control channel 'Reducable'
-  * unlocks for further checkouts
+   * emits on control channel 'NewCanonical'
+   * when more is still reducable, emits on control channel 'Reducable'
+   * unlocks for further checkouts
  * retrieve state document
-  * emits on control channel 'Fetched'
-  * unaffected by locks
+   * emits on control channel 'Fetched'
+   * unaffected by locks
  * windowAll keys and their states for a window
-  * emits on control channel 'WindowAll'
- * Mapper 
+   * emits on control channel 'WindowAll'
+* Mapper 
  * listens to all derived events
  * uses match method of business rule to determine relevancy
  * uses window method of business rule to tag time grouping
@@ -78,10 +78,10 @@ Components
  * Reducer
  * listens to control events
  * when hears Reducable attempts to checkout from storage
-  * merges previous canonical state with new atoms
-  * uses reduce method of business rule to reduce merged atoms to new state
-   * business rule may emit new messages encapsulating state transitions on 
-    * derived channel
+   * merges previous canonical state with new atoms
+   * uses reduce method of business rule to reduce merged atoms to new state
+     * business rule may emit new messages encapsulating state transitions on 
+        * derived channel
    * checks in new state to storage
 * RuleSource
  * encapsulates the rules available to the system
@@ -93,20 +93,20 @@ Components
 * Bureaucrat
  * to be implemented
  * listens to control channel 'NewCanonical' events
-  * retrieve state from StorageEngine
-  * uses deliver method of business rule to format key state to deliverable
-   * form
-  * store in ReportStore
-  * emits on control channel 'NewReport'
+   * retrieve state from StorageEngine
+   * uses deliver method of business rule to format key state to deliverable
+      * form
+   * store in ReportStore
+   * emits on control channel 'NewReport'
  * listens to control channel 'NewReport' events
-  * windowAll state from StorageEngine
-  * uses summarize method of business rule to format window documents to
-   * summary
-  * store in ReportStore
-  * emits on control channel 'NewSummary'
+   * windowAll state from StorageEngine
+   * uses summarize method of business rule to format window documents to
+      * summary
+   * store in ReportStore
+   * emits on control channel 'NewSummary'
 * Clerk
  * to be implemented
  * probably a REST service consumed by mashups and client programs
  * poorly defined functionality regarding comparing disparate windows and
-  * versions
+    * versions
 
