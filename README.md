@@ -21,7 +21,7 @@ business rules.
 
 Bear with me while I go over some of the structures and pieces here:
 
-![Replay diagram](Replay diagram)
+![Replay diagram](images/Replay%20Report%20System.png)
 
 State data model
 
@@ -188,5 +188,4 @@ to the cache control service informing it which document is now invalid so that
 it may be retrieved to the endpoints of the content delivery network - enabling
 as many layers of cache as necessary.
 
-![Replay diagram]: images/Replay%20Report%20System.png
 
