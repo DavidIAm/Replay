@@ -3,6 +3,7 @@ package Replay::WORM;
 use Moose;
 use POSIX qw/strftime/;
 use File::Spec qw//;
+use Scalar::Util qw/blessed/;
 
 has eventSystem => (is => 'ro', required => 1,);
 has directory   => (is => 'ro', required => 0, default => '/var/log/replay');
@@ -20,10 +21,20 @@ sub BUILD {
     );
 }
 
+sub serialize {
+	my ($self, $message) = @_;
+	return $message unless ref $message;
+	return JSON->new->encode($message) unless blessed $message;
+	return $message->stringify if blessed $message && $message->can('stringify');
+	return $message->freeze if blessed $message && $message->can('freeze');
+	return $message->serialize if blessed $message && $message->can('serialize');
+	warn "blessed but no serializer found? $message";
+}
+
 sub log {
     my $self    = shift;
     my $message = shift;
-    $self->filehandle->print("$message");
+    $self->filehandle->print($self->serialize($message));
 }
 
 sub path {
