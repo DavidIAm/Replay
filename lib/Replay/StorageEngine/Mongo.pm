@@ -4,6 +4,9 @@ use Moose;
 use MongoDB;
 use MongoDB::OID;
 use Data::UUID;
+use Readonly;
+
+Readonly my $REVERT_LOCK_TIMEOUT => 10;
 
 extends 'Replay::BaseStorageEngine';
 
@@ -206,7 +209,7 @@ override revert => sub {
                 lockExpireEpoch => { '$gt' => time },
             },
             update => {
-                '$set' => { locked => $unlsignature, lockExpireEpoch => time + $timeout, },
+                '$set' => { locked => $unlsignature, lockExpireEpoch => time + $REVERT_LOCK_TIMEOUT, },
             },
             upsert => 0,
             new    => 1,
@@ -214,7 +217,7 @@ override revert => sub {
     );
     warn "tried to do a revert but didn't have a lock on it" unless $state;
     return unless $state;
-    my $result = $self->revertThisRecord($idkey, $signature, $result);
+    my $result = $self->revertThisRecord($idkey, $signature, $state);
     return $result->{ok};
 };
 

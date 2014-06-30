@@ -111,7 +111,6 @@ sub poll {
     $activity += $self->control->poll;
     $activity += $self->origin->poll;
     $activity += $self->derived->poll;
-    warn "IDLE" unless $activity;
     warn "HANDLED $activity" if $activity;
 }
 
