@@ -106,6 +106,7 @@ has queueName =>
 
 sub emit {
     my ($self, $message) = @_;
+    $message = $message->stringify if blessed $message && $message->can('stringify');
     $message = $message->freeze if blessed $message && $message->can('freeze');
     $message = to_json($message) if ref $message;
 
@@ -194,6 +195,7 @@ sub _build_sns {
 
 sub _build_queue {
     my ($self) = @_;
+		warn "BUILDING QUEUE ".$self->queueName;
     my $queue = $self->sqs->CreateQueue($self->queueName);
     $queue->SetAttribute(
         'Policy',
@@ -238,6 +240,7 @@ sub _build_topicName {
 sub _build_topic {
     my ($self) = @_;
     my $topic;
+		warn "BUILDING TOPIC ".$self->topicName;
     if ($self->has_topicarn) {
         $topic = $self->sns->GetTopic($self->topicarn);
     }
