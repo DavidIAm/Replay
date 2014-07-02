@@ -18,6 +18,9 @@ sub match {
 
 # [timeWindowIdentifier] function window ( message )
 sub window {
+    my ($self, $message) = @_;
+
+    # probably going to do soemthing with ->effectiveTime or ->recievedTime
     return 'alltime';
 }
 

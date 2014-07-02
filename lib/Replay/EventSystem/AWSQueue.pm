@@ -106,9 +106,19 @@ has queueName =>
 
 sub emit {
     my ($self, $message) = @_;
-    $message = $message->stringify if blessed $message && $message->can('stringify');
+    $message = $message->stringify
+        if blessed $message && $message->can('stringify');
     $message = $message->freeze if blessed $message && $message->can('freeze');
-    $message = to_json($message) if ref $message;
+    try {
+        $message = to_json($message) if ref $message;
+    }
+    catch {
+        use Data::Dumper;
+        die "WE WERE TRYING TO EMIT A "
+            . ref($message)
+            . " BUT GOT EXCEPTIOIN $_ - NO STRINGIFY OR FREEZE??"
+            . Dumper $message;
+    };
 
     return $self->topic->Publish($message, 'control');
 }

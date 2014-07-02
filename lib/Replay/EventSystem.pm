@@ -69,6 +69,7 @@ has origin => (
     clearer => 'clear_origin',
 );
 has locale => (is => 'ro', isa => 'Config::Locale', required => 1);
+has domain => (is => 'ro');  # placeholder
 
 sub BUILD {
     my ($self) = @_;

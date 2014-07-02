@@ -30,6 +30,8 @@ If it gets the transitional state, it retrieves the state with the reduce method
 
 use Moose;
 use Scalar::Util;
+use Replay::DelayedEmitter;
+use Try::Tiny;
 
 has ruleSource => (is => 'ro', isa => 'Replay::RuleSource', required => 1);
 
@@ -38,10 +40,12 @@ has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
 has storageEngine =>
     (is => 'ro', isa => 'Replay::StorageEngine', required => 1,);
 
+use Data::Dumper;
 sub BUILD {
     my $self = shift;
     $self->eventSystem->control->subscribe(
         sub {
+warn "REDUCER GOT CONTROL MESSAGE " . (ref($_[0])||$_[0]->{messageType}) . "\n";
             $self->reduceWrapper(@_);
         }
     );
@@ -63,14 +67,41 @@ sub reduceWrapper {
         {   name    => $message->name,
             version => $message->version,
             window  => $message->window,
-            key     => $message->key
+            key     => $message->key,
         }
     );
-    my ($signature, @state)
+    my ($signature, $meta, @state)
         = $self->storageEngine->fetchTransitionalState($idkey);
-    return unless scalar @state;    # nothing to do!
-    $self->storageEngine->storeNewCanonicalState($idkey, $signature,
-        $self->rule($idkey)->reduce(@state));
+    do { $self->storageEngine->revert($idkey, $signature) if $signature; return; }
+        unless scalar @state;    # nothing to do!
+    my $emitter = Replay::DelayedEmitter->new(eventSystem => $self->eventSystem,
+        %{$meta});
+
+    try {
+        if ($self->storageEngine->storeNewCanonicalState(
+                $idkey, $signature, $self->rule($idkey)->reduce($emitter, @state)
+            )
+            )
+        {
+warn "SUCCESS STORE NEW STATE\n";
+            $emitter->release();
+        }
+    }
+    catch {
+        warn "REDUCING EXCEPTION: $_";
+        $self->storageEngine->revert($idkey, $signature);
+        $self->eventSystem->control->emit(
+            CargoTel::Message->new(
+                messageType => 'ReducerException',
+                message     => {
+                    rule      => $self->rule->name,
+                    version   => $self->rule->version,
+                    exception => $_,
+                    message   => $message
+                }
+            )
+        );
+    }
 }
 
 1;

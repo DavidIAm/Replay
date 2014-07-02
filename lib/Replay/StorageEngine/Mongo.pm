@@ -5,6 +5,7 @@ use MongoDB;
 use MongoDB::OID;
 use Data::UUID;
 use Readonly;
+use JSON;
 
 Readonly my $REVERT_LOCK_TIMEOUT => 10;
 
@@ -33,6 +34,8 @@ STATE DOCUMENT GENERAL TO STORAGE ENGINE
 inbox: [ Array of Atoms ] - freshly arrived atoms are stored here.
 canonical: [ Array of Atoms ] - the current reduced 
 canonSignature: "SIGNATURE" - a sanity check to see if this canonical has been mucked with
+bundles: [ Array of input bundle names ]
+ruleversions: [ Array of objects like { name: <rulename>, version: <ruleversion> } ]
 
 STATE DOCUMENT SPECIFIC TO THIS IMPLIMENTATION
 
@@ -58,7 +61,7 @@ rename inbox to desktop so that any new absorbs don't get confused with what is 
 
 Unconditionally return the entire state record 
 
-=item (success) = absorb ( idkey, message )
+=item (success) = absorb ( idkey, message, meta )
 
 Insert a new atom into the indicated state
 
@@ -111,12 +114,18 @@ override retrieve => sub {
 };
 
 override absorb => sub {
-    my ($self, $idkey, $atom) = @_;
+    my ($self, $idkey, $atom, $meta) = @_;
     super();
     my $r = $self->collection($idkey)->update(
-        { idkey   => $idkey->cubby },
-        { '$push' => { inbox => $atom } },
-        { upsert  => 1, multiple => 0 }
+        { idkey => $idkey->cubby },
+        {   '$push'     => { inbox => $atom },
+            '$addToSet' => {
+                windows      => $idkey->window,
+                bundles      => { '$each' => $meta->{bundles}||[] },
+                ruleversions => { '$each' => $meta->{ruleversions}||[] },
+            }
+        },
+        { upsert => 1, multiple => 0 },
     );
     return $r;
 };
@@ -134,22 +143,22 @@ sub revertThisRecord {
         = $self->collection($idkey)
         ->update({ idkey => $idkey->cubby, locked => $signature } =>
             { '$unset' => { desktop => '', locked => '', lockExpireEpoch => '' } });
-    die "UNABLE TO UNLOCK AFTER REVERT" unless $unlockresult->{n} == 1;
+use Data::Dumper;
+    die "UNABLE TO UNLOCK AFTER REVERT ".Dumper $unlockresult unless $unlockresult->{n} == 1;
     return $unlockresult;
 }
 
 override checkout => sub {
     my ($self, $idkey, $timeout) = @_;
-    super();
     my $uuid         = $self->generate_uuid;
     my $signature    = $self->stateSignature($idkey, [$uuid]);
     my $unlsignature = $self->stateSignature($idkey, [ $uuid, 'UNLOCKING' ]);
 
     # Lets try to get an expire lock, if it has timed out
+    warn "Trying to unlock " . $idkey->cubby ." with $unlsignature";
     my $unlockresult = $self->collection($idkey)->find_and_modify(
         {   query => {
                 idkey           => $idkey->cubby,
-                desktop         => { '$exists' => 0 },
                 locked          => { '$exists' => 1 },
                 lockExpireEpoch => { '$lt' => time },
             },
@@ -185,15 +194,33 @@ override checkout => sub {
     );
 
     # We didn't lock.  Return nothing.
-    return unless (defined $lockresult);
+    use Data::Dumper;
+    unless (defined $lockresult) {
+        my $timeout = $self->collection($idkey)->find(
+            { query => { idkey => $idkey->cubby } },
+            { desktop => 1, locked => 1, lockExpireEpoch => 1 }
+        ) || {};
+        warn "UNABLE TO LOCK RECORD DESKTOP COUNT ("
+            . scalar(@{$timeout->{desktop}||[]})
+	    . ") RECOORDS IS LOCKED ("
+            . ($timeout->{locked}||'')
+            . ") FOR ("
+            . ($timeout->{lockExpireEpoc}||'')
+            . ") MORE SECONDS";
+        return;
+    }
 
     #    my $cursor = $self->collection($idkey)->find(
     #      {  idkey => $idkey->cubby,
     #      , locked => $signature,  lockExpireEpoch => { '$gt' => time } }
     #    );
 
-    delete $lockresult->{value}->{inbox}
-        ;    # we must not affect the inbox on later updates!
+    # we must not affect the inbox on later updates!
+    delete $lockresult->{inbox};
+
+    # This takes care of sending the 'locked' event
+    super();
+
     return $uuid, $lockresult;
 };
 
@@ -206,7 +233,6 @@ override revert => sub {
                 idkey           => $idkey->cubby,
                 desktop         => { '$exists' => 1 },
                 locked          => $signature,
-                lockExpireEpoch => { '$gt' => time },
             },
             update => {
                 '$set' => { locked => $unlsignature, lockExpireEpoch => time + $REVERT_LOCK_TIMEOUT, },
@@ -228,7 +254,6 @@ override checkin => sub {
     delete $state->{desktop};           # there is no more desktop on checkin
     delete $state->{lockExpireEpoch};   # there is no more expire time on checkin
     delete $state->{locked};    # there is no more locked signature on checkin
-    super();
     my $result = $self->collection($idkey)->find_and_modify(
         {   query  => { idkey => $idkey->cubby, locked => $signature },
             update => {
@@ -239,7 +264,10 @@ override checkin => sub {
             new    => 1
         }
     );
-    return $result;
+    if ($result) {
+        super();
+    }
+    return $result;        # no checkin
 };
 
 override windowAll => sub {

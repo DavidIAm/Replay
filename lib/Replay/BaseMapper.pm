@@ -1,6 +1,7 @@
 package Replay::BaseMapper;
 
 use Moose;
+use Data::Dumper;
 
 has ruleSource => (is => 'ro', isa => 'Replay::RuleSource',);
 
@@ -52,7 +53,14 @@ sub map {
                         key     => $key
                     }
                 ),
-                $atom
+                $atom,
+                {   bundles      => $message->{bundles},
+                    domain       => $self->eventSystem->domain,
+                    ruleversions => [
+                        { rule => $rule->name, version => $rule->version },
+                        @{ $message->{ruleversions} || [] }
+                    ]
+                }
                 );
         }
     }

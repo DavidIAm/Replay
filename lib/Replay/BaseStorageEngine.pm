@@ -189,7 +189,11 @@ sub fetchTransitionalState {
 
     my ($signature, $cubby) = $self->checkout($idkey, $REDUCE_TIMEOUT);
 
-    return unless $signature && $cubby && scalar @{ $cubby->{desktop} || [] };
+    do {
+        warn "No desktop state to reduce; no reduction to run";
+        $self->revert($idkey, $signature) if ($signature);
+        return;
+    } unless $signature && $cubby && scalar @{ $cubby->{desktop} || [] };
 
     # merge in canonical, moving atoms from desktop
     my $reducing
@@ -200,7 +204,12 @@ sub fetchTransitionalState {
         Replay::Message::Reducing->new($idkey->hashList));
 
     # return signature and list
-    return $signature => @{$reducing};
+    return $signature => {
+        windows      => $idkey->window,
+        bundles      => $cubby->{bundles} || [],
+        ruleversions => $cubby->{ruleversions} || [],
+    } => @{$reducing};
+
 }
 
 sub storeNewCanonicalState {
@@ -216,7 +225,8 @@ sub storeNewCanonicalState {
     $self->eventSystem->control->emit(
         Replay::Message::Reducable->new($idkey->hashList))
         if scalar @{ $newstate->{inbox} || [] }
-        ;    # renotify reducable if inbox has entries now
+        ;                # renotify reducable if inbox has entries now
+    return $newstate;    # release pending messages
 }
 
 sub fetchCanonicalState {
