@@ -115,6 +115,7 @@ use Moose;
 use Digest::MD5 qw/md5_hex/;
 use Replay::Message::Reducable;
 use Replay::Message::Reducing;
+use Replay::Message::Reverted;
 use Replay::Message::NewCanonical;
 use Replay::Message::Fetched;
 use Replay::Message::Locked;
@@ -125,7 +126,7 @@ $Storable::canonical = 1;
 
 Readonly my $READONLY => 1;
 
-has locale => (is => 'ro', isa => 'Config::Locale', required => 1,);
+has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
 
 has ruleSource => (is => 'ro', isa => 'Replay::RuleSource', required => 1);
 
@@ -190,7 +191,6 @@ sub fetchTransitionalState {
     my ($signature, $cubby) = $self->checkout($idkey, $REDUCE_TIMEOUT);
 
     do {
-        warn "No desktop state to reduce; no reduction to run";
         $self->revert($idkey, $signature) if ($signature);
         return;
     } unless $signature && $cubby && scalar @{ $cubby->{desktop} || [] };

@@ -143,58 +143,6 @@ sub revertThisRecord {
         = $self->collection($idkey)
         ->update({ idkey => $idkey->cubby, locked => $signature } =>
             { '$unset' => { desktop => '', locked => '', lockExpireEpoch => '' } });
-use Data::Dumper;
-    die "UNABLE TO UNLOCK AFTER REVERT ".Dumper $unlockresult unless $unlockresult->{n} == 1;
-    return $unlockresult;
-}
-
-override checkout => sub {
-    my ($self, $idkey, $timeout) = @_;
-    my $uuid         = $self->generate_uuid;
-    my $signature    = $self->stateSignature($idkey, [$uuid]);
-    my $unlsignature = $self->stateSignature($idkey, [ $uuid, 'UNLOCKING' ]);
-
-    # Lets try to get an expire lock, if it has timed out
-    warn "Trying to unlock " . $idkey->cubby ." with $unlsignature";
-    my $unlockresult = $self->collection($idkey)->find_and_modify(
-        {   query => {
-                idkey           => $idkey->cubby,
-                locked          => { '$exists' => 1 },
-                lockExpireEpoch => { '$lt' => time },
-            },
-            update => {
-                '$set' => { locked => $unlsignature, lockExpireEpoch => time + $timeout, },
-            },
-            upsert => 0,
-            new    => 1,
-        }
-    );
-
-    # Oh my, we did. Well then, we should...
-    $self->revertThisRecord($idkey, $unlsignature, $unlockresult)
-        if ($unlockresult);
-
-    # Now we try to get a read lock
-    my $lockresult = $self->collection($idkey)->find_and_modify(
-        {   query => {
-                idkey   => $idkey->cubby,
-                desktop => { '$exists' => 0 },
-                '$or'   => [
-                    { locked          => { '$exists' => 0 } },
-                    { lockExpireEpoch => { '$lt'     => time } }
-                ]
-            },
-            update => {
-                '$set'    => { locked  => $signature, lockExpireEpoch => time + $timeout, },
-                '$rename' => { 'inbox' => 'desktop' },
-            },
-            upsert => 0,
-            new    => 1,
-        }
-    );
-
-    # We didn't lock.  Return nothing.
-    use Data::Dumper;
     unless (defined $lockresult) {
         my $timeout = $self->collection($idkey)->find(
             { query => { idkey => $idkey->cubby } },
@@ -283,7 +231,7 @@ sub _build_mongo {
 
 sub _build_db {
     my ($self) = @_;
-    my $config = $self->locale->config;
+    my $config = $self->config;
     my $db     = $self->mongo->get_database($config->{stage} . '-replay');
     return $db;
 }

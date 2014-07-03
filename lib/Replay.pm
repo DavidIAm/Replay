@@ -4,9 +4,106 @@ use 5.006;
 use strict;
 use warnings FATAL => 'all';
 
+use Moose;
+use AnyEvent;
+use Replay::EventSystem;
+use Replay::RuleSource;
+use Replay::StorageEngine;
+use Replay::Reducer;
+use Replay::Mapper;
+use Replay::WORM;
+
+has rules =>
+    (is => 'ro', isa => 'ArrayRef[Replay::BusinessRule]', required => 1,);
+
+has ruleSource => (
+    is      => 'ro',
+    isa     => 'Replay::RuleSource',
+    builder => '_build_ruleSource',
+    lazy    => 1,
+);
+
+sub _build_ruleSource {
+    my $self = shift;
+    return new Replay::RuleSource(
+        rules       => $self->rules,
+        eventSystem => $self->eventSystem
+    );
+}
+
+has eventSystem => (
+    is      => 'ro',
+    isa     => 'Replay::EventSystem',
+    builder => '_build_eventSystem',
+    lazy    => 1,
+);
+
+sub _build_eventSystem {
+	my $self = shift;
+	return Replay::EventSystem->new( config => $self->config );
+}
+
+has storageEngine => (
+    is      => 'ro',
+    isa     => 'Replay::StorageEngine',
+    builder => '_build_storageEngine',
+    lazy    => 1,
+);
+
+has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
+
+sub _build_storageEngine {
+    my $self = shift;
+    return Replay::StorageEngine->new(
+        config      => $self->config,
+        ruleSource  => $self->ruleSource,
+        eventSystem => $self->eventSystem
+    );
+}
+
+has reducer => (
+    is      => 'ro',
+    isa     => 'Replay::Reducer',
+    builder => '_build_reducer',
+    lazy    => 1,
+);
+
+sub _build_reducer {
+    my $self = shift;
+    return Replay::Reducer->new(
+        eventSystem   => $self->eventSystem,
+        ruleSource    => $self->ruleSource,
+        storageEngine => $self->storageEngine
+    );
+}
+
+has mapper => (
+    is      => 'ro',
+    isa     => 'Replay::Mapper',
+    builder => '_build_mapper',
+    lazy    => 1,
+);
+
+sub _build_mapper {
+    my $self = shift;
+    return Replay::Mapper->new(
+        eventSystem   => $self->eventSystem,
+        ruleSource    => $self->ruleSource,
+        storageEngine => $self->storageEngine
+    );
+}
+
+has worm =>
+    (is => 'ro', isa => 'Replay::WORM', builder => '_build_worm', lazy => 1,);
+
+sub _build_worm {
+    my $self = shift;
+    return Replay::WORM->new(eventSystem => $self->eventSystem);
+}
+
 =head1 NAME
 
-Replay - The great new Replay!
+Replay - A bitemporal finite state machine engine
 
 =head1 VERSION
 
@@ -16,36 +113,63 @@ Version 0.01
 
 our $VERSION = '0.01';
 
-
 =head1 SYNOPSIS
 
-Quick summary of what the module does.
+This is the central configuration and instantiation module of the Replay system.
 
-Perhaps a little code snippet.
+You can instantiate a Replay object with a list of rules and config
 
-    use Replay;
+use Replay;
 
-my $eventSystem = Replay::EventSystem->new(timeout => 2);
+# minimum
+my $replay = Replay->new(rules => [], config =>
+        { Replay => { QueueClass => 'Replay::EventSystem::Null', StorageMode => 'Memory' } });
 
-my $ruleSource = Replay::RuleSource->new(
-    rules       => [ new TESTRULE ],
-    eventSystem => $eventSystem
-);
-
-my $storage = Replay::StorageEngine->new(
-    ruleSource  => $ruleSource,
-    eventSystem => $eventSystem
-);
-
+# all options
 my $replay = Replay->new(
-    ruleSource    => $ruleSource,
-    eventSystem   => $eventSystem,
-    storageEngine => $storageEngine,
+    rules  => [ COUNTRULE->new ],
+    config => {
+        QueueClass => [ AWSQueue, Null ],
+        systemPrefix => queueMode => [ native, AWS, RabbitMQ ],    # zeromq
+        StorageMode => [ Memory, Mongo ],    # couchdb, postgres, mysql
+        AWS => {
+            Identity => {
+                name   => 'webserver',
+                access => 'AKIAJUZLBY2RIDB6LSJA',
+                secret => '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',
+            },
+            snsIdentity => 'webserver',
+            snsService  => 'https://sns.us-east-1.amazonaws.com',
+            sqsIdentity => 'webserver',
+            sqsService  => 'https://sqs.us-east-1.amazonaws.com',
+        },
+        Mongo    => { host => port => username => password => },
+        RabbitMQ => { host => port => username => password => },
+    },
 );
 
-my $reducer = Replay::Reducer->new(replay => $replay);
+# by mentioning them, they become active in this process.  Weird right?
+$replay->worm;
+$replay->mapper;
+$replay->reducer;
 
-my $mapper = Replay::Mapper->new(replay => $replay);
+package COUNTRULE;
+
+use Moose;
+
+override match => sub {
+    warn "MATCH HIT";
+    return 1;
+};
+override keyValueSet => sub {
+    return 1 => 1;
+};
+override reduce => sub {
+    my ($signature, @state) = @_;
+    my $first = shift @state;
+    $first += $_ foreach @state;
+    return $first;
+};
 
 ...
 
@@ -60,16 +184,6 @@ if you don't export anything, such as for a purely object-oriented module.
 
 =cut
 
-sub function1 {
-}
-
-=head2 function2
-
-=cut
-
-sub function2 {
-}
-
 =head1 AUTHOR
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
@@ -77,11 +191,9 @@ David Ihnen, C<< <davidihnen at gmail.com> >>
 =head1 BUGS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
-the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll
-automatically be notified of progress on your bug as I make changes.
+the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'
 
-
-
+        ll automatically be notified of progress on your bug as I make changes .
 
 =head1 SUPPORT
 
@@ -159,124 +271,5 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =cut
 
-1; # End of Replay
+    1;    # End of Replay
 
-
-
-#!/usr/bin/perl
-
-package TESTRULE;
-
-use Moose;
-extends 'Replay::BusinessRule';
-use List::Util qw//;
-
-has '+name' => (default => __PACKAGE__,);
-
-override match => sub {
-    my ($self, $message) = @_;
-    return $message->{is_interesting};
-};
-
-override window => sub {
-    my ($self, $message) = @_;
-    return $message->{window} if $message->{window};
-    return super;
-};
-
-override keyValueSet => sub {
-    my ($self, $message) = @_;
-    my @keyvalues = ();
-    foreach my $key (keys %{$message}) {
-        next unless 'ARRAY' eq ref $message->{$key};
-        foreach (@{ $message->{$key} }) {
-            push @keyvalues, $key, $_;
-        }
-    }
-    return @keyvalues;
-};
-
-override compare => sub {
-    my ($self, $aa, $bb) = @_;
-    return ($aa || 0) <=> ($bb || 0);
-};
-
-override reduce => sub {
-    my ($self, @state) = @_;
-    return List::Util::reduce { $a + $b } @state;
-};
-
-package main;
-
-use Test::Most;
-
-# test the event transition interface0
-
-# an event transition has a match/map
-
-my $interesting = { interesting => 1 };
-
-my $tr = new TESTRULE->new;
-die unless $tr->version;
-is $tr->version, 1, 'version returns';
-
-my $intmessage    = { is_interesting => 1 };
-my $boringmessage = { is_interesting => 0 };
-
-ok $tr->match($intmessage), 'is interesting';
-ok !$tr->match($boringmessage), 'is not interesting';
-
-my $nowindowmessage = { vindow => 'sometime' };
-my $windowmessage   = { window => 'sometime' };
-ok $tr->window($nowindowmessage), 'alltime';
-ok $tr->window($windowmessage),   'sometime';
-
-my $funMessage = { a => [ 5, 1, 2, 3, 4 ], is_interesting => 1 };
-my $notAfterAll = { b => [ 1, 2, 3, 4 ] };
-
-is_deeply [ $tr->keyValueSet($funMessage) ],
-    [ a => 5, a => 1, a => 2, a => 3, a => 4 ], 'expands';
-
-is_deeply [ $tr->keyValueSet({ b => [ 1, 2, 3, 4 ] }) ],
-    [ b => 1, b => 2, b => 3, b => 4 ];
-
-my $eventSystem = TestEventSystem->new(timeout => 2);
-my $ruleSource = Replay::RuleSource->new(
-    rules       => [ new TESTRULE ],
-    eventSystem => $eventSystem
-);
-my $storage = Replay::StorageEngine->new(
-    ruleSource  => $ruleSource,
-    eventSystem => $eventSystem
-);
-my $reducer = Replay::Reducer->new(
-    eventSystem   => $eventSystem,
-    ruleSource    => $ruleSource,
-    storageEngine => $storage
-);
-my $mapper = Replay::Mapper->new(
-    ruleSource  => $ruleSource,
-    eventSystem => $eventSystem,
-    storageEngine => $storage,
-);
-
-$eventSystem->emit($funMessage);
-
-is_deeply [
-    $storage->fetchCanonicalState(
-        { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' }
-    )
-    ],
-    [], 'nonexistant';
-
-$eventSystem->run;
-
-use Data::Dumper;
-is_deeply [
-    $storage->fetchCanonicalState(
-        { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' }
-    )
-    ],
-    [15];
-
-done_testing();

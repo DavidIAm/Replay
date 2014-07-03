@@ -8,7 +8,7 @@ Reducer
 
 =head1 SYNOPSIS
 
-my $eventSystem = Replay::EventSystem->new(locale => $locale);
+my $eventSystem = Replay::EventSystem->new(config => $config);
 my $reducer = Replay::Reducer->new(
    ruleSource => $ruleSource,
    eventSystem => $eventSystem,
@@ -40,12 +40,10 @@ has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
 has storageEngine =>
     (is => 'ro', isa => 'Replay::StorageEngine', required => 1,);
 
-use Data::Dumper;
 sub BUILD {
     my $self = shift;
     $self->eventSystem->control->subscribe(
         sub {
-warn "REDUCER GOT CONTROL MESSAGE " . (ref($_[0])||$_[0]->{messageType}) . "\n";
             $self->reduceWrapper(@_);
         }
     );

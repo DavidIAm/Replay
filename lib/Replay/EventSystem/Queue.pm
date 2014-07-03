@@ -6,11 +6,11 @@ package Replay::EventSystem::AWSQueue;
 
 constructor properties
         purpose => $purpose,
-        locale  => $self->locale,
+        config  => $self->config,
 
 This object instance will be distinct for $purpose, but may be singleton per purpose.
 
-locale is a Config::Locale object which will have available appropriate bits in its config for this configuration.
+config is a Hashref which will have available appropriate bits in its config for this configuration.
 
 =head2 AWS Specific notes
 
@@ -77,7 +77,7 @@ has sqs => (
     lazy    => 1,
 );
 
-has locale => (is => 'ro', isa => 'Config::Locale', required => 1);
+has config => (is => 'ro', isa => 'HashRef[item]', required => 1);
 
 has queue => (
     is        => 'ro',
@@ -146,7 +146,7 @@ sub subscribe {
 
 sub _build_sqs {
     my ($self) = @_;
-    my $config = $self->locale->config->{Replay};
+    my $config = $self->config->{Replay};
     die "No sqs service?" unless $config->{sqsService};
     my $sqs = Amazon::SQS::Simple->new(
         $config->{awsIdentity}{access},
@@ -158,7 +158,7 @@ sub _build_sqs {
 
 sub _build_sns {
     my ($self) = @_;
-    my $config = $self->locale->config->{Replay};
+    my $config = $self->config->{Replay};
     my $sns    = Amazon::SNS->new(
         {   key    => $config->{awsIdentity}{access},
             secret => $config->{awsIdentity}{secret}
@@ -207,7 +207,7 @@ sub DEMOLISH {
 
 sub _build_topicName {
     my ($self) = @_;
-    return join '_', $self->locale->config->{stage}, 'replay', $self->purpose;
+    return join '_', $self->config->{stage}, 'replay', $self->purpose;
 }
 
 sub _build_topic {
@@ -225,7 +225,7 @@ sub _build_topic {
 sub _build_queueName {
     my $self = shift;
     my $ug   = Data::UUID->new;
-    return join '_', $self->locale->config->{stage}, 'replay', $self->purpose,
+    return join '_', $self->config->{stage}, 'replay', $self->purpose,
         $ug->to_string($ug->create);
 }
 

@@ -7,7 +7,12 @@ use Test::More;
 plan tests => 1;
 
 BEGIN {
-    use_ok( 'Replay' ) || print "Bail out!\n";
+    use_ok('Replay') || print "Bail out!\n";
 }
 
-diag( "Testing Replay $Replay::VERSION, Perl $], $^X" );
+my $replay = Replay->new(
+    rules  => [],
+    config => { QueueClass => 'Replay::EventSystem::Null' }
+);
+
+diag("Testing Replay $Replay::VERSION, Perl $], $^X");

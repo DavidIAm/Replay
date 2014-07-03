@@ -1,7 +1,6 @@
 package Replay::BaseMapper;
 
 use Moose;
-use Data::Dumper;
 
 has ruleSource => (is => 'ro', isa => 'Replay::RuleSource',);
 
@@ -9,7 +8,7 @@ has eventSystem => (is => 'ro', required => 1,);
 
 has storageClass => (is => 'ro',);
 
-has storageSink => (
+has storageEngine => (
     is      => 'ro',
     isa     => 'Replay::StorageEngine',
     builder => 'buildStorageSink',
@@ -24,8 +23,8 @@ sub buildStorageSink {
 
 sub BUILD {
     my $self = shift;
-    die "need either storageSink or storageClass"
-        unless $self->storageSink || $self->storageClass;
+    die "need either storageEngine or storageClass"
+        unless $self->storageEngine || $self->storageClass;
     $self->eventSystem->derived->subscribe(
         sub {
             $self->map(@_);
@@ -45,7 +44,7 @@ sub map {
             my $key  = shift @all;
             my $atom = shift @all;
             die "unable to store"
-                unless $self->storageSink->absorb(
+                unless $self->storageEngine->absorb(
                 Replay::IdKey->new(
                     {   name    => $rule->name,
                         version => $rule->version,

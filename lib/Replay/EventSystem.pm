@@ -2,7 +2,7 @@ package Replay::EventSystem;
 
 # The configuration this requires is
 #
-# Replay::EventSystem->new( locale => <Config::Locale> , [ timeout => # ] );
+# Replay::EventSystem->new( config => <hashref> , [ timeout => # ] );
 #
 # The event system has three logical channels of events
 # Origin - Original external events that are entering the system
@@ -23,7 +23,7 @@ package Replay::EventSystem;
 # If the timeout option is set, it will stop running after that many seconds.
 #
 #
-# my $app = Replay::EventSystem->new( locale => <Config::Locale> );
+# my $app = Replay::EventSystem->new( config => <config hash> );
 # $app->control->subscribe( sub { handle_control_message(shift) } );
 # $app->origin->subscribe( sub { handle_origin_message(shift) } );
 # $app->derived->subscribe( sub { handle_derived_message(shift) } );
@@ -42,50 +42,79 @@ use EV;
 use AnyEvent;
 use Readonly;
 use Carp qw/confess carp cluck/;
+use Time::HiRes;
+use Try::Tiny;
 
 use Replay::EventSystem::AWSQueue;
-sub queue_class {'Replay::EventSystem::AWSQueue'}
 
-has timeout => (is => 'ro', isa => 'Int', predicate => 'has_timeout');
+my $quitting = 0;
+
 has control => (
     is      => 'ro',
-    isa     => queue_class(),
+    isa     => 'Object',
     builder => '_build_control',
     lazy    => 1,
     clearer => 'clear_control',
 );
 has derived => (
     is      => 'rw',
-    isa     => queue_class(),
+    isa     => 'Object',
     builder => '_build_derived',
     lazy    => 1,
     clearer => 'clear_derived',
 );
 has origin => (
     is      => 'rw',
-    isa     => queue_class(),
+    isa     => 'Object',
     builder => '_build_origin',
     lazy    => 1,
     clearer => 'clear_origin',
 );
-has locale => (is => 'ro', isa => 'Config::Locale', required => 1);
-has domain => (is => 'ro');  # placeholder
+has config => (is => 'ro', isa => 'HashRef[Item]', required => 1);
+has domain => (is => 'ro');    # placeholder
 
 sub BUILD {
     my ($self) = @_;
     my ($generalHandler, $establisher);
-    die "NO REPLAY CONFIG??" unless $self->locale->config->{Replay};
+    die "NO QueueClass CONFIG??" unless $self->config->{QueueClass};
     $self->{stop} = AnyEvent->condvar(cb => sub {exit});
+
+    # initialize our channels
+    $self->control;
+    $self->origin;
+    $self->derived;
+}
+
+sub heartbeat {
+    my ($self) = @_;
+    $self->{hbtimer}
+        = AnyEvent->timer(after => 1, interval => 1, cb => sub { print "<3"; });
 }
 
 sub run {
     my ($self) = @_;
-    $self->{hbtimer}
-        = AnyEvent->timer(after => 1, interval => 1, cb => sub { print "<3"; });
-    $self->{stoptimer} = AnyEvent->timer(
-        after => $self->timeout,
-        cb    => sub { warn "TRYING TO STOP"; $self->stop }
-    ) if $self->has_timeout;
+    $quitting = 0;
+
+    $self->clock;
+    $SIG{QUIT} = sub {
+        return if $quitting++;
+        $self->stop;
+        startdownmessages('shutdownBySIGQUIT');
+    };
+    $SIG{INT} = sub {
+        return if $quitting++;
+        $self->stop;
+        startdownmessages('shutdownBySIGINT');
+    };
+
+    if ($self->config->{timeout}) {
+        $self->{stoptimer} = AnyEvent->timer(
+            after => $self->config->{timeout},
+            cb    => sub { warn "TRYING TO STOP"; $self->stop }
+        );
+        warn "Setting timeout to " . $self->config->{timeout};
+    }
+
     $self->{polltimer} = AnyEvent->timer(
         after    => 0,
         interval => 0.1,
@@ -112,12 +141,57 @@ sub poll {
     $activity += $self->control->poll;
     $activity += $self->origin->poll;
     $activity += $self->derived->poll;
-    warn "HANDLED $activity" if $activity;
+    warn "\nPOLL FOUND $activity MESSAGES" if $activity;
+}
+
+sub clock {
+    my $self           = shift;
+    my $lastSeenMinute = time - time % 60;
+    AnyEvent->timer(
+        after    => 0.25,
+        interval => 0.25,
+        cb       => sub {
+            my $thisMinute = time - time % 60;
+            return if $lastSeenMinute == $thisMinute;
+            $lastSeenMinute = $thisMinute;
+            my ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst)
+                = localtime(time);
+            $self->eventSystem->origin->emit(
+                Replay::Message::Envelope->new(
+                    message => Replay::Message::Clock->new(
+                        epoch   => time,
+                        minute  => $min,
+                        hour    => $hour,
+                        date    => $mday,
+                        month   => $mon,
+                        year    => $year + 1900,
+                        weekday => $wday,
+                        yearday => $yday,
+                        isdst   => $isdst
+                    ),
+                    messageType   => 'Timing',
+                    effectiveTime => Time::HiRes::time,
+                    program       => __FILE__,
+                    function      => 'clock',
+                    line          => __LINE__,
+                )
+            );
+        }
+    );
 }
 
 sub _build_queue {
     my ($self, $purpose) = @_;
-    return queue_class->new(purpose => $purpose, locale => $self->locale,);
+    try {
+        my $classname = $self->config->{QueueClass};
+        eval "require $classname";
+        die "error requiring: $@" if $@;
+    }
+    catch {
+        die "Unable to load queue class " . $self->config->{QueueClass} . " --> $_ ";
+    };
+    return $self->config->{QueueClass}
+        ->new(purpose => $purpose, config => $self->config,);
 }
 
 sub _build_control {

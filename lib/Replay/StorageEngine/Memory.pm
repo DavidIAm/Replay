@@ -10,19 +10,14 @@ my $store = {};
 
 override retrieve => sub {
     my ($self, $idkey) = @_;
-    $idkey = Replay::IdKey->new($idkey)
-        unless blessed $idkey && $idkey->isa('Replay::IdKey');
     super();
-    return $store->{ $idkey->name }{ $idkey->version }{ $idkey->window }
-        { $idkey->key } ||= {};
+    return $store->{ $idkey->collection }{ $idkey->cubby } ||= {};
 };
 
 # State transition = add new atom to inbox
 override absorb => sub {
     my ($self, $idkey, $atom) = @_;
-    $idkey = Replay::IdKey->new($idkey)
-        unless blessed $idkey && $idkey->isa('Replay::IdKey');
-    my $state = $self->retrieve($idkey);
+    my $state = $store->{ $idkey->collection }{ $idkey->cubby } ||= {};
     push @{ $state->{inbox} ||= [] }, $atom;
     super();
     return 1;
@@ -30,27 +25,22 @@ override absorb => sub {
 
 override checkout => sub {
     my ($self, $idkey) = @_;
-    $idkey = Replay::IdKey->new($idkey)
-        unless blessed $idkey && $idkey->isa('Replay::IdKey');
     my $hash = $idkey->hash;
-    return $self->{checkouts}->{$hash} if exists $self->{checkouts}{$hash};
-    die "already checked out" if exists $self->{checkouts}{$hash};
-    super();
-    $self->{checkouts}{$hash} = $self->retrieve($idkey);
+    return if exists $self->{checkouts}{$hash};
+    $self->{checkouts}{$hash} = $store->{ $idkey->collection }{ $idkey->cubby } ||= {};
     $self->{checkouts}{$hash}{desktop} = delete $self->{checkouts}{$hash}{inbox};
-    return $self->{checkouts}{$hash}
+    super();
+    return $hash, $self->{checkouts}{$hash}
 };
 
 override checkin => sub {
-    my ($self, $idkey) = @_;
-    $idkey = Replay::IdKey->new($idkey)
-        unless blessed $idkey && $idkey->isa('Replay::IdKey');
-    my $hash = $self->idkeyHash($idkey);
-    die "not checked out" unless exists $self->{checkouts};
-    my $data = delete $self->{checkouts}{$hash};
+    my ($self, $idkey, $uuid, $state) = @_;
+		warn "CHECKIN MEMORY";
+    die "not checked out" unless exists $self->{checkouts}{$uuid};
+    my $data = delete $self->{checkouts}{$uuid};
     delete $data->{desktop};
     super();
-    return $self->store($idkey, $data);
+    $store->{ $idkey->collection }{ $idkey->cubby } = $data;
 };
 
 #sub fullDump {

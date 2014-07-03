@@ -4,7 +4,7 @@ use Moose;
 use Moose::Util::TypeConstraints;
 use Replay::Message::IdKey;
 
-extends qw/Replay::Message::IdKey Replay::Message/;
+extends qw/Replay::Message::IdKey/;
 
 has messageType => (
 	is => 'ro',
