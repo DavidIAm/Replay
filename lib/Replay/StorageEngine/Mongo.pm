@@ -121,9 +121,10 @@ override absorb => sub {
         {   '$push'     => { inbox => $atom },
             '$addToSet' => {
                 windows      => $idkey->window,
-                bundles      => { '$each' => $meta->{bundles}||[] },
-                ruleversions => { '$each' => $meta->{ruleversions}||[] },
-            }
+                bundles      => { '$each' => $meta->{bundles} || [] },
+                ruleversions => { '$each' => $meta->{ruleversions} || [] },
+            },
+            '$setOnInsert' => { idkey => { $idkey->hashList } }
         },
         { upsert => 1, multiple => 0 },
     );
@@ -154,7 +155,7 @@ override checkout => sub {
     my $unlsignature = $self->stateSignature($idkey, [ $uuid, 'UNLOCKING' ]);
 
     # Lets try to get an expire lock, if it has timed out
-    warn "Trying to unlock " . $idkey->cubby ." with $unlsignature";
+    warn "Trying to unlock " . $idkey->cubby . " with $unlsignature";
     my $unlockresult = $self->collection($idkey)->find_and_modify(
         {   query => {
                 idkey           => $idkey->cubby,
@@ -194,16 +195,16 @@ override checkout => sub {
 
     # We didn't lock.  Return nothing.
     unless (defined $lockresult) {
-        my $timeout = $self->collection($idkey)->find(
-            { query => { idkey => $idkey->cubby } },
-            { desktop => 1, locked => 1, lockExpireEpoch => 1 }
-        ) || {};
+        my $timeout
+            = $self->collection($idkey)->find({ query => { idkey => $idkey->cubby } },
+            { desktop => 1, locked => 1, lockExpireEpoch => 1 })
+            || {};
         warn "UNABLE TO LOCK RECORD DESKTOP COUNT ("
-            . scalar(@{$timeout->{desktop}||[]})
-	    . ") RECORDS ARE LOCKED ("
-            . ($timeout->{locked}||'')
+            . scalar(@{ $timeout->{desktop} || [] })
+            . ") RECORDS ARE LOCKED ("
+            . ($timeout->{locked} || '')
             . ") FOR ("
-            . (($timeout->{lockExpireEpoc}-time)||'')
+            . (($timeout->{lockExpireEpoc} - time) || '')
             . ") MORE SECONDS";
         return;
     }
@@ -228,12 +229,15 @@ override revert => sub {
     my $unlsignature = $self->stateSignature($idkey, [ $uuid, 'UNLOCKING' ]);
     my $state = $self->collection($idkey)->find_and_modify(
         {   query => {
-                idkey           => $idkey->cubby,
-                desktop         => { '$exists' => 1 },
-                locked          => $signature,
+                idkey   => $idkey->cubby,
+                desktop => { '$exists' => 1 },
+                locked  => $signature,
             },
             update => {
-                '$set' => { locked => $unlsignature, lockExpireEpoch => time + $REVERT_LOCK_TIMEOUT, },
+                '$set' => {
+                    locked          => $unlsignature,
+                    lockExpireEpoch => time + $REVERT_LOCK_TIMEOUT,
+                },
             },
             upsert => 0,
             new    => 1,
@@ -265,13 +269,16 @@ override checkin => sub {
     if ($result) {
         super();
     }
-    return $result;        # no checkin
+    return $result;    # no checkin
 };
 
 override windowAll => sub {
     my ($self, $idkey) = @_;
-    return $self->collection($idkey)
-        ->find({ idkey => { '$regex' => '^' . $idkey->windowPrefix } })->all;
+    return
+        map { $_->{idkey}{key} => $_ }
+        @{ $self->collection($idkey)
+            ->find({ idkey => { '$regex' => '^' . $idkey->windowPrefix } })->all
+            || [] };
 };
 
 sub _build_mongo {
@@ -299,7 +306,8 @@ sub collection {
 
 sub document {
     my ($self, $idkey) = @_;
-    return $self->collection($idkey)->find({ idkey => $idkey->cubby })->next;
+    return $self->collection($idkey)->find({ idkey => $idkey->cubby })->next
+        || $self->new_document($idkey);
 }
 
 sub generate_uuid {
