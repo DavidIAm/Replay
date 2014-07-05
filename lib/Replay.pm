@@ -39,8 +39,8 @@ has eventSystem => (
 );
 
 sub _build_eventSystem {
-	my $self = shift;
-	return Replay::EventSystem->new( config => $self->config );
+    my $self = shift;
+    return Replay::EventSystem->new(config => $self->config);
 }
 
 has storageEngine => (
@@ -271,5 +271,5 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =cut
 
-    1;    # End of Replay
+1;    # End of Replay
 

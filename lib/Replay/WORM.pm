@@ -18,19 +18,19 @@ sub BUILD {
     $self->eventSystem->origin->subscribe(
         sub {
             my $message = shift;
-            my $bundle  = $self->log($message);
+            my $timeblock  = $self->log($message);
             warn "Not a reference $message" unless ref $message;
             if (blessed $message && $message->isa('CargoTel::Message')) {
-                push @{ $message->bundles }, $self->bundle;
+                push @{ $message->timeblocks }, $self->timeblock;
                 $message->receivedTime(+gettimeofday);
             }
             else {
                 try {
-                    push @{ $message->{bundles} }, $self->bundle;
+                    push @{ $message->{timeblocks} }, $self->timeblock;
                     $message->{receivedTime} = gettimeofday;
                 }
                 catch {
-                    warn "unable to push bundle on message?" . $message;
+                    warn "unable to push timeblock on message?" . $message;
                 };
             }
             $self->eventSystem->derived->emit($message);
@@ -56,20 +56,20 @@ sub log {
 
 sub path {
     my $self = shift;
-    File::Spec->catfile($self->directory, $self->bundle);
+    File::Spec->catfile($self->directory, $self->timeblock);
 }
 
 sub filehandle {
     my $self = shift;
-    return $self->filehandles->{ $self->bundle }
-        if exists $self->filehandles->{ $self->bundle }
-        && -f $self->filehandles->{ $self->bundle };
-    open $self->filehandles->{ $self->bundle }, '>>', $self->path
+    return $self->filehandles->{ $self->timeblock }
+        if exists $self->filehandles->{ $self->timeblock }
+        && -f $self->filehandles->{ $self->timeblock };
+    open $self->filehandles->{ $self->timeblock }, '>>', $self->path
         or confess "Unable to open " . $self->path . " for append";
-    return $self->filehandles->{ $self->bundle };
+    return $self->filehandles->{ $self->timeblock };
 }
 
-sub bundle {
+sub timeblock {
     my $self = shift;
     return strftime '%Y-%m-%d-%H', localtime time;
 }

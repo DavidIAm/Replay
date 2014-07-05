@@ -206,7 +206,7 @@ sub fetchTransitionalState {
     # return signature and list
     return $signature => {
         windows      => $idkey->window,
-        bundles      => $cubby->{bundles} || [],
+        timeblocks   => $cubby->{timeblocks} || [],
         ruleversions => $cubby->{ruleversions} || [],
     } => @{$reducing};
 
@@ -259,7 +259,12 @@ sub enumerateKeys {
 
 sub new_document {
     my ($self, $idkey) = @_;
-    return { idkey => { $idkey->hashList } };
+    return {
+        idkey        => { $idkey->hashList },
+        windows      => [],
+        timeblocks   => [],
+        ruleversions => [],
+    };
 }
 
 1;

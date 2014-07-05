@@ -34,7 +34,7 @@ STATE DOCUMENT GENERAL TO STORAGE ENGINE
 inbox: [ Array of Atoms ] - freshly arrived atoms are stored here.
 canonical: [ Array of Atoms ] - the current reduced 
 canonSignature: "SIGNATURE" - a sanity check to see if this canonical has been mucked with
-bundles: [ Array of input bundle names ]
+timeblocks: [ Array of input timeblock names ]
 ruleversions: [ Array of objects like { name: <rulename>, version: <ruleversion> } ]
 
 STATE DOCUMENT SPECIFIC TO THIS IMPLIMENTATION
@@ -121,7 +121,7 @@ override absorb => sub {
         {   '$push'     => { inbox => $atom },
             '$addToSet' => {
                 windows      => $idkey->window,
-                bundles      => { '$each' => $meta->{bundles} || [] },
+                timeblocks      => { '$each' => $meta->{timeblocks} || [] },
                 ruleversions => { '$each' => $meta->{ruleversions} || [] },
             },
             '$setOnInsert' => { idkey => { $idkey->hashList } }

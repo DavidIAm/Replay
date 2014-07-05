@@ -53,7 +53,7 @@ sub map {
                     }
                 ),
                 $atom,
-                {   bundles      => $message->{bundles},
+                {   timeblocks      => $message->{timeblocks},
                     domain       => $self->eventSystem->domain,
                     ruleversions => [
                         { rule => $rule->name, version => $rule->version },
