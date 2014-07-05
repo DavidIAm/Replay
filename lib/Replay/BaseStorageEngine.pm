@@ -257,4 +257,9 @@ sub enumerateKeys {
     die "unimplemented";
 }
 
+sub new_document {
+    my ($self, $idkey) = @_;
+    return { idkey => { $idkey->hashList } };
+}
+
 1;

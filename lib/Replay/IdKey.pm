@@ -57,4 +57,8 @@ sub hash {
     return md5_hex($self->freeze);
 }
 
+sub marshall {
+    my ($self) = @_;
+    return ( name => $self->name, version => $self->version, window => $self->window, key => $self->key );
+}
 1;

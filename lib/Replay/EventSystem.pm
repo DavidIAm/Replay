@@ -76,12 +76,14 @@ has domain => (is => 'ro');    # placeholder
 sub BUILD {
     my ($self) = @_;
     my ($generalHandler, $establisher);
-    die "NO QueueClass CONFIG!?  Make sure its in the locale files" unless $self->config->{QueueClass};
+    die "NO QueueClass CONFIG!?  Make sure its in the locale files"
+        unless $self->config->{QueueClass};
     $self->{stop} = AnyEvent->condvar(cb => sub {exit});
 }
 
 sub initialize {
     my $self = shift;
+
     # initialize our channels
     $self->control->queue;
     $self->origin->queue;
@@ -99,11 +101,13 @@ sub run {
     $quitting = 0;
 
     $self->clock;
+    warn "SIGQUIT will stop loop";
     $SIG{QUIT} = sub {
         return if $quitting++;
         $self->stop;
         warn('shutdownBySIGQUIT');
     };
+    warn "SIGINT will stop loop";
     $SIG{INT} = sub {
         return if $quitting++;
         $self->stop;
@@ -113,9 +117,9 @@ sub run {
     if ($self->config->{timeout}) {
         $self->{stoptimer} = AnyEvent->timer(
             after => $self->config->{timeout},
-            cb    => sub { warn "TRYING TO STOP"; $self->stop }
+            cb    => sub { warn "Timeout triggered."; $self->stop }
         );
-        warn "Setting timeout to " . $self->config->{timeout};
+        warn "Setting loop timeout to " . $self->config->{timeout};
     }
 
     $self->{polltimer} = AnyEvent->timer(
@@ -126,12 +130,13 @@ sub run {
             $self->poll();
         }
     );
+    warn "Event loop startup now";
     EV::loop;
 }
 
 sub stop {
     my ($self) = @_;
-    warn "STOPPING";
+    warn "Event loop shutdown by request";
     EV::unloop;
     $self->clear_control;
     $self->clear_derived;
@@ -142,23 +147,21 @@ sub poll {
     my ($self) = @_;
     my $activity = 0;
     $activity += $self->control->poll;
-		print "c";
     $activity += $self->origin->poll;
-		print "o";
     $activity += $self->derived->poll;
-		print "d";
-    warn "\nPOLL FOUND $activity MESSAGES" if $activity;
 }
 
 sub clock {
     my $self           = shift;
     my $lastSeenMinute = time - time % 60;
-    AnyEvent->timer(
+    warn "Clock tick started";
+    $self->{clock} = AnyEvent->timer(
         after    => 0.25,
         interval => 0.25,
         cb       => sub {
             my $thisMinute = time - time % 60;
             return if $lastSeenMinute == $thisMinute;
+            warn "Clock tick on minute $thisMinute";
             $lastSeenMinute = $thisMinute;
             my ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst)
                 = localtime(time);

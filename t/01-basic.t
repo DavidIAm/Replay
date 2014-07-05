@@ -44,10 +44,9 @@ use Data::Dumper;
 
 use Replay;
 use Time::HiRes qw/gettimeofday/;
-use Test::Most;
+use Test::Most tests => 10;
 use Config::Locale;
 use JSON;
-
 
 # test the event transition interface
 
@@ -70,9 +69,11 @@ my $windowmessage   = { window => 'sometime' };
 ok $tr->window($nowindowmessage), 'alltime';
 ok $tr->window($windowmessage),   'sometime';
 
-my $funMessage = { a => [ 5, 1, 2, 3, 4 ], is_interesting => 1, messageType => 'adhoc' };
+my $funMessage
+    = { a => [ 5, 1, 2, 3, 4 ], is_interesting => 1, messageType => 'adhoc' };
 my $notAfterAll = { b => [ 1, 2, 3, 4, 5, 6 ] };
-my $secondMessage = { c => [ 6, 7, 8, 9, 10 ], is_interesting => 1, messageType => 'adhoc' };
+my $secondMessage = { c => [ 6, 7, 8, 9, 10 ], is_interesting => 1,
+    messageType => 'adhoc' };
 
 is_deeply [ $tr->keyValueSet($funMessage) ],
     [ a => 5, a => 1, a => 2, a => 3, a => 4 ], 'expands';
@@ -80,7 +81,14 @@ is_deeply [ $tr->keyValueSet($funMessage) ],
 is_deeply [ $tr->keyValueSet({ b => [ 1, 2, 3, 4 ] }) ],
     [ b => 1, b => 2, b => 3, b => 4 ];
 
-my $replay = Replay->new( config => { QueueClass => 'Replay::EventSystem::Null', StorageMode => 'Memory', timeout => 5 }, rules => [ new TESTRULE ] );
+my $replay = Replay->new(
+    config => {
+        QueueClass  => 'Replay::EventSystem::Null',
+        StorageMode => 'Memory',
+        timeout     => 5
+    },
+    rules => [ new TESTRULE ]
+);
 
 $replay->worm;
 $replay->reducer;
@@ -91,43 +99,57 @@ $replay->eventSystem->derived->emit($secondMessage);
 
 is_deeply [
     $replay->storageEngine->fetchCanonicalState(
-        Replay::IdKey->new({ name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' })
+        Replay::IdKey->new(
+            { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' }
+        )
     )
     ],
     [], 'nonexistant';
 
-		# automatically stop once we get both new canonicals
+# automatically stop once we get both new canonicals
 my $canoncount = -2;
 use Scalar::Util;
-$replay->eventSystem->origin->subscribe(sub {
-		my ($message) = @_;
-		warn "This is a origin message of type ".$message->{messageType}."\n";
-});
-$replay->eventSystem->derived->subscribe(sub {
-		my ($message) = @_;
-		warn "This is a derived message of type ".$message->{messageType}."\n";
-});
-$replay->eventSystem->control->subscribe(sub {
-		my ($message) = @_;
-		warn "This is a control message of type ".$message->{messageType}."\n";
-		return unless blessed $message;
-		return unless $message->messageType eq 'NewCanonical';
-		$replay->eventSystem->stop unless ++$canoncount;
-		warn "NewCanonical countup $canoncount";
-	});
+$replay->eventSystem->origin->subscribe(
+    sub {
+        my ($message) = @_;
 
-		my $time = gettimeofday;
+        #warn "This is a origin message of type ".$message->{messageType}."\n";
+    }
+);
+$replay->eventSystem->derived->subscribe(
+    sub {
+        my ($message) = @_;
+
+        #warn "This is a derived message of type ".$message->{messageType}."\n";
+    }
+);
+$replay->eventSystem->control->subscribe(
+    sub {
+        my ($message) = @_;
+
+        #warn "This is a control message of type ".$message->{messageType}."\n";
+        return                     unless blessed $message;
+        return                     unless $message->messageType eq 'NewCanonical';
+        $replay->eventSystem->stop unless ++$canoncount;
+    }
+);
+
+my $time = gettimeofday;
 $replay->eventSystem->run;
 
 is_deeply [
     $replay->storageEngine->fetchCanonicalState(
-        Replay::IdKey->new({ name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' })
+        Replay::IdKey->new(
+            { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' }
+        )
     )
     ],
     [15];
 
-use Data::Dumper;
-print Dumper $replay->storageEngine->windowAll(Replay::IdKey->new({ name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' }));
-
-done_testing();
+is_deeply $replay->storageEngine->windowAll(
+    Replay::IdKey->new(
+        { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' }
+    )
+    ),
+    { a => [15], c => [40] }, "windowall returns all";
 

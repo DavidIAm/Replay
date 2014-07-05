@@ -82,7 +82,6 @@ sub reduceWrapper {
             )
             )
         {
-warn "SUCCESS STORE NEW STATE\n";
             $emitter->release();
         }
     }
