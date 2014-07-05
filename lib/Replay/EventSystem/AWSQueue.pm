@@ -1,64 +1,8 @@
 package Replay::EventSystem::AWSQueue;
 
-=pod
-
-=head1 Public API
-
-constructor properties
-        purpose => $purpose,
-        config  => $self->config,
-
-This object instance will be distinct for $purpose, but may be singleton per purpose.
-
-config is a Hashref object which will have available appropriate bits in its config for this configuration.
-
-=head2 AWS Specific notes
-
-this implementation uses config values
-
-stage: test
-Replay:
-  awsIdentity: 
-    access: 'AKIAJUZLBY2RIDB6LSJA'
-    secret: '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'
-  snsService: 'https://sns.us-east-1.amazonaws.com'
-  sqsService: 'https://sqs.us-east-1.amazonaws.com'
-
-
-This account is expected to have the permissions to create topics and queues.
-
-It will create SNS topic for each indicated purpose named <stage>-replay-<purpose>
-
-It will create SQS queues for each instance, named <stage>-replay-<purpose>-<uuid>
-
-=over 4 
-
-=item emit($message)
-
-Send a message to the channel that this class encapsulates.
-sends as string if string, frozen with ->freeze if method available, or json if other ref
-
-Channel does not need to be initialized if there are never any emits
-
-=item subscribe(callback)
-
-Add to a list of callbacks that will be called with the messages recieved.
-
-Queue does not need to be initialized if there are no subscribers.
-
-=item poll()
-
-Do what is necessary to pull down an available message from a queue subscribed to this channel
-
-Only do this if there are subscribers listening to the events.
-
-Make sure you call each of the subscriber callbacks with the message
-
-=back 4
-
-=cut
-
 use Moose;
+
+our $VERSION = '0.01';
 
 use Replay::EventSystem::Base;
 extends 'Replay::EventSystem::Base';
@@ -132,7 +76,7 @@ sub poll {
 
     # only check the channels if we have been shown an interest in
     return $handled unless scalar(@{ $self->subscribers });
-    foreach my $message ($self->receive()) {
+    foreach my $message ($self->_receive()) {
       $handled++;
         foreach my $subscriber (@{ $self->subscribers }) {
             try {
@@ -153,16 +97,16 @@ sub subscribe {
     push @{ $self->subscribers }, $callback;
 }
 
-sub acknowledge {
+sub _acknowledge {
   my ($self, @messages) = @_;
     $self->queue->DeleteMessageBatch([@messages]);;
 }
 
-sub receive {
+sub _receive {
     my ($self)   = @_;
     my @messages = $self->queue->ReceiveMessageBatch;
     return unless scalar @messages;
-    $self->acknowledge(@messages);
+    $self->_acknowledge(@messages);
     map {    #}{
         try {
             my $messageBody = from_json $_->MessageBody;
@@ -277,5 +221,149 @@ sub _build_queuearn {
         $self->topic->arn;
     my $qarn = join ':', $type, $domain, 'sqs', $region, $id, $self->queueName;
 }
+
+=head1 NAME
+
+Replay::EventSystem::AWSQueue - AWS Topic/Queue implimentation
+
+=head1 VERSION
+
+Version 0.01
+
+head1 SYNOPSIS
+
+This is an Event System implimentation module targeting the AWS services
+of SNS and SQS.  If you were to instantiate it independently, it might 
+look like this.
+
+Replay::EventSystem::AWSQueue->new(
+    purpose => $purpose,
+    config  => {
+        stage       => 'test',
+        awsIdentity => {
+            access => 'AKIAILL6EOKUCA3BDO5A',
+            secret => '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',
+        },
+        snsService => 'https://sns.us-east-1.amazonaws.com',
+        sqsService => 'https://sqs.us-east-1.amazonaws.com',
+    }
+);
+
+Utilizers should expect the object instance to be a singleton per each $purpose.
+
+The account provided is expected to have the permissions to create topics and queues.
+
+It will create SNS topic for the indicated purpose named <stage>-replay-<purpose>
+
+It will create distinct SQS queues for the instance, named <stage>-replay-<purpose>-<uuid>
+
+It will also subscribe the queue to the topic.
+
+=head1 SUBROUTINES/METHODS
+
+=head2 subscribe( sub { my $message = shift; ... } )
+
+each code reference supplied is called with each message received, each time
+the message is recieved.  This is how applications insert their hooks into 
+the channel to get notified of the arrival of messages.
+
+=head2 emit( $message )
+
+Send the specified message on the topic for this channel
+
+=head2 poll()
+
+Gets new messages and calls the subscribed hooks with them
+
+=head2 DEMOLISH
+
+Makes sure to properly clean up and disconnect from queues
+
+=head1 AUTHOR
+
+David Ihnen, C<< <davidihnen at gmail.com> >>
+
+=head1 BUGS
+
+Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
+the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'
+
+        ll automatically be notified of progress on your bug as I make changes .
+
+=head1 SUPPORT
+
+You can find documentation for this module with the perldoc command.
+
+    perldoc Replay
+
+
+You can also look for information at:
+
+=over 4
+
+=item * RT: CPAN's request tracker (report bugs here)
+
+L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Replay>
+
+=item * AnnoCPAN: Annotated CPAN documentation
+
+L<http://annocpan.org/dist/Replay>
+
+=item * CPAN Ratings
+
+L<http://cpanratings.perl.org/d/Replay>
+
+=item * Search CPAN
+
+L<http://search.cpan.org/dist/Replay/>
+
+=back
+
+
+=head1 ACKNOWLEDGEMENTS
+
+
+=head1 LICENSE AND COPYRIGHT
+
+Copyright 2014 David Ihnen.
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the the Artistic License (2.0). You may obtain a
+copy of the full license at:
+
+L<http://www.perlfoundation.org/artistic_license_2_0>
+
+Any use, modification, and distribution of the Standard or Modified
+Versions is governed by this Artistic License. By using, modifying or
+distributing the Package, you accept this license. Do not use, modify,
+or distribute the Package, if you do not accept this license.
+
+If your Modified Version has been derived from a Modified Version made
+by someone other than you, you are nevertheless required to ensure that
+your Modified Version complies with the requirements of this license.
+
+This license does not grant you the right to use any trademark, service
+mark, tradename, or logo of the Copyright Holder.
+
+This license includes the non-exclusive, worldwide, free-of-charge
+patent license to make, have made, use, offer to sell, sell, import and
+otherwise transfer the Package with respect to any patent claims
+licensable by the Copyright Holder that are necessarily infringed by the
+Package. If you institute patent litigation (including a cross-claim or
+counterclaim) against any party alleging that the Package constitutes
+direct or contributory patent infringement, then this Artistic License
+to you shall terminate on the date that such litigation is filed.
+
+Disclaimer of Warranty: THE PACKAGE IS PROVIDED BY THE COPYRIGHT HOLDER
+AND CONTRIBUTORS "AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
+THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE, OR NON-INFRINGEMENT ARE DISCLAIMED TO THE EXTENT PERMITTED BY
+YOUR LOCAL LAW. UNLESS REQUIRED BY LAW, NO COPYRIGHT HOLDER OR
+CONTRIBUTOR WILL BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, OR
+CONSEQUENTIAL DAMAGES ARISING IN ANY WAY OUT OF THE USE OF THE PACKAGE,
+EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+=cut
 
 1;

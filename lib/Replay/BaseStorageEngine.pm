@@ -5,111 +5,7 @@ use Replay::IdKey;
 
 Readonly my $REDUCE_TIMEOUT => 60;
 
-=pod
-
-=head1 NAME
-
-Replay::BaseStorageEngine
-
-=head1 SYNOPSIS
-
-my $engine = Replay::StorageEngine->new(
-     ruleSource => $ruleSource,
-     eventSystem => $eventSystem,
-);
-
-# add a new atom of state information to the inbox of location $idkey
-my $success = $engine->absorb($idkey, $atom);
-
-# return the signature, plus the inbox atoms plus the canonical state of location $idkey
-# engine will interlock and maintain only one valid reduction signature per
-# idkey location.
-my ($signature, $cubbyState) = $engine->fetchTransitionalState($idkey);
-
-# having merged the inbox and canonical atoms into a new canonical state
-# store this state.  Prove we started at the proper place with signature
-my $success = storeNewCanonicalState(signature, state)
-
-# retrieve just the canonical state, usually for consumption.  No locking.
-my $state = fetchCanonicalState(idkey)
-
-=head1 DESCRIPTION
-
-The data model consists of a series of locations represented by 'idkey' type.
-
-The ID type has a NAMESPACE series of axis such as 'name', and 'version', but 
-could also contain 'domain', 'system', 'worker', 'client', or any other set 
-of divisions as suits the application
-
-All id types contain 'window' (the bitemporality axis)
-
-All id types contain 'key' (the reduction grouping axis)
-
-Each state of the application is formed of a series of identically typed objects.
-
-When a rule decides that information may be interesting and may affect the
-state, it sends the object with the idkey that it has been mapped to to the
-absorb function
-
-The absorb function adds the object to its inbox list, and an event is emitted
-on the control channel 'Replay::Message::Reducable' indicating that a state 
-transition is possible within this idkey slot.
-
-When a worker hears the Reducable message, it may call the storage engine with the
-fetchTransitionalState method.  This may be called by all workers almost 
-simultaneously as all workers are available.  If there is no inbox available 
-due to being gotten by a previous caller, nothing will be returned.  This lock
-transitions the idkey slot to reducing state.  The merge of the inbox and the
-canonical state is returned to the caller with a signature.  The signature and 
-reduction state is persisted.  A 'Replay::Message::Reducing' message will be 
-emitted on the control channel.
-
-When a worker has completed its reduction process, it calls the storage engine
-with the storeNewCanonicalState method.  The previously supplied signature
-will be used to validate that it is operating on the latest delivered state.  
-(it is possible that the reduce timed out, and more entries were added to the
-inbox and merged in!)  If the signature does not match, the data is dropped,
-the worker should not emit any derived events in relation to the data reduced.
-If the signature matches, the canonical state is replaced, the version number
-for the canonical state is incremented, a signature for the canonical state 
-is stored and success is returned.  Upon successful commit, a 
-'Replay::Message::NewCanonical' message will be emitted on the control channel
-
-When any system wishes to get the current canonical state it may call the 
-fetchCanonicalState method.  The current canonical state and signature is 
-returned to the client. Upon successful commit, a 'Replay::Message::Fetched'
-message is emitted on the control channel
-
-=cut
-
-# types:
-# - idkey:
-#  { name: string
-#  , version: string
-#  , window: string
-#  , key: string
-#  }
-# - atom
-#  { probably a hashref which is an atom of the state for this compartment }
-# - state:
-#  idkey: the particular state compartment
-#  list: the list of atoms within that compartment
-# - signature: md5 sum of the : joined elements of the state
-# - signedList:
-#  - signature:
-#  - list:
-# interface:
-#  - boolean absorb(idkey, atom): accept a new atom into a state
-#  - state fetchTransitionalState(idkey): returns a new key-state for reduce processing
-#  - boolean storeNewCanonicalState(signature, state): accept a new canonical state
-#  - state fetchCanonicalState(idkey): returns the current collective state
-# events emitted:
-#  - Replay::Message::Fetched - when a canonical state is retrieved
-#  - Replay::Message::Reducable - when its possible a reduction can occur
-#  - Replay::Message::Reducing - when a reduction lock has been supplied
-#  - Replay::Message::NewCanonical - when we've updated our canonical state
-# events consumed:
-#  - None
+our $VERSION = '0.01';
 
 use Moose;
 use Digest::MD5 qw/md5_hex/;
@@ -267,4 +163,275 @@ sub new_document {
     };
 }
 
-1;
+=head1 NAME
+
+Replay::BaseStorageEngine - wrappers for the storage engine implimentation
+
+=head1 VERSION
+
+Version 0.01
+
+=head1 SYNOPSIS
+
+This is the base class for the implimentation specific parts of the Replay system.
+
+    IMPLIMENTATIONCLASS->new(
+        config      => $self->config,
+        ruleSource  => $self->ruleSource,
+        eventSystem => $self->eventSystem,
+    );
+
+=head1 SUBROUTINES/METHODS
+
+These methods are used by consumers of the storage class
+
+=head2 success = absorb(idkey, atom, meta)
+
+accept a new atom at a location idkey with metadata attached.  no locking
+
+=head2 statelist = fetchCanonicalState(idkey)
+
+get the canonical state.  no locking
+
+=head2 uuid, statelist = fetchTransitionalState(idkey)
+
+check out a state for transition.  locks record
+
+automatically reverts previous checkout if lock is expired
+
+=head2 success = storeNewCanonicalState(idkey, uuid)
+
+check in a state for transition if uuid matches.  unlocks record if success.
+
+=head1 DATA TYPES
+
+ types:
+ - idkey:
+  { name: string
+  , version: string
+  , window: string
+  , key: string
+  }
+ - atom
+  { a hashref which is an atom of the state for this compartment }
+ - state:
+  idkey: the particular state compartment
+  list: the list of atoms within that compartment
+ - signature: md5 sum 
+
+ interface:
+  - boolean absorb(idkey, atom): accept a new atom into a state
+  - state fetchTransitionalState(idkey): returns a new key-state for reduce processing
+  - boolean storeNewCanonicalState(signature, state): accept a new canonical state
+  - state fetchCanonicalState(idkey): returns the current collective state
+
+ events emitted:
+  - Replay::Message::Fetched - when a canonical state is retrieved
+  - Replay::Message::Reducable - when its possible a reduction can occur
+  - Replay::Message::Reducing - when a reduction lock has been supplied
+  - Replay::Message::NewCanonical - when we've updated our canonical state
+
+ events consumed:
+  - None
+
+
+=head1 STORAGE ENGINE IMPLIMENTATION METHODS 
+
+These methods must be overridden by the specific implimentation
+
+They should call super() to cause the emit of control messages when they succeed
+
+=head2 (state) = retrieve ( idkey )
+
+Unconditionally return the entire state document 
+
+This includes all the components of the document model and is usually used internally
+
+This is expected to be something like:
+
+{ timeblocks => [ ... ]
+, ruleversions => [ { ...  }, { ... }, ... ]
+, windows => [ ... ]
+, inbox => [ <unprocessed atoms> ]
+, desktop => [ <atoms in processing ]
+, canonical => [ a
+, locked => signature of a secret uuid with the idkey required to unlock.  presence indicates record is locked.
+, lockExpireEpoch => epoch time after which the lock has expired.  not presnet when not locked
+} 
+
+=head2 (success) = absorb ( idkey, message, meta )
+
+Insert a new atom into the indicated state, with metadata
+
+append the new atom atomically to the 'inbox' in the state document referenced
+ensure the meta->{windows} member are in the 'windows' set in the state document referenced
+ensure the meta->{ruleversions} members are in the 'ruleversions' set in the state document referenced
+ensure the meta->{timeblocks} members are in the 'timeblocks' set in the state document referenced
+
+
+=head2 (uuid, state) = checkout ( idkey, timeout )
+
+if the record is locked already
+  if the lock is expired
+    lock with a new uuid
+      revert the state by reabsorbing the desktop to the inbox
+      clear desktop
+      clear lock
+      clear expire time
+  else 
+    return nothing
+else
+  lock the record atomically so no other processes may lock it with a uuid
+    move inbox to desktop
+    return the uuid and the new state
+
+=head2 revert  ( idkey, uuid )
+
+if the record is locked with this uuid
+  if the lock is not expired
+    lock the record with a new uuid
+      reabsorb the atoms in desktop
+      clear desktop
+      clear lock
+      clear expire time
+      return success
+  else 
+    return nothing, this isn't available for reverting
+else 
+  return nothing, this isn't available for reverting
+
+=head2 checkin ( idkey, uuid, state )
+
+if the record is locked, (expiration agnostic)
+  update the record with the new state
+  clear desktop
+  clear lock
+  clear expire time
+else
+  return nothing, we aren't allowed to do this
+
+
+=head2 hash = windowAll(idkey)
+
+select and return all of the documents representing states within the
+specified window, in a hash keyed by the key within the window
+
+=head1 INTERNAL METHODS
+
+=head2 enumerateKeys
+
+not yet implimented
+
+A possible interface that lets a consumer get a list of keys within a window
+
+=head2 enumerateWindows
+
+not yet implimented
+
+A possible interface that lets a consumer get a list of windows within a domain rule version
+
+=head2 merge($idkey, $alpha, $beta)
+
+Takes two lists and merges them together using the compare ordering from the rule
+
+=head2 new_document
+
+The default new document template filled in
+
+=head2 rule(idkey)
+
+accessor to grab the rule object for a particular idkey
+
+=head2 stateSignature
+
+logic that creates a signature from a state - probably used for canonicalSignature field
+
+=head1 AUTHOR
+
+David Ihnen, C<< <davidihnen at gmail.com> >>
+
+=head1 BUGS
+
+Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
+the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'
+
+        ll automatically be notified of progress on your bug as I make changes .
+
+=head1 SUPPORT
+
+You can find documentation for this module with the perldoc command.
+
+    perldoc Replay
+
+
+You can also look for information at:
+
+=over 4
+
+=item * RT: CPAN's request tracker (report bugs here)
+
+L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Replay>
+
+=item * AnnoCPAN: Annotated CPAN documentation
+
+L<http://annocpan.org/dist/Replay>
+
+=item * CPAN Ratings
+
+L<http://cpanratings.perl.org/d/Replay>
+
+=item * Search CPAN
+
+L<http://search.cpan.org/dist/Replay/>
+
+=back
+
+
+=head1 ACKNOWLEDGEMENTS
+
+
+=head1 LICENSE AND COPYRIGHT
+
+Copyright 2014 David Ihnen.
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the the Artistic License (2.0). You may obtain a
+copy of the full license at:
+
+L<http://www.perlfoundation.org/artistic_license_2_0>
+
+Any use, modification, and distribution of the Standard or Modified
+Versions is governed by this Artistic License. By using, modifying or
+distributing the Package, you accept this license. Do not use, modify,
+or distribute the Package, if you do not accept this license.
+
+If your Modified Version has been derived from a Modified Version made
+by someone other than you, you are nevertheless required to ensure that
+your Modified Version complies with the requirements of this license.
+
+This license does not grant you the right to use any trademark, service
+mark, tradename, or logo of the Copyright Holder.
+
+This license includes the non-exclusive, worldwide, free-of-charge
+patent license to make, have made, use, offer to sell, sell, import and
+otherwise transfer the Package with respect to any patent claims
+licensable by the Copyright Holder that are necessarily infringed by the
+Package. If you institute patent litigation (including a cross-claim or
+counterclaim) against any party alleging that the Package constitutes
+direct or contributory patent infringement, then this Artistic License
+to you shall terminate on the date that such litigation is filed.
+
+Disclaimer of Warranty: THE PACKAGE IS PROVIDED BY THE COPYRIGHT HOLDER
+AND CONTRIBUTORS "AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
+THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE, OR NON-INFRINGEMENT ARE DISCLAIMED TO THE EXTENT PERMITTED BY
+YOUR LOCAL LAW. UNLESS REQUIRED BY LAW, NO COPYRIGHT HOLDER OR
+CONTRIBUTOR WILL BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, OR
+CONSEQUENTIAL DAMAGES ARISING IN ANY WAY OUT OF THE USE OF THE PACKAGE,
+EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+=cut
+
+1;    # End of Replay
+

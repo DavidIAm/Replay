@@ -53,10 +53,7 @@ sub BUILD {
 # accessor - how to get the rule for an idkey
 sub rule {
     my ($self, $idkey) = @_;
-    my $rule
-        = $self->ruleSource->byNameVersion($idkey->{name}, $idkey->{version});
-    die "No such rule $idkey->{name} => $idkey->{version}" unless $rule;
-    return $rule;
+    return $self->ruleSource->byIdKey($idkey);
 }
 
 sub reduceWrapper {
@@ -92,10 +89,10 @@ sub reduceWrapper {
             CargoTel::Message->new(
                 messageType => 'ReducerException',
                 message     => {
-                    rule      => $self->rule->name,
-                    version   => $self->rule->version,
+                    rule    => $self->rule->name,
+                    version => $self->rule->version,
                     exception => (blessed $_ && $_->can('trace') ? $_->trace->as_string : $_),
-                    message   => $message
+                    message => $message
                 }
             )
         );

@@ -1,41 +1,5 @@
 package Replay::EventSystem;
 
-# The configuration this requires is
-#
-# Replay::EventSystem->new( config => <hashref> , [ timeout => # ] );
-#
-# The event system has three logical channels of events
-# Origin - Original external events that are entering the system
-# Control - Internal control messages usually about engine state transitions
-# Derived - Events that express application state transitions
-#
-# This code makes available three methods
-#
-#  origin
-#  control
-#  derived
-#
-# Which can be used to access those channels to either emit or subscribe to
-# messages
-#
-# to execute the application, call the ->run method.
-#
-# If the timeout option is set, it will stop running after that many seconds.
-#
-#
-# my $app = Replay::EventSystem->new( config => <config hash> );
-# $app->control->subscribe( sub { handle_control_message(shift) } );
-# $app->origin->subscribe( sub { handle_origin_message(shift) } );
-# $app->derived->subscribe( sub { handle_derived_message(shift) } );
-# $app->run;
-#
-# sub handle_control_message {
-# 	if ($message->action eq 'STAHP')
-# 		$app->stop;
-# 	}
-# }
-#
-
 use Moose;
 
 use EV;
@@ -126,7 +90,6 @@ sub run {
         after    => 0,
         interval => 0.1,
         cb       => sub {
-            print '?';
             $self->poll();
         }
     );
@@ -144,11 +107,17 @@ sub stop {
 }
 
 sub poll {
-    my ($self) = @_;
+    my ($self, @purposes) = @_;
+    @purposes = qw/origin derived control/ unless scalar @purposes;
     my $activity = 0;
-    $activity += $self->control->poll;
-    $activity += $self->origin->poll;
-    $activity += $self->derived->poll;
+    foreach my $purpose (@purposes) {
+        try {
+            $activity += $self->$purpose->poll();
+        }
+        catch {
+            warn "Unable to do poll for purpose $purpose: $_";
+        };
+    }
 }
 
 sub clock {
@@ -217,6 +186,210 @@ sub _build_origin {
     my ($self) = @_;
     $self->_build_queue('origin');
 }
+
+=head1 NAME
+
+Replay::EventSystem - general communication channel interface
+
+=head1 VERSION
+
+Version 0.01
+
+=head1 SYNOPSIS
+
+This is the Event System interface module.  It interfaces with a set of 
+communication channels, taking a config hash with the QueueClass to 
+instantiate and any other queue class specific configuration needed
+
+ Replay::EventSystem->new( config => { QueueClass => '...' }, [ timeout => # ] );
+
+The event system has three logical channels of events
+
+ Origin - Original external events that are entering the system
+ Control - Internal control messages usually about engine state transitions
+ Derived - Events that express application state transitions
+
+=head1 Communication Channel API
+
+Any communication channel must impliment these methods.  They must be distinct
+objects per purpose.
+
+=head2 $channel = [QueueClass]->new( purpose => 'label', ... )
+
+return a new communication channel object distinct for the specified purpose
+
+=head2 $channel->subscribe( sub { my $message = shift; ... } )
+
+register a callback that will be triggered with each message found during 
+a poll
+
+=head2 $success = $channel->emit( $message );
+
+emit a message on this channel.  it is expected to be received by all of
+the subscribers to the channel within the system including this one. The 
+possible locations of those subscribers is limited only by the module used 
+and programs running.
+
+=head2 $messages_handled = $channel->poll( );
+
+Poll for new messages and call the subscribed hooks for each.
+
+=head1 SUBROUTINES/METHODS
+
+=head2 run
+
+Start the main event loop for the event system.
+
+Starts the clock - a once-every-minute message indicating the current time.
+
+Sets up a SIGINT handler to cleanly bring down the queues
+
+Sets up a SIGQUIT handler to cleanly bring down the queues
+
+If the timeout option was indicated at construction, sets up a timer to
+stop the loop after that many seconds
+
+Calls the poll() function as often as possible
+
+=head2 initialize
+
+call to bring up the connections for all topics and queues
+
+otherwise, they're only initialized when referenced.  This is important
+for situations where the eventsystem is only being used to transmit a
+quick message, rather than supporting an entire framework
+
+=head2 BUILD
+
+Sets up the stopping conditional variable, and checks to make sure the
+QueueClass is configured
+
+=head2 clock
+
+Sets up a timer that emits a message each minute for use by cron-type rules
+
+=head2 stop
+
+Calling this subroutine triggers the stopping of the event loop.
+
+You can use it to do things like stop the system on a particular message!
+
+=head2 heartbeat
+
+Call to start printing a heartbeat every second.
+
+=head2 control
+
+call to access the control purpose channel
+
+=head2 origin
+
+call to access the origin purpose channel
+
+=head2 derived
+
+call to access the derived purpose channel
+
+=head2 emit( purpose, message )
+
+Send the specified message on the specified channel
+
+=head2 poll( [purpose, ...] )
+
+Check for messages on specified - or ALL three channels if none specified
+
+=head2 subscribe( purpose, subroutineref )
+
+Add this subroutine to the subscribed hooks for the specified channel
+
+=cut
+
+=head1 AUTHOR
+
+David Ihnen, C<< <davidihnen at gmail.com> >>
+
+=head1 BUGS
+
+Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
+the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'
+
+        ll automatically be notified of progress on your bug as I make changes .
+
+=head1 SUPPORT
+
+You can find documentation for this module with the perldoc command.
+
+    perldoc Replay
+
+
+You can also look for information at:
+
+=over 4
+
+=item * RT: CPAN's request tracker (report bugs here)
+
+L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Replay>
+
+=item * AnnoCPAN: Annotated CPAN documentation
+
+L<http://annocpan.org/dist/Replay>
+
+=item * CPAN Ratings
+
+L<http://cpanratings.perl.org/d/Replay>
+
+=item * Search CPAN
+
+L<http://search.cpan.org/dist/Replay/>
+
+=back
+
+
+=head1 ACKNOWLEDGEMENTS
+
+
+=head1 LICENSE AND COPYRIGHT
+
+Copyright 2014 David Ihnen.
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the the Artistic License (2.0). You may obtain a
+copy of the full license at:
+
+L<http://www.perlfoundation.org/artistic_license_2_0>
+
+Any use, modification, and distribution of the Standard or Modified
+Versions is governed by this Artistic License. By using, modifying or
+distributing the Package, you accept this license. Do not use, modify,
+or distribute the Package, if you do not accept this license.
+
+If your Modified Version has been derived from a Modified Version made
+by someone other than you, you are nevertheless required to ensure that
+your Modified Version complies with the requirements of this license.
+
+This license does not grant you the right to use any trademark, service
+mark, tradename, or logo of the Copyright Holder.
+
+This license includes the non-exclusive, worldwide, free-of-charge
+patent license to make, have made, use, offer to sell, sell, import and
+otherwise transfer the Package with respect to any patent claims
+licensable by the Copyright Holder that are necessarily infringed by the
+Package. If you institute patent litigation (including a cross-claim or
+counterclaim) against any party alleging that the Package constitutes
+direct or contributory patent infringement, then this Artistic License
+to you shall terminate on the date that such litigation is filed.
+
+Disclaimer of Warranty: THE PACKAGE IS PROVIDED BY THE COPYRIGHT HOLDER
+AND CONTRIBUTORS "AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
+THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE, OR NON-INFRINGEMENT ARE DISCLAIMED TO THE EXTENT PERMITTED BY
+YOUR LOCAL LAW. UNLESS REQUIRED BY LAW, NO COPYRIGHT HOLDER OR
+CONTRIBUTOR WILL BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, OR
+CONSEQUENTIAL DAMAGES ARISING IN ANY WAY OUT OF THE USE OF THE PACKAGE,
+EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+=cut
 
 1;
 

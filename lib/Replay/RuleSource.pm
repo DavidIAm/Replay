@@ -60,9 +60,4 @@ sub byIdKey {
             @{ $self->rules })[0];
 }
 
-sub byNameVersion {
-    my ($self, $name, $version) = @_;
-    return $self->byIdKey({name => $name, version => $version});
-}
-
 1;

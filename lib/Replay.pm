@@ -123,7 +123,7 @@ use Replay;
 
 # minimum
 my $replay = Replay->new(rules => [], config =>
-        { Replay => { QueueClass => 'Replay::EventSystem::Null', StorageMode => 'Memory' } });
+        { QueueClass => 'Replay::EventSystem::Null', StorageMode => 'Memory' } );
 
 # all options
 my $replay = Replay->new(
