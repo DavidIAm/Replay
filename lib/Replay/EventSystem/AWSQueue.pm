@@ -141,7 +141,7 @@ sub poll {
             catch {
                 warn "There was an exception while processing message through subscriber "
                     . $_;
-            }
+            };
         }
     }
     return $handled;
@@ -184,7 +184,7 @@ sub receive {
 
 sub _build_sqs {
     my ($self) = @_;
-    my $config = $self->config->{Replay};
+    my $config = $self->config;
     die "No sqs service?" unless $config->{sqsService};
     my $sqs = Amazon::SQS::Simple->new(
         $config->{awsIdentity}{access},
@@ -196,7 +196,7 @@ sub _build_sqs {
 
 sub _build_sns {
     my ($self) = @_;
-    my $config = $self->config->{Replay};
+    my $config = $self->config;
     my $sns    = Amazon::SNS->new(
         {   key    => $config->{awsIdentity}{access},
             secret => $config->{awsIdentity}{secret}
@@ -208,7 +208,7 @@ sub _build_sns {
 
 sub _build_queue {
     my ($self) = @_;
-		warn "BUILDING QUEUE ".$self->queueName;
+    warn "BUILDING QUEUE ".$self->queueName;
     my $queue = $self->sqs->CreateQueue($self->queueName);
     $queue->SetAttribute(
         'Policy',

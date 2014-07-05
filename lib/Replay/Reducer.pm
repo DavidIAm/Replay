@@ -31,6 +31,7 @@ If it gets the transitional state, it retrieves the state with the reduce method
 use Moose;
 use Scalar::Util;
 use Replay::DelayedEmitter;
+use Scalar::Util qw/blessed/;
 use Try::Tiny;
 
 has ruleSource => (is => 'ro', isa => 'Replay::RuleSource', required => 1);
@@ -94,7 +95,7 @@ warn "SUCCESS STORE NEW STATE\n";
                 message     => {
                     rule      => $self->rule->name,
                     version   => $self->rule->version,
-                    exception => $_,
+                    exception => (blessed $_ && $_->can('trace') ? $_->trace->as_string : $_),
                     message   => $message
                 }
             )

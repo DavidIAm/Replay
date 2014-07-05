@@ -76,13 +76,16 @@ has domain => (is => 'ro');    # placeholder
 sub BUILD {
     my ($self) = @_;
     my ($generalHandler, $establisher);
-    die "NO QueueClass CONFIG??" unless $self->config->{QueueClass};
+    die "NO QueueClass CONFIG!?  Make sure its in the locale files" unless $self->config->{QueueClass};
     $self->{stop} = AnyEvent->condvar(cb => sub {exit});
+}
 
+sub initialize {
+    my $self = shift;
     # initialize our channels
-    $self->control;
-    $self->origin;
-    $self->derived;
+    $self->control->queue;
+    $self->origin->queue;
+    $self->derived->queue;
 }
 
 sub heartbeat {
@@ -99,12 +102,12 @@ sub run {
     $SIG{QUIT} = sub {
         return if $quitting++;
         $self->stop;
-        startdownmessages('shutdownBySIGQUIT');
+        warn('shutdownBySIGQUIT');
     };
     $SIG{INT} = sub {
         return if $quitting++;
         $self->stop;
-        startdownmessages('shutdownBySIGINT');
+        warn('shutdownBySIGINT');
     };
 
     if ($self->config->{timeout}) {
@@ -129,18 +132,21 @@ sub run {
 sub stop {
     my ($self) = @_;
     warn "STOPPING";
+    EV::unloop;
     $self->clear_control;
     $self->clear_derived;
     $self->clear_origin;
-    EV::unloop;
 }
 
 sub poll {
     my ($self) = @_;
     my $activity = 0;
     $activity += $self->control->poll;
+		print "c";
     $activity += $self->origin->poll;
+		print "o";
     $activity += $self->derived->poll;
+		print "d";
     warn "\nPOLL FOUND $activity MESSAGES" if $activity;
 }
 
