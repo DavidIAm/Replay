@@ -159,7 +159,7 @@ sub clock {
 }
 
 sub _build_queue {
-    my ($self, $purpose) = @_;
+    my ($self, $purpose, $mode) = @_;
     try {
         my $classname = $self->config->{QueueClass};
         eval "require $classname";
@@ -169,22 +169,22 @@ sub _build_queue {
         die "Unable to load queue class " . $self->config->{QueueClass} . " --> $_ ";
     };
     return $self->config->{QueueClass}
-        ->new(purpose => $purpose, config => $self->config,);
+        ->new(purpose => $purpose, config => $self->config, mode => $mode);
 }
 
 sub _build_control {
     my ($self) = @_;
-    $self->_build_queue('control');
+    $self->_build_queue('control', 'fanout');
 }
 
 sub _build_derived {
     my ($self) = @_;
-    $self->_build_queue('derived');
+    $self->_build_queue('derived', 'distribute');
 }
 
 sub _build_origin {
     my ($self) = @_;
-    $self->_build_queue('origin');
+    $self->_build_queue('origin', 'distribute');
 }
 
 =head1 NAME

@@ -15,8 +15,8 @@ use JSON;
 use Scalar::Util qw/blessed/;
 use Carp qw/confess/;
 
-has purpose => (is => 'ro', isa => 'Str', required => 1,);
-has subscribers => (is => 'ro', isa => 'ArrayRef', default => sub { [] },);
+has purpose     => (is => 'ro', isa => 'Str',      required => 1,);
+has subscribers => (is => 'ro', isa => 'ArrayRef', default  => sub { [] },);
 has sns =>
     (is => 'ro', isa => 'Amazon::SNS', builder => '_build_sns', lazy => 1,);
 has sqs => (
@@ -77,7 +77,7 @@ sub poll {
     # only check the channels if we have been shown an interest in
     return $handled unless scalar(@{ $self->subscribers });
     foreach my $message ($self->_receive()) {
-      $handled++;
+        $handled++;
         foreach my $subscriber (@{ $self->subscribers }) {
             try {
                 $subscriber->($message);
@@ -98,12 +98,12 @@ sub subscribe {
 }
 
 sub _acknowledge {
-  my ($self, @messages) = @_;
-    $self->queue->DeleteMessageBatch([@messages]);;
+    my ($self, @messages) = @_;
+    $self->queue->DeleteMessageBatch([@messages]);
 }
 
 sub _receive {
-    my ($self)   = @_;
+    my ($self) = @_;
     my @messages = $self->queue->ReceiveMessageBatch;
     return unless scalar @messages;
     $self->_acknowledge(@messages);
@@ -152,7 +152,7 @@ sub _build_sns {
 
 sub _build_queue {
     my ($self) = @_;
-    warn "BUILDING QUEUE ".$self->queueName;
+    warn "BUILDING QUEUE " . $self->queueName;
     my $queue = $self->sqs->CreateQueue($self->queueName);
     $queue->SetAttribute(
         'Policy',
@@ -197,7 +197,7 @@ sub _build_topicName {
 sub _build_topic {
     my ($self) = @_;
     my $topic;
-		warn "BUILDING TOPIC ".$self->topicName;
+    warn "BUILDING TOPIC " . $self->topicName;
     if ($self->has_topicarn) {
         $topic = $self->sns->GetTopic($self->topicarn);
     }
@@ -211,7 +211,7 @@ sub _build_queueName {
     my $self = shift;
     my $ug   = Data::UUID->new;
     return join '_', $self->config->{stage}, 'replay', $self->purpose,
-        $ug->to_string($ug->create);
+        ($self->mode eq 'fanout' ? $ug->to_string($ug->create) : '');
 }
 
 # this derives the arn from the topic name.

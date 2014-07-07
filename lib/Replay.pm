@@ -173,14 +173,19 @@ override reduce => sub {
 
 ...
 
-=head1 EXPORT
-
-A list of functions that can be exported.  You can delete this section
-if you don't export anything, such as for a purely object-oriented module.
-
 =head1 SUBROUTINES/METHODS
 
-=head2 function1
+=head2 _build_ruleSource
+
+=head2 _build_eventSystem
+
+=head2 _build_storageEngine
+
+=head2 _build_reducer
+
+=head2 _build_mapper
+
+=head2 _build_worm
 
 =cut
 
@@ -191,9 +196,7 @@ David Ihnen, C<< <davidihnen at gmail.com> >>
 =head1 BUGS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
-the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'
-
-        ll automatically be notified of progress on your bug as I make changes .
+the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .
 
 =head1 SUPPORT
 

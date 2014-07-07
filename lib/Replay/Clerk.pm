@@ -1,75 +1,65 @@
-package Replay::BaseMapper;
+package Replay::Clerk;
 
 use Moose;
 
 our $VERSION = '0.01';
 
-has ruleSource => (is => 'ro', isa => 'Replay::RuleSource',);
+use POSIX qw/strftime/;
+use File::Spec qw//;
+use Replay::Meta;
+use Scalar::Util qw/blessed/;
+use Try::Tiny;
+use Time::HiRes qw/gettimeofday/;
 
-has eventSystem => (is => 'ro', required => 1,);
+has eventSystem   => (is => 'ro', required => 1,);
+has storageEngine => (is => 'ro', required => 1,);
+has reportEngine  => (is => 'ro', required => 1,);
+has ruleSource    => (is => 'ro', required => 1,);
 
-has storageClass => (is => 'ro',);
-
-has storageEngine => (
-    is      => 'ro',
-    isa     => 'Replay::StorageEngine',
-    builder => 'buildStorageSink',
-    lazy    => 1,
-);
-
-sub buildStorageSink {
-    my $self = shift;
-    die "no storage class?" unless $self->storageClass;
-    $self->storageClass->new(ruleSource => $self->ruleSource);
-}
-
+# dummy implimentation - Log them to a file
 sub BUILD {
     my $self = shift;
-    die "need either storageEngine or storageClass"
-        unless $self->storageEngine || $self->storageClass;
-    $self->eventSystem->derived->subscribe(
+    mkdir $self->directory unless -d $self->directory;
+    $self->eventSystem->control->subscribe(
         sub {
-            $self->map(@_);
+            my $message = shift;
+
+            $self->deliver(Replay::IdKey->new($message->{message}))
+                if ($message->{messageType} eq 'NewCanonical');
+            $self->summarize(Replay::IdKey->new($message->{message}))
+                if ($message->{messageType} eq 'NewCanonical');
         }
     );
 }
 
-sub map {
-    my $self    = shift;
-    my $message = shift;
-    while (my $rule = $self->ruleSource->next) {
-        next unless $rule->match($message);
-        my @all = $rule->keyValueSet($message);
-        die "key value list from key value set must be even" if scalar @all % 2;
-        my $window = $rule->window($message);
-        while (scalar @all) {
-            my $key  = shift @all;
-            my $atom = shift @all;
-            die "unable to store"
-                unless $self->storageEngine->absorb(
-                Replay::IdKey->new(
-                    {   name    => $rule->name,
-                        version => $rule->version,
-                        window  => $window,
-                        key     => $key
-                    }
-                ),
-                $atom,
-                {   timeblocks      => $message->{timeblocks},
-                    domain       => $self->eventSystem->domain,
-                    ruleversions => [
-                        { rule => $rule->name, version => $rule->version },
-                        @{ $message->{ruleversions} || [] }
-                    ]
-                }
-                );
-        }
-    }
+sub deliver {
+    my ($self, $idKey) = @_;
+    my $state = $self->storageEngine->retrieve($idKey);
+    return $self->reportEngine->newReportVersion(
+        report => $self->ruleSource->byIdKey($idKey)->delivery($state->{canonical}),
+        ruleversions => $state->ruleversions,
+        timeblocks   => $state->timeblocks,
+        windows      => $state->windows,
+    );
+}
+
+sub summarize {
+    my ($self, $idKey) = @_;
+    my $reports = $self->reportEngine->windowAll($idKey);
+    $self->reportEngine->newSummary(
+        $self->ruleSource->byIdKey($idKey)->summary(
+            reports => $reports,
+            ruleversions =>
+                Replay::Meta::union(map { $_->ruleversions } values %{$reports}),
+            timeblocks => Replay::Meta::union(map { $_->timeblocks } values %{$reports}),
+            windows    => Replay::Meta::union(map { $_->windows } values %{$reports}),
+        )
+    );
 }
 
 =head1 NAME
 
-Replay::BaseMapper - The base class for the mapper functionality
+Replay::WORM - the write once read many module
 
 =head1 VERSION
 
@@ -77,39 +67,26 @@ Version 0.01
 
 =head1 SYNOPSIS
 
-This is the basic functionality for considering each incoming message and 
-mapping it to a set of key value pairs that will be absorbed into the storage
-engine.
+This is the Clerk component of the replay system.  Its purpose is initiate the
+report and summary processing
 
 =head1 SUBROUTINES/METHODS
 
-=head2 map ($message)
-
-step through each rule available in the rule source.
-
-ignore the rule if negative response to the ->match(message) subrule 
-
-map the message to a set of key => value pairs by calling the ->keyValueSet(message) subrule
-
-get the window by calling the ->window(message) subrule
-
-get the rule by calling the ->rule(message) subrule
-
-get the version by calling the ->version(message) subrule
-
-sets the domain operating in from the event system
-
-adds to the set of timeblocks as relevant
-
-adds to the set of ruleversions as relevant
-
 =head2 BUILD
 
-subscribes to the derived channel
+subscribes to control channel
 
-=head2 buildStorageSink
+=head2 deliver
 
-builder for getting the storage engine using the rule source
+Retrieves the state and generates a new report from the canonical atoms.  
+
+Inserts the report into the Report store.
+
+=head2 summarize
+
+Retrieves the reports for every key within the window
+
+Inserts the summary into the report store.
 
 =cut
 
@@ -197,7 +174,5 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 =cut
-
-1;    # End of Replay
 
 1;

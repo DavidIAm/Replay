@@ -1,75 +1,32 @@
-package Replay::BaseMapper;
+package Replay::Meta;
 
 use Moose;
-
 our $VERSION = '0.01';
 
-has ruleSource => (is => 'ro', isa => 'Replay::RuleSource',);
+use POSIX qw/strftime/;
+use File::Spec qw//;
+use Scalar::Util qw/blessed/;
+use Try::Tiny;
+use Time::HiRes qw/gettimeofday/;
+use Digest::MD5 qw/md5_hex/;
 
-has eventSystem => (is => 'ro', required => 1,);
+use Storable qw/freeze/;
+$Storable::canonical = 1;
 
-has storageClass => (is => 'ro',);
+has windows => (is => 'ro', isa => 'ArrayRef', required => 1,);
+has ruleversions => (is => 'ro', isa => 'ArrayRef[HashRef]', required => 1,);
+has timeblocks => (is => 'ro', isa => 'ArrayRef', required => 1,);
 
-has storageEngine => (
-    is      => 'ro',
-    isa     => 'Replay::StorageEngine',
-    builder => 'buildStorageSink',
-    lazy    => 1,
-);
-
-sub buildStorageSink {
-    my $self = shift;
-    die "no storage class?" unless $self->storageClass;
-    $self->storageClass->new(ruleSource => $self->ruleSource);
-}
-
-sub BUILD {
-    my $self = shift;
-    die "need either storageEngine or storageClass"
-        unless $self->storageEngine || $self->storageClass;
-    $self->eventSystem->derived->subscribe(
-        sub {
-            $self->map(@_);
-        }
-    );
-}
-
-sub map {
-    my $self    = shift;
-    my $message = shift;
-    while (my $rule = $self->ruleSource->next) {
-        next unless $rule->match($message);
-        my @all = $rule->keyValueSet($message);
-        die "key value list from key value set must be even" if scalar @all % 2;
-        my $window = $rule->window($message);
-        while (scalar @all) {
-            my $key  = shift @all;
-            my $atom = shift @all;
-            die "unable to store"
-                unless $self->storageEngine->absorb(
-                Replay::IdKey->new(
-                    {   name    => $rule->name,
-                        version => $rule->version,
-                        window  => $window,
-                        key     => $key
-                    }
-                ),
-                $atom,
-                {   timeblocks      => $message->{timeblocks},
-                    domain       => $self->eventSystem->domain,
-                    ruleversions => [
-                        { rule => $rule->name, version => $rule->version },
-                        @{ $message->{ruleversions} || [] }
-                    ]
-                }
-                );
-        }
-    }
+# static method
+sub union {
+    my (@sets) = @_;
+    my %hash = map { md5_hex(freeze([$_])) => $_ } map { @{$_} } @sets;    #}{
+    return values %hash;
 }
 
 =head1 NAME
 
-Replay::BaseMapper - The base class for the mapper functionality
+Replay::Meta - the write once read many module
 
 =head1 VERSION
 
@@ -77,39 +34,13 @@ Version 0.01
 
 =head1 SYNOPSIS
 
-This is the basic functionality for considering each incoming message and 
-mapping it to a set of key value pairs that will be absorbed into the storage
-engine.
+A data struct and utility for dealing with meta information
 
 =head1 SUBROUTINES/METHODS
 
-=head2 map ($message)
+=head2 union
 
-step through each rule available in the rule source.
-
-ignore the rule if negative response to the ->match(message) subrule 
-
-map the message to a set of key => value pairs by calling the ->keyValueSet(message) subrule
-
-get the window by calling the ->window(message) subrule
-
-get the rule by calling the ->rule(message) subrule
-
-get the version by calling the ->version(message) subrule
-
-sets the domain operating in from the event system
-
-adds to the set of timeblocks as relevant
-
-adds to the set of ruleversions as relevant
-
-=head2 BUILD
-
-subscribes to the derived channel
-
-=head2 buildStorageSink
-
-builder for getting the storage engine using the rule source
+Union the sets provided and return
 
 =cut
 
