@@ -29,8 +29,9 @@ sub rule {
 }
 
 sub reduceWrapper {
-    my ($self, $message) = @_;
-    return unless blessed $message && $message->isa('Replay::Message::Reducable');
+    my ($self, $envelope) = @_;
+    my $message = $envelope->message;
+    return unless $envelope->messageType eq ('Reducable');
     my $idkey = Replay::IdKey->new(
         {   name    => $message->name,
             version => $message->version,

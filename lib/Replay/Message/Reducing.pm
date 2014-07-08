@@ -3,13 +3,10 @@ package Replay::Message::Reducing;
 use Moose;
 use Replay::Message::IdKey;
 
-extends qw/Replay::Message::IdKey Replay::Message/;
+extends qw/Replay::Message/;
 
-has messageType => (
-	is => 'ro',
-	isa => 'Str',
-	default => 'Reducing',
-);
+has '+messageType' => ( default => 'Reducing' );
+has '+message' => ( isa => 'Replay::Message::IdKey', coerce => 1 );
 
 =head1 NAME
 

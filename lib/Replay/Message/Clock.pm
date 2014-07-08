@@ -7,15 +7,29 @@ our $VERSION = '0.01';
 
 extends 'Replay::Message';
 
-has epoch => ( is => 'ro', isa => 'Int', required => 1 );
-has minute => ( is => 'ro', isa => 'Int', required => 1 );
-has hour => ( is => 'ro', isa => 'Int', required => 1 );
-has date => ( is => 'ro', isa => 'Int', required => 1 );
-has month => ( is => 'ro', isa => 'Int', required => 1 );
-has year => ( is => 'ro', isa => 'Int', required => 1 );
-has weekday => ( is => 'ro', isa => 'Int', required => 1 );
-has yearday => ( is => 'ro', isa => 'Int', required => 1 );
-has isdst => ( is => 'ro', isa => 'Int', required => 1 );
+has '+messageType' => (default => 'Timing',);
+has '+message' => (isa => 'Replay::Types::ClockType', coerce => 1);
+
+package Replay::Types::ClockType;
+
+use Moose;
+use Moose::Util::TypeConstraints qw/coerce from via/;
+use MooseX::Storage;
+
+with Storage(format => 'JSON');
+
+coerce 'Replay::Types::ClockType', from 'HashRef',
+    via { Replay::Types::ClockType->new($_) };
+
+has epoch   => (is => 'ro', isa => 'Int', required => 1);
+has minute  => (is => 'ro', isa => 'Int', required => 1);
+has hour    => (is => 'ro', isa => 'Int', required => 1);
+has date    => (is => 'ro', isa => 'Int', required => 1);
+has month   => (is => 'ro', isa => 'Int', required => 1);
+has year    => (is => 'ro', isa => 'Int', required => 1);
+has weekday => (is => 'ro', isa => 'Int', required => 1);
+has yearday => (is => 'ro', isa => 'Int', required => 1);
+has isdst   => (is => 'ro', isa => 'Int', required => 1);
 
 =head1 NAME
 

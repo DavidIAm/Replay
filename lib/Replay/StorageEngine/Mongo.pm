@@ -7,8 +7,6 @@ use Data::UUID;
 use Readonly;
 use JSON;
 
-Readonly my $REVERT_LOCK_TIMEOUT => 10;
-
 extends 'Replay::BaseStorageEngine';
 
 has mongo => (
@@ -22,6 +20,8 @@ has db => (is => 'ro', builder => '_build_db', lazy => 1);
 
 has uuid => (is => 'ro', builder => '_build_uuid', lazy => 1);
 
+has timeout => (is => 'ro', default => 20,);
+
 my $store = {};
 
 override retrieve => sub {
@@ -32,19 +32,21 @@ override retrieve => sub {
 
 override absorb => sub {
     my ($self, $idkey, $atom, $meta) = @_;
-    super();
+    use JSON;
+    warn "ABSORBING " . to_json([$atom]) . "\n";
     my $r = $self->collection($idkey)->update(
         { idkey => $idkey->cubby },
         {   '$push'     => { inbox => $atom },
             '$addToSet' => {
                 windows      => $idkey->window,
-                timeblocks      => { '$each' => $meta->{timeblocks} || [] },
+                timeblocks   => { '$each' => $meta->{timeblocks} || [] },
                 ruleversions => { '$each' => $meta->{ruleversions} || [] },
             },
-            '$setOnInsert' => { idkey => { $idkey->hashList } }
+            '$setOnInsert' => { idkey => $idkey->cubby }
         },
         { upsert => 1, multiple => 0 },
     );
+    super();
     return $r;
 };
 
@@ -56,50 +58,24 @@ sub revertThisRecord {
         $self->absorb($idkey, $atom);
     }
 
-    # and unlock it
+    # and clear the desktop state
     my $unlockresult
         = $self->collection($idkey)
         ->update({ idkey => $idkey->cubby, locked => $signature } =>
-            { '$unset' => { desktop => '', locked => '', lockExpireEpoch => '' } });
-    die "UNABLE TO UNLOCK AFTER REVERT " unless $unlockresult->{n} == 1;
+            { '$unset' => { desktop => '' } });
+    die "UNABLE TO RESET DESKTOP AFTER REVERT " unless $unlockresult->{n} == 1;
     return $unlockresult;
 }
 
-override checkout => sub {
-    my ($self, $idkey, $timeout) = @_;
-    my $uuid         = $self->generate_uuid;
-    my $signature    = $self->stateSignature($idkey, [$uuid]);
-    my $unlsignature = $self->stateSignature($idkey, [ $uuid, 'UNLOCKING' ]);
+sub lockOpenRecord {
+    my ($self, $idkey, $signature, $timeout) = @_;
 
-    # Lets try to get an expire lock, if it has timed out
-    warn "Trying to unlock " . $idkey->cubby . " with $unlsignature";
-    my $unlockresult = $self->collection($idkey)->find_and_modify(
-        {   query => {
-                idkey           => $idkey->cubby,
-                locked          => { '$exists' => 1 },
-                lockExpireEpoch => { '$lt' => time },
-            },
-            update => {
-                '$set' => { locked => $unlsignature, lockExpireEpoch => time + $timeout, },
-            },
-            upsert => 0,
-            new    => 1,
-        }
-    );
-
-    # Oh my, we did. Well then, we should...
-    $self->revertThisRecord($idkey, $unlsignature, $unlockresult)
-        if ($unlockresult);
-
-    # Now we try to get a read lock
+    # try to get lock
     my $lockresult = $self->collection($idkey)->find_and_modify(
         {   query => {
                 idkey   => $idkey->cubby,
                 desktop => { '$exists' => 0 },
-                '$or'   => [
-                    { locked          => { '$exists' => 0 } },
-                    { lockExpireEpoch => { '$lt'     => time } }
-                ]
+                locked  => { '$exists' => 0 },
             },
             update => {
                 '$set'    => { locked  => $signature, lockExpireEpoch => time + $timeout, },
@@ -109,30 +85,76 @@ override checkout => sub {
             new    => 1,
         }
     );
+    return $lockresult;
+}
 
-    # We didn't lock.  Return nothing.
-    unless (defined $lockresult) {
-        my $timeout
-            = $self->collection($idkey)->find({ query => { idkey => $idkey->cubby } },
-            { desktop => 1, locked => 1, lockExpireEpoch => 1 })
-            || {};
-        warn "UNABLE TO LOCK RECORD DESKTOP COUNT ("
-            . scalar(@{ $timeout->{desktop} || [] })
-            . ") RECORDS ARE LOCKED ("
-            . ($timeout->{locked} || '')
-            . ") FOR ("
-            . (($timeout->{lockExpireEpoc} - time) || '')
-            . ") MORE SECONDS";
-        return;
+sub relockExpired {
+    my ($self, $idkey, $signature, $timeout) = @_;
+
+    # Lets try to get an expire lock, if it has timed out
+    my $unlockresult = $self->collection($idkey)->find_and_modify(
+        {   query => {
+                idkey           => $idkey->cubby,
+                locked          => { '$exists' => 1 },
+                lockExpireEpoch => { '$lt' => time },
+            },
+            update => {
+                '$set' => { locked => $signature, lockExpireEpoch => time + $timeout, },
+            },
+            upsert => 0,
+            new    => 1,
+        }
+    );
+
+    return $unlockresult;
+}
+
+sub relock {
+    my ($self, $idkey, $currentSignature, $newSignature, $timeout) = @_;
+
+    # Lets try to get an expire lock, if it has timed out
+    my $unlockresult = $self->collection($idkey)->find_and_modify(
+        {   query  => { idkey => $idkey->cubby, locked => $currentSignature },
+            update => {
+                '$set' => { locked => $newSignature, lockExpireEpoch => time + $timeout, },
+            },
+            upsert => 0,
+            new    => 1,
+        }
+    );
+
+    return $unlockresult;
+}
+
+override checkout => sub {
+    my ($self, $idkey, $timeout) = @_;
+    $timeout ||= $self->timeout;
+    my $uuid = $self->generate_uuid;
+
+    my $signature = $self->stateSignature($idkey, [$uuid]);
+    my $lockresult = $self->lockOpenRecord($idkey, $signature, $timeout);
+
+    if (defined $lockresult) {
+        super();
+        return $uuid, $lockresult;
     }
 
-    #    my $cursor = $self->collection($idkey)->find(
-    #      {  idkey => $idkey->cubby,
-    #      , locked => $signature,  lockExpireEpoch => { '$gt' => time } }
-    #    );
+    # if it failed, check to see if we can relock an expired record
+    my $unlsignature = $self->stateSignature($idkey, [ $uuid, 'UNLOCKING' ]);
+    my $expireRelock = $self->relockExpired($idkey, $unlsignature, $timeout);
 
-    # we must not affect the inbox on later updates!
-    delete $lockresult->{inbox};
+    # If it didn't relock, give up.  Its locked by somebody else.
+    warn "Unable to obtain current lock " . $idkey->checkstring . "\n"
+        unless defined $expireRelock;
+    return unless defined $expireRelock;
+
+    # Oh my, we did. Well then, we should...
+    $self->revertThisRecord($idkey, $unlsignature, $expireRelock);
+    $lockresult = $self->relock($idkey, $unlsignature, $signature, $timeout);
+
+    warn "Unable to obtain lock after revert? " . $idkey->checkstring . "\n"
+        unless defined $expireRelock;
+    return unless defined $lockresult;
 
     # This takes care of sending the 'locked' event
     super();
@@ -151,10 +173,8 @@ override revert => sub {
                 locked  => $signature,
             },
             update => {
-                '$set' => {
-                    locked          => $unlsignature,
-                    lockExpireEpoch => time + $REVERT_LOCK_TIMEOUT,
-                },
+                '$set' =>
+                    { locked => $unlsignature, lockExpireEpoch => time + $self->timeout, },
             },
             upsert => 0,
             new    => 1,
@@ -162,41 +182,50 @@ override revert => sub {
     );
     warn "tried to do a revert but didn't have a lock on it" unless $state;
     return unless $state;
-    my $result = $self->revertThisRecord($idkey, $signature, $state);
-    return $result->{ok};
+    $self->revertThisRecord($idkey, $signature, $state);
+    my $result = $self->unlock($idkey, $signature);
+    return $result->{n};
 };
 
-override checkin => sub {
+sub unlock {
+    my ($self, $idkey, $uuid) = @_;
+    $self->updateAndUnlock($idkey, $uuid);
+}
+
+sub updateAndUnlock {
     my ($self, $idkey, $uuid, $state) = @_;
     my $signature = $self->stateSignature($idkey, [$uuid]);
-    delete $state->{inbox};             # we must not affect the inbox on updates!
-    delete $state->{desktop};           # there is no more desktop on checkin
-    delete $state->{lockExpireEpoch};   # there is no more expire time on checkin
-    delete $state->{locked};    # there is no more locked signature on checkin
-    my $result = $self->collection($idkey)->find_and_modify(
+    return $self->collection($idkey)->find_and_modify(
         {   query  => { idkey => $idkey->cubby, locked => $signature },
             update => {
-                '$set'   => $state,
+                ($state ? ('$set' => $state) : ()),
                 '$unset' => { desktop => '', lockExpireEpoch => '', locked => '' }
             },
             upsert => 0,
             new    => 1
         }
     );
-    if ($result) {
-        super();
-    }
-    return $result;    # no checkin
+}
+
+override checkin => sub {
+    my ($self, $idkey, $uuid, $state) = @_;
+    delete $state->{inbox};             # we must not affect the inbox on updates!
+    delete $state->{desktop};           # there is no more desktop on checkin
+    delete $state->{lockExpireEpoch};   # there is no more expire time on checkin
+    delete $state->{locked};    # there is no more locked signature on checkin
+    my $result = $self->updateAndUnlock($idkey, $uuid, $state);
+    return unless defined $result;
+
+    super();
+    return $result;
 };
 
 override windowAll => sub {
     my ($self, $idkey) = @_;
-    return
-        map { $_->{idkey}{key} => $_ }
-        @{ $self->collection($idkey)
-            ->find({ idkey => { '$regex' => '^' . $idkey->windowPrefix } })->all
-            || [] };
+    return map { $_->{idkey} => $_ } $self->collection($idkey)
+                ->find({ idkey => { '$regex' => '^' . $idkey->windowPrefix } })->all
 };
+
 #}}}}
 
 sub _build_mongo {
@@ -379,7 +408,6 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 =cut
 
 1;
-
 
 =head1 STORAGE ENGINE MODEL ASSUMPTIONS
 

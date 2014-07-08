@@ -1,16 +1,13 @@
 package Replay::Message::Fetched;
 
 use Moose;
-use Moose::Util::TypeConstraints;
+use Replay::Message;
 use Replay::Message::IdKey;
 
-extends qw/Replay::Message::IdKey/;
+extends qw/Replay::Message/;
 
-has messageType => (
-	is => 'ro',
-	isa => 'Str',
-	default => 'Fetched',
-);
+has '+messageType' => ( default => 'Fetched' );
+has '+message' => ( isa => 'Replay::Message::IdKey', coerce => 1 );
 
 =head1 NAME
 

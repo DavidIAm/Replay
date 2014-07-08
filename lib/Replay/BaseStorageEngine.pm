@@ -47,49 +47,81 @@ sub merge {
 sub checkout {
     my ($self, $idkey) = @_;
     $self->eventSystem->control->emit(
-        Replay::Message::Locked->new($idkey->hashList));
+        Replay::Message::Locked->new(message => { $idkey->hashList }));
 }
 
 sub checkin {
     my ($self, $idkey) = @_;
     $self->eventSystem->control->emit(
-        Replay::Message::Unlocked->new($idkey->hashList));
+        Replay::Message::Unlocked->new(message => { $idkey->hashList }));
 }
 
 sub revert {
     my ($self, $idkey) = @_;
     $self->eventSystem->control->emit(
-        Replay::Message::Reverted->new($idkey->hashList));
+        Replay::Message::Reverted->new(message => { $idkey->hashList }));
 }
 
 sub retrieve {
     my ($self, $idkey) = @_;
     $self->eventSystem->control->emit(
-        Replay::Message::Fetched->new($idkey->hashList));
+        Replay::Message::Fetched->new(message => { $idkey->hashList }));
 }
 
 sub absorb {
     my ($self, $idkey) = @_;
-    $self->eventSystem->control->emit(
-        Replay::Message::Reducable->new($idkey->hashList));
+		$self->delayToDoOnce( $idkey->hash . 'Reducable', sub {
+	    $self->eventSystem->control->emit(
+        Replay::Message::Reducable->new(message => { $idkey->hashList }));
+		})
+}
+
+sub delayToDoOnce {
+	my ($self, $name, $code) = @_;
+	use AnyEvent;
+  $self->{timers}{$name} = AnyEvent->timer(after => 1,  cb => sub {
+			delete $self->{timers}{$name};
+			$code->();
+		});
 }
 
 # accessor - given a state, generate a signature
 sub stateSignature {
     my ($self, $idkey, $list) = @_;
     return undef unless defined $list;
+    $self->stringtouch($list);
     return md5_hex($idkey->hash . freeze($list));
+}
+
+sub stringtouch {
+    my ($self, $struct) = @_;
+    $_[1] .= '' unless (ref $struct);
+    if ('ARRAY' eq ref $struct) {
+        foreach (0 .. $#{$struct}) {
+            stringtouch($struct->[$_]) if ref $struct->[$_];
+            $struct->[$_] .= '' unless ref $struct->[$_];
+        }
+    }
+    if ('HASH' eq ref $struct) {
+        foreach (keys %{$struct}) {
+            stringtouch($struct->{$_}) if ref $struct->{$_};
+            $struct->{$_} .= '' unless ref $struct->{$_};
+        }
+    }
 }
 
 sub fetchTransitionalState {
     my ($self, $idkey) = @_;
 
-    my ($signature, $cubby) = $self->checkout($idkey, $REDUCE_TIMEOUT);
+    my ($uuid, $cubby) = $self->checkout($idkey, $REDUCE_TIMEOUT);
 
-    do {
-        $self->revert($idkey, $signature) if ($signature);
+    return unless defined $cubby;
+
+    # drop the checkout if we don't have any items to reduce
+    unless (scalar $cubby->{desktop}) {
+        $self->revert($idkey, $uuid);
         return;
-    } unless $signature && $cubby && scalar @{ $cubby->{desktop} || [] };
+    }
 
     # merge in canonical, moving atoms from desktop
     my $reducing
@@ -97,10 +129,10 @@ sub fetchTransitionalState {
 
     # notify interested parties
     $self->eventSystem->control->emit(
-        Replay::Message::Reducing->new($idkey->hashList));
+        Replay::Message::Reducing->new(message => { $idkey->hashList }));
 
-    # return signature and list
-    return $signature => {
+    # return uuid and list
+    return $uuid => {
         windows      => $idkey->window,
         timeblocks   => $cubby->{timeblocks} || [],
         ruleversions => $cubby->{ruleversions} || [],
@@ -117,9 +149,9 @@ sub storeNewCanonicalState {
     delete $cubby->{desktop};
     my $newstate = $self->checkin($idkey, $uuid, $cubby);
     $self->eventSystem->control->emit(
-        Replay::Message::NewCanonical->new($idkey->hashList));
+        Replay::Message::NewCanonical->new(message => { $idkey->hashList }));
     $self->eventSystem->control->emit(
-        Replay::Message::Reducable->new($idkey->hashList))
+        Replay::Message::Reducable->new(message => { $idkey->hashList }))
         if scalar @{ $newstate->{inbox} || [] }
         ;                # renotify reducable if inbox has entries now
     return $newstate;    # release pending messages
@@ -130,17 +162,17 @@ sub fetchCanonicalState {
     my $cubby = $self->retrieve($idkey);
     my $e = $self->stateSignature($idkey, $cubby->{canonical}) || '';
     if (($cubby->{canonSignature} || '') ne ($e || '')) {
-        die "canonical corruption $cubby->{canonSignature} vs. " . $e;
+        warn "canonical corruption $cubby->{canonSignature} vs. " . $e;
     }
     $self->eventSystem->control->emit(
-        Replay::Message::Fetched->new($idkey->hashList));
+        Replay::Message::Fetched->new(message => { $idkey->hashList }));
     return @{ $cubby->{canonical} || [] };
 }
 
 sub windowAll {
     my ($self, $idkey) = @_;
     $self->eventSystem->control->emit(
-        Replay::Message::WindowAll->new($idkey->hashList));
+        Replay::Message::WindowAll->new(message => { $idkey->hashList }));
 }
 
 sub enumerateWindows {

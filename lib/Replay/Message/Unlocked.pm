@@ -1,16 +1,13 @@
 package Replay::Message::Unlocked;
 
 use Moose;
-use Moose::Util::TypeConstraints;
+use Moose::Util::TypeConstraints qw/coerce from via/;
 use Replay::Message::IdKey;
 
-extends qw/Replay::Message::IdKey Replay::Message/;
+extends qw/Replay::Message/;
 
-has messageType => (
-	is => 'ro',
-	isa => 'Str',
-	default => 'Unlocked',
-);
+has '+messageType' => ( default => 'Unlocked' );
+has '+message' => ( isa => 'Replay::Message::IdKey', coerce => 1 );
 
 =head1 NAME
 

@@ -3,13 +3,10 @@ package Replay::Message::RulesReady;
 use Moose;
 use Replay::Message::IdKey;
 
-extends 'Replay::Message';
+extends qw/Replay::Message/;
 
-has messageType => (
-	is => 'ro',
-	isa => 'Str',
-	default => 'RulesReady',
-);
+has '+messageType' => ( default => 'RulesReady' );
+has '+message' => ( isa => 'Replay::Message::IdKey', coerce => 1 );
 
 =head1 NAME
 

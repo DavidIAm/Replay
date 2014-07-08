@@ -7,6 +7,8 @@ use AnyEvent;
 use Readonly;
 use Carp qw/confess carp cluck/;
 use Time::HiRes;
+use Replay::Message::Clock;
+use Replay::Message::Envelope;
 use Try::Tiny;
 
 use Replay::EventSystem::AWSQueue;
@@ -106,6 +108,12 @@ sub stop {
     $self->clear_origin;
 }
 
+sub emit {
+    my ($self, $channel, $message) = @_;
+    return $self->$channel->emit($message) if $self->can($channel);
+    die "Unknown channel $channel";
+}
+
 sub poll {
     my ($self, @purposes) = @_;
     @purposes = qw/origin derived control/ unless scalar @purposes;
@@ -134,9 +142,10 @@ sub clock {
             $lastSeenMinute = $thisMinute;
             my ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst)
                 = localtime(time);
-            $self->eventSystem->origin->emit(
-                Replay::Message::Envelope->new(
-                    message => Replay::Message::Clock->new(
+            $self->emit(
+                'origin',
+                Replay::Message::Clock->new(
+                    message => {
                         epoch   => time,
                         minute  => $min,
                         hour    => $hour,
@@ -146,12 +155,10 @@ sub clock {
                         weekday => $wday,
                         yearday => $yday,
                         isdst   => $isdst
-                    ),
-                    messageType   => 'Timing',
-                    effectiveTime => Time::HiRes::time,
-                    program       => __FILE__,
-                    function      => 'clock',
-                    line          => __LINE__,
+                    },
+                    program  => __FILE__,
+                    function => 'clock',
+                    line     => __LINE__,
                 )
             );
         }

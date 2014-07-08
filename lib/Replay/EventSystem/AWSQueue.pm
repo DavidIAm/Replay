@@ -60,11 +60,10 @@ sub emit {
         $message = to_json($message) if ref $message;
     }
     catch {
-        use Data::Dumper;
         die "WE WERE TRYING TO EMIT A "
             . ref($message)
             . " BUT GOT EXCEPTIOIN $_ - NO STRINGIFY OR FREEZE??"
-            . Dumper $message;
+            . to_json [$message];
     };
 
     return $self->topic->Publish($message, 'control');
@@ -182,7 +181,7 @@ sub _build_queue {
 
 sub DEMOLISH {
     my ($self) = @_;
-    $self->queue->Delete if $self->has_queue && $self->queue;
+    $self->queue->Delete if $self->has_queue && $self->queue && $self->mode eq 'fanout';
     $self->sns->dispatch(
         { Action => 'Unsubscribe', SubscriptionArn => $self->{subscriptionARN} })
         if $self->{subscriptionARN};
@@ -211,7 +210,7 @@ sub _build_queueName {
     my $self = shift;
     my $ug   = Data::UUID->new;
     return join '_', $self->config->{stage}, 'replay', $self->purpose,
-        ($self->mode eq 'fanout' ? $ug->to_string($ug->create) : '');
+        ($self->mode eq 'fanout' ? $ug->to_string($ug->create) : ());
 }
 
 # this derives the arn from the topic name.

@@ -3,9 +3,10 @@ package Replay::Message::Reducable;
 use Moose;
 use Replay::Message::IdKey;
 
-extends qw/Replay::Message::IdKey Replay::Message/;
+extends qw/Replay::Message/;
 
-has messageType => (is => 'ro', isa => 'Str', default => 'Reducable',);
+has '+messageType' => ( default => 'Reducable' );
+has '+message' => ( isa => 'Replay::Message::IdKey', coerce => 1 );
 
 =head1 NAME
 
