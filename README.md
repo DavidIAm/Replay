@@ -70,7 +70,7 @@ available in near-time in your monitoring
 
 Bear with me while I go over some of the structures and pieces here:
 
-![Replay diagram](images/Replay%20Report%20System.png)
+![Replay diagram](images/Replay_Report_System.png)
 
 State data model
 
