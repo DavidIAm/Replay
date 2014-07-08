@@ -296,29 +296,53 @@ Replay::StorageEngine::Mongo->new( ruleSoruce => $rs, eventSystem => $es, config
 
 reversion implimentation
 
-=head2 _build_mongo {
+=head2 _build_mongo
 
 mongo builder/connector
 
-=head2 _build_db {
+=head2 _build_db
 
 get the object for the db client that indicates the db the document is in
 
-=head2 _build_uuid {
+=head2 _build_uuid
 
 make an object with which to generate uuids
 
-=head2 collection {
+=head2 collection
 
 get the object for the db client that indicates the collection this document is in
 
-=head2 document {
+=head2 document
 
 return the document indicated by the idkey
 
-=head2 generate_uuid {
+=head2 generate_uuid
 
 create and return a new uuid
+
+=head2 lockOpenRecord(idkey, signature)
+
+This will return the uuid and document, when the state it is trying to open is unlocked and unexpired
+
+otherwise, it returns undef.
+
+=head2 relock(idkey, oldsignature, newsignature)
+
+Given a valid oldsignature, updates the lock time and installs the new signature
+
+returns the state document, or undef if signature doesn't match or it is not locked
+
+=head2 relockExpired(idkey, signature)
+
+will relock a state with an expired lock.
+
+returns the state document, or undef if the state is not expired or is not locked
+
+=head2 updateAndUnlock(idkey, signature)
+
+updates the state document, and unlocks the record.
+
+returns the state document, or undef if the state is not locked with that signature
 
 =head1 AUTHOR
 

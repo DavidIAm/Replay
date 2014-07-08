@@ -378,6 +378,18 @@ accessor to grab the rule object for a particular idkey
 
 logic that creates a signature from a state - probably used for canonicalSignature field
 
+=head2 stringtouch(structure)
+
+Attempts to concatenate '' with any non-references to make them strings so that
+the signature will be more canonical.
+
+=head2 delayToDoOnce(name, code)
+
+sometimes redundant events are fired in rapid sequence.  This ensures that 
+within a short period of time, only one piece of code (distinguished by name)
+is executed.  It just uses the AnyEvent timer delaying for a second at this 
+point
+
 =head1 AUTHOR
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
