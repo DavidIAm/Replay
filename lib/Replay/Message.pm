@@ -27,7 +27,6 @@ has messageType => (
 );
 has message => (
     is          => 'ro',
-    isa         => 'Replay::Message',
     required    => 0,
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'envelope' },

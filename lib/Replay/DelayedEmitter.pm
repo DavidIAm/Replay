@@ -18,12 +18,17 @@ sub emit {
         $message = $channel;
         $channel = 'derived';
     }
-    die "Must emit a Replay message" unless $message->isa('Replay::Message');
+#    die "Must emit a Replay message" unless $message->isa('Replay::Message');
 
-    # augment message with metadata from storage
-    $message->timeblocks($self->timeblocks);
-    $message->ruleversions($self->ruleversions);
-    push @{ $self->messagesToSend }, sub { $self->eventSystem->$channel->emit( $message ) };
+		if (blessed $message) {
+	    # augment message with metadata from storage
+    	$message->timeblocks($self->timeblocks);
+    	$message->ruleversions($self->ruleversions);
+		} else {
+    	$message->{timeblocks} = $self->timeblocks;
+    	$message->{ruleversions} = $self->ruleversions;
+		}
+    push @{ $self->messagesToSend }, sub { $self->eventSystem->emit( $channel , $message ) };
     return 1;
 }
 

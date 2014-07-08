@@ -62,8 +62,8 @@ sub revertThisRecord {
     my $unlockresult
         = $self->collection($idkey)
         ->update({ idkey => $idkey->cubby, locked => $signature } =>
-            { '$unset' => { desktop => '' } });
-    die "UNABLE TO RESET DESKTOP AFTER REVERT " unless $unlockresult->{n} == 1;
+            { '$unset' => { desktop => 1, lock => 1, lockExpireEpoch => 1 } });
+    die "UNABLE TO RESET DESKTOP AFTER REVERT " unless $unlockresult->{ok} == 1;
     return $unlockresult;
 }
 
@@ -85,6 +85,7 @@ sub lockOpenRecord {
             new    => 1,
         }
     );
+
     return $lockresult;
 }
 
@@ -144,16 +145,19 @@ override checkout => sub {
     my $expireRelock = $self->relockExpired($idkey, $unlsignature, $timeout);
 
     # If it didn't relock, give up.  Its locked by somebody else.
-    warn "Unable to obtain current lock " . $idkey->checkstring . "\n"
+    warn "Unable to obtain lock because the current one is locked and unexpired\n"
         unless defined $expireRelock;
     return unless defined $expireRelock;
 
     # Oh my, we did. Well then, we should...
     $self->revertThisRecord($idkey, $unlsignature, $expireRelock);
-    $lockresult = $self->relock($idkey, $unlsignature, $signature, $timeout);
+    $lockresult = $self->lockOpenRecord($idkey, $signature, $timeout);
 
     warn "Unable to obtain lock after revert? " . $idkey->checkstring . "\n"
-        unless defined $expireRelock;
+        unless defined $lockresult;
+    use Data::Dumper;
+    warn Dumper $self->collection($idkey)->find( { idkey => $idkey->cubby } )->all
+        unless defined $lockresult;
     return unless defined $lockresult;
 
     # This takes care of sending the 'locked' event
@@ -169,7 +173,6 @@ override revert => sub {
     my $state = $self->collection($idkey)->find_and_modify(
         {   query => {
                 idkey   => $idkey->cubby,
-                desktop => { '$exists' => 1 },
                 locked  => $signature,
             },
             update => {
@@ -181,10 +184,9 @@ override revert => sub {
         }
     );
     warn "tried to do a revert but didn't have a lock on it" unless $state;
-    return unless $state;
     $self->revertThisRecord($idkey, $signature, $state);
     my $result = $self->unlock($idkey, $signature);
-    return $result->{n};
+    return defined $result
 };
 
 sub unlock {
@@ -195,11 +197,15 @@ sub unlock {
 sub updateAndUnlock {
     my ($self, $idkey, $uuid, $state) = @_;
     my $signature = $self->stateSignature($idkey, [$uuid]);
+    delete $state->{inbox};             # we must not affect the inbox on updates!
+    delete $state->{desktop};           # there is no more desktop on checkin
+    delete $state->{lockExpireEpoch};   # there is no more expire time on checkin
+    delete $state->{locked};    # there is no more locked signature on checkin
     return $self->collection($idkey)->find_and_modify(
         {   query  => { idkey => $idkey->cubby, locked => $signature },
             update => {
                 ($state ? ('$set' => $state) : ()),
-                '$unset' => { desktop => '', lockExpireEpoch => '', locked => '' }
+                '$unset' => { desktop => 1, lockExpireEpoch => 1, locked => 1 }
             },
             upsert => 0,
             new    => 1
@@ -209,10 +215,6 @@ sub updateAndUnlock {
 
 override checkin => sub {
     my ($self, $idkey, $uuid, $state) = @_;
-    delete $state->{inbox};             # we must not affect the inbox on updates!
-    delete $state->{desktop};           # there is no more desktop on checkin
-    delete $state->{lockExpireEpoch};   # there is no more expire time on checkin
-    delete $state->{locked};    # there is no more locked signature on checkin
     my $result = $self->updateAndUnlock($idkey, $uuid, $state);
     return unless defined $result;
 

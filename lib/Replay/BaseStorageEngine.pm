@@ -118,7 +118,10 @@ sub fetchTransitionalState {
     return unless defined $cubby;
 
     # drop the checkout if we don't have any items to reduce
-    unless (scalar $cubby->{desktop}) {
+    unless (scalar @{$cubby->{desktop}||[]}) {
+				warn "Reverting because we didn't check out any work to do?\n";
+				use Data::Dumper;
+				warn Dumper $cubby;
         $self->revert($idkey, $uuid);
         return;
     }

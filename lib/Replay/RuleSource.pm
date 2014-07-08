@@ -24,7 +24,7 @@ sub first {
 
 sub byIdKey {
     my ($self, $idkey) = @_;
-    return (grep { $_->name eq $idkey->{name} && $_->version eq $idkey->{version} }
+    return (grep { $_->name eq $idkey->name && $_->version eq $idkey->version }
             @{ $self->rules })[0];
 }
 #}}

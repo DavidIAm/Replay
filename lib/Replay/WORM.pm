@@ -13,6 +13,8 @@ has eventSystem => (is => 'ro', required => 1,);
 has directory   => (is => 'ro', required => 0, default => '/var/log/replay');
 has filehandles => (is => 'ro', isa      => 'HashRef', default => sub { {} });
 
+#Not a reference {"__CLASS__":"Replay::Message::Clock-0.01","createdTime":1404788821.43006,"function":"clock","line":"161","message":{"__CLASS__":"Replay::Types::ClockType","date":7,"epoch":1404788821,"hour":23,"isdst":1,"minute":7,"month":6,"weekday":1,"year":2014,"yearday":187},"messageType":"Timing","program":"/data/sandboxes/ihnend/sand_24525/wwwveh/Replay/lib//Replay/EventSystem.pm","receivedTime":1404788821.43014,"uuid":"EE5CD344-064C-11E4-93B3-86246D109AE0"} at /data/sandboxes/ihnend/sand_24525/wwwveh/Replay/lib//Replay/WORM.pm line 24.
+
 # dummy implimentation - Log them to a file
 sub BUILD {
     my $self = shift;

@@ -37,6 +37,7 @@ sub BUILD {
 sub map {
     my $self    = shift;
     my $message = shift;
+    die "I CANNOT MAP UNDEF" unless defined $message;
     while (my $rule = $self->ruleSource->next) {
         next unless $rule->match($message);
         my @all = $rule->keyValueSet($message);

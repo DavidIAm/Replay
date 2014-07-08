@@ -7,6 +7,10 @@ our $VERSION = '0.01';
 use Replay::EventSystem::Base;
 extends 'Replay::EventSystem::Base';
 
+use Replay::Message;
+use Replay::Message::Clock;
+
+use Perl::Version;
 use Amazon::SNS;
 use Try::Tiny;
 use Amazon::SQS::Simple;
@@ -106,23 +110,45 @@ sub _receive {
     my @messages = $self->queue->ReceiveMessageBatch;
     return unless scalar @messages;
     $self->_acknowledge(@messages);
-    map {    #}{
-        try {
+    my @payloads;
+    foreach (@messages) {
+#        try {
             my $messageBody = from_json $_->MessageBody;
-            try {
+#            try {
                 my $innermessage = from_json $messageBody->{Message};
-                $innermessage->{__CLASS__}
-                    ? $innermessage->{__CLASS__}->thaw($messageBody->{Message})
-                    : $innermessage;
-            }
-            catch {
-                $messageBody->{Message};
-            }
-        }
-        catch {
-            $_->MessageBody;
-        }
-    } @messages;
+#                if ($innermessage->{__CLASS__}) {
+#                    my ($class, $c, $version)
+#                        = $innermessage->{__CLASS__} =~ /^(.+?)(-(v?[0-9.[:alpha:]-]+))?$/;
+#                    unless ($class) {
+#                        warn "Didn't parse out class and version from " . $innermessage->{__CLASS__};
+#                        push @payloads, $innermessage;
+#                    }
+#                    else {
+#                        eval "require $class";
+#                        warn "RESULT OF REQUIRE OF $class is $@\n" if $@;
+#                        if ($version) {
+#                            my $packver = Perl::Version->new(eval "\$$class\::VERSION");
+#                            my $objver  = Perl::Version->new($version);
+#                            die "This object is newer than the package we have!!" if ($objver > $packver);
+#                        }
+#                        $class->thaw($messageBody->{Message}) || $innermessage;
+#                    }
+#                }
+#                else {
+                    push @payloads, $innermessage;
+#                }
+#            }
+#            catch {
+#                warn "GOT AN ERROR IN THAWER? $_\n";
+#                push @payloads, $messageBody->{Message};
+#            }
+#        }
+#        catch {
+#					warn "GOT ERROR IN FROM JSON ON BODY?  $_\n";
+#            push @payloads, $_->MessageBody;
+#        }
+    }
+		return @payloads;
 }
 
 sub _build_sqs {

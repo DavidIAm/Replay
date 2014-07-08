@@ -4,6 +4,7 @@ use Moose;
 use Scalar::Util;
 use Replay::DelayedEmitter;
 use Scalar::Util qw/blessed/;
+
 use Try::Tiny;
 
 has ruleSource => (is => 'ro', isa => 'Replay::RuleSource', required => 1);
@@ -30,19 +31,28 @@ sub rule {
 
 sub reduceWrapper {
     my ($self, $envelope) = @_;
-    my $message = $envelope->message;
-    return unless $envelope->messageType eq ('Reducable');
-    my $idkey = Replay::IdKey->new(
-        {   name    => $message->name,
-            version => $message->version,
-            window  => $message->window,
-            key     => $message->key,
-        }
-    );
+    my $type
+        = blessed $envelope ? $envelope->messageType : $envelope->{messageType};
+    return unless $type eq 'Reducable';
+    my $idkey;
+    my $message;
+    if (blessed $envelope) {
+        $message = $envelope->message;
+        $idkey   = Replay::IdKey->new(
+            {   name    => $message->name,
+                version => $message->version,
+                window  => $message->window,
+                key     => $message->key,
+            }
+        );
+    }
+    else {
+        $message = $envelope->{message};
+        $idkey   = Replay::IdKey->new($envelope->{message});
+    }
     my ($signature, $meta, @state)
         = $self->storageEngine->fetchTransitionalState($idkey);
-    do { $self->storageEngine->revert($idkey, $signature) if $signature; return; }
-        unless scalar @state;    # nothing to do!
+    return unless ($signature && $meta);    # there was nothing to do, apparently
     my $emitter = Replay::DelayedEmitter->new(eventSystem => $self->eventSystem,
         %{$meta});
 
@@ -57,6 +67,7 @@ sub reduceWrapper {
     }
     catch {
         warn "REDUCING EXCEPTION: $_";
+        warn "Reverting because there was a reduce exception\n";
         $self->storageEngine->revert($idkey, $signature);
         $self->eventSystem->control->emit(
             CargoTel::Message->new(
