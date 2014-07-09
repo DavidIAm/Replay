@@ -12,6 +12,7 @@ use Time::HiRes qw/gettimeofday/;
 has eventSystem => (is => 'ro', required => 1,);
 has directory   => (is => 'ro', required => 0, default => '/var/log/replay');
 has filehandles => (is => 'ro', isa      => 'HashRef', default => sub { {} });
+has uuid => (is => 'ro', isa => 'Data::UUID', builder => '_build_uuid');
 
 #Not a reference {"__CLASS__":"Replay::Message::Clock-0.01","createdTime":1404788821.43006,"function":"clock","line":"161","message":{"__CLASS__":"Replay::Types::ClockType","date":7,"epoch":1404788821,"hour":23,"isdst":1,"minute":7,"month":6,"weekday":1,"year":2014,"yearday":187},"messageType":"Timing","program":"/data/sandboxes/ihnend/sand_24525/wwwveh/Replay/lib//Replay/EventSystem.pm","receivedTime":1404788821.43014,"uuid":"EE5CD344-064C-11E4-93B3-86246D109AE0"} at /data/sandboxes/ihnend/sand_24525/wwwveh/Replay/lib//Replay/WORM.pm line 24.
 
@@ -21,17 +22,19 @@ sub BUILD {
     mkdir $self->directory unless -d $self->directory;
     $self->eventSystem->origin->subscribe(
         sub {
-            my $message = shift;
-            my $timeblock  = $self->log($message);
+            my $message   = shift;
+            my $timeblock = $self->log($message);
             warn "Not a reference $message" unless ref $message;
             if (blessed $message && $message->isa('CargoTel::Message')) {
                 push @{ $message->timeblocks }, $self->timeblock;
                 $message->receivedTime(+gettimeofday);
+                $message->uuid($self->newUuid) unless $message->uuid;
             }
             else {
                 try {
                     push @{ $message->{timeblocks} }, $self->timeblock;
                     $message->{receivedTime} = gettimeofday;
+                    $message->{uuid} ||= $self->newUuid;
                 }
                 catch {
                     warn "unable to push timeblock on message?" . $message;
@@ -42,40 +45,52 @@ sub BUILD {
     );
 }
 
+sub newUuid {
+    my $self = shift;
+    return $self->uuid->to_string($self->uuid->create());
+}
+
 sub serialize {
-    my ($self, $message) = @_;
-    return $message unless ref $message;
-    return JSON->new->encode($message) unless blessed $message;
-    return $message->stringify if blessed $message && $message->can('stringify');
-    return $message->freeze    if blessed $message && $message->can('freeze');
-    return $message->serialize if blessed $message && $message->can('serialize');
-    warn "blessed but no serializer found? $message";
+        my ($self, $message) = @_;
+        return $message unless ref $message;
+        return JSON->new->encode($message) unless blessed $message;
+        return $message->stringify
+            if blessed $message && $message->can('stringify');
+        return $message->freeze if blessed $message && $message->can('freeze');
+        return $message->serialize
+            if blessed $message && $message->can('serialize');
+        warn "blessed but no serializer found? $message";
 }
 
 sub log {
-    my $self    = shift;
-    my $message = shift;
-    $self->filehandle->print($self->serialize($message) . "\n");
+        my $self    = shift;
+        my $message = shift;
+        $self->filehandle->print($self->serialize($message) . "\n");
 }
 
 sub path {
-    my $self = shift;
-    File::Spec->catfile($self->directory, $self->timeblock);
+        my $self = shift;
+        File::Spec->catfile($self->directory, $self->timeblock);
 }
 
 sub filehandle {
-    my $self = shift;
-    return $self->filehandles->{ $self->timeblock }
-        if exists $self->filehandles->{ $self->timeblock }
-        && -f $self->filehandles->{ $self->timeblock };
-    open $self->filehandles->{ $self->timeblock }, '>>', $self->path
-        or confess "Unable to open " . $self->path . " for append";
-    return $self->filehandles->{ $self->timeblock };
+        my $self = shift;
+        return $self->filehandles->{ $self->timeblock }
+            if exists $self->filehandles->{ $self->timeblock }
+            && -f $self->filehandles->{ $self->timeblock };
+        open $self->filehandles->{ $self->timeblock }, '>>', $self->path
+            or confess "Unable to open " . $self->path . " for append";
+        return $self->filehandles->{ $self->timeblock };
 }
 
 sub timeblock {
-    my $self = shift;
-    return strftime '%Y-%m-%d-%H', localtime time;
+        my $self = shift;
+        return strftime '%Y-%m-%d-%H', localtime time;
+}
+
+sub _build_uuid {
+        my $self;
+        return $self->{uuid} ||= Data::UUID->new;
 }
 
 =head1 NAME
@@ -116,6 +131,14 @@ Accessor for the current filehandle to the current log file
 =head2 timeblock
 
 resolves the current time into a particular timeblock
+
+=head2 _build_uuid
+
+creates the uuid object for creating uuids with on demand
+
+=head2 newUuid
+
+return a brand new uuid
 
 =cut
 
@@ -203,7 +226,5 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 =cut
-
-1;    # End of Replay
 
 1;
