@@ -37,7 +37,7 @@ WriteMakefile(
         'Digest::MD5'                          => '2.36',
         'EV'                                   => '4.17',
         'File::Spec'                           => '3.40',
-        'List::util'                           => '1.21',
+        'List::Util'                           => '1.21',
         'MooseX::MetaDescription::Meta::Trait' => '0.06',
         'Perl::Version'                        => '1.013',
         'POSIX'                                => '1.09',
