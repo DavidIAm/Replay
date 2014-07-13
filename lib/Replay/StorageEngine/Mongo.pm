@@ -95,9 +95,12 @@ sub relockExpired {
     # Lets try to get an expire lock, if it has timed out
     my $unlockresult = $self->collection($idkey)->find_and_modify(
         {   query => {
-                idkey           => $idkey->cubby,
-                locked          => { '$exists' => 1 },
-                lockExpireEpoch => { '$lt' => time },
+                idkey  => $idkey->cubby,
+                locked => { '$exists' => 1 },
+                '$or'  => [
+                    { lockExpireEpoch => { '$lt'     => time } },
+                    { lockExpireEpoch => { '$exists' => 0 } }
+                ]
             },
             update => {
                 '$set' => { locked => $signature, lockExpireEpoch => time + $timeout, },
