@@ -9,7 +9,7 @@ of about five years, refined with many thanks through discussions with
 
 TL;DR? - bitemporal finite state machine application engine modular down
 to the fundamental state transition level using a variant of map-reduce
-methodology with the goal of making introspection, revision, and proofing
+methodology with the goal of making instrospection, revision, and proofing
 native rather than derivative in a fully scalable architecture
 
 Bitemporality is the concept that things have an effective date, as well
