@@ -8,7 +8,7 @@ use MooseX::MetaDescription::Meta::Trait;
 our $VERSION = '0.01';
 
 with Storage (format => 'JSON');
-with (qw(Replay::Types::Messages Replay:Envelope));
+with (qw(Replay::Types::Messages Replay::Envelope));
 
 =pod 
 
