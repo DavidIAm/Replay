@@ -1,25 +1,8 @@
 package Replay::Message::Clock;
 
 use Moose;
-use Replay::Message;
 
 our $VERSION = '0.01';
-
-extends 'Replay::Message';
-
-has '+messageType' => (default => 'Timing',);
-has '+message' => (isa => 'Replay::Types::ClockType', coerce => 1);
-
-package Replay::Types::ClockType;
-
-use Moose;
-use Moose::Util::TypeConstraints qw/coerce from via/;
-use MooseX::Storage;
-
-with Storage(format => 'JSON');
-
-coerce 'Replay::Types::ClockType', from 'HashRef',
-    via { Replay::Types::ClockType->new($_) };
 
 has epoch   => (is => 'ro', isa => 'Int', required => 1);
 has minute  => (is => 'ro', isa => 'Int', required => 1);

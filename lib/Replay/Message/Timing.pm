@@ -1,27 +1,13 @@
-package Replay::Message::Clock;
+package Replay::Message::Timing;
 
 use Moose;
-use Replay::Message;
+extends ('Replay::Message');
 
 our $VERSION = '0.01';
 
-coerce 'Replay::Message::Clock', 
-from 'HashRef',
-via { Replay::Message::Clock->new($_) };
+has '+MessageType' => (default => 'Timing');
+has '+Message' => (isa => 'Clock', coerce => 1);
 
-extends 'Replay::Message';
-has +message => ( isa => 'Replay::Message::Clock', coerce => 1 );
-
-package Replay::Types::ClockType;
-has epoch => ( is => 'ro', isa => 'Int', required => 1 );
-has minute => ( is => 'ro', isa => 'Int', required => 1 );
-has hour => ( is => 'ro', isa => 'Int', required => 1 );
-has date => ( is => 'ro', isa => 'Int', required => 1 );
-has month => ( is => 'ro', isa => 'Int', required => 1 );
-has year => ( is => 'ro', isa => 'Int', required => 1 );
-has weekday => ( is => 'ro', isa => 'Int', required => 1 );
-has yearday => ( is => 'ro', isa => 'Int', required => 1 );
-has isdst => ( is => 'ro', isa => 'Int', required => 1 );
 
 =head1 NAME
 

@@ -1,13 +1,6 @@
 package Replay::Message::IdKey;
 
 use Moose;
-use Moose::Util::TypeConstraints qw/coerce from via/;
-use MooseX::Storage;
-
-with Storage ( format => 'JSON' );
-
-coerce 'Replay::Message::IdKey', from 'HashRef',
-via { Replay::Message::IdKey->new($_) };
 
 has domain => (is => 'ro', isa => 'Str', default => 'global');
 

@@ -1,13 +1,10 @@
 package Replay::Message::NewCanonical;
 
 use Moose;
-use Replay::Message::IdKey;
+extends ('Replay::Message');
 
-extends qw/Replay::Message/;
-
-has '+messageType' => ( default => 'NewCanonical' );
-has '+message' => ( isa => 'Replay::Message::IdKey', coerce => 1 );
-
+has '+MessageType' => ( default => 'NewCanonical' );
+has '+Message' => ( isa => 'IdKey', coerce => 1);
 =head1 NAME
 
 Replay::Message::NewCanonical - signal that a new canonical state is available

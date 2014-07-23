@@ -1,14 +1,10 @@
 package Replay::Message::Locked;
 
 use Moose;
-use Replay::Message;
-use Replay::Message::IdKey;
+extends ('Replay::Message');
 
-extends qw/Replay::Message/;
-
-has '+messageType' => ( default => 'Locked' );
-has '+message' => ( isa => 'Replay::Message::IdKey', coerce => 1 );
-
+has '+MessageType' => ( default => 'Locked' );
+has '+Message' => ( isa => 'IdKey', coerce => 1);
 =head1 NAME
 
 Replay::Message::Locked - signal that a state has been locked

@@ -1,18 +1,98 @@
-package Replay::Message::Base;
+package Replay::Envelope;
 
-use Moose;
-use MooseX::Storage;
+use Moose::Role;
+use Time::HiRes qw/gettimeofday/;
+use Data::UUID;
 
-with Storage ( format => 'JSON' );
+has Message => (
+    is          => 'ro',
+    isa         => 'Str',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'envelope' },
+);
+has Program => (
+    is          => 'ro',
+    isa         => 'Str',
+    predicate   => 'has_program',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'envelope' },
+);
+has Function => (
+    is          => 'ro',
+    isa         => 'Str',
+    predicate   => 'has_function',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'envelope' },
+);
+has Line => (
+    is          => 'ro',
+    isa         => 'Str',
+    predicate   => 'has_line',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'envelope' },
+);
+has EffectiveTime => (
+    is          => 'ro',
+    isa         => 'Str',
+    predicate   => 'has_effective_time',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'envelope' },
+);
+has CreatedTime => (
+    is          => 'ro',
+    isa         => 'Str',
+    predicate   => 'has_created_time',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'envelope' },
+    builder     => '_now'
+);
+has ReceivedTime => (
+    is          => 'ro',
+    isa         => 'Str',
+    predicate   => 'has_recieved_time',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'envelope' },
+    builder     => '_now'
+);
 
-has message => ( is => 'ro', isa => 'Replay::Message', required => 1 );
-has messageType => ( is => 'ro', isa => 'Str', required => 1 );
-has effectiveTime => ( is => 'ro', isa => 'Str', );
-has receivedTime => ( is => 'ro', isa => 'Str', );
-has createdTime => ( is => 'ro', isa => 'Str', required => 1, builder => '_now' );
-has timeblocks => ( is => 'ro', isa => 'ArrayRef', );
-has ruleversions => ( is => 'ro', isa => 'ArrayRef[HashRef]', );
-has windows => ( is => 'ro', isa => 'ArrayRef[Str]', );
+has UUID => (
+    is          => 'ro',
+    isa         => 'Str',
+    builder     => '_build_uuid',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'envelope' },
+);
+
+sub marshall {
+    my $self     = shift;
+    my $envelope = {Messsage    => $self,
+        MessageType => $self->MessageType,
+        UUID        => $self->UUID,
+        ($self->has_program        ? (Program        => $self->Program)       : ()),
+        ($self->has_function       ? (Function       => $self->Function)      : ()),
+        ($self->has_line           ? (Line           => $self->Line)          : ()),
+        ($self->has_effective_time ? (Effective_time => $self->EffectiveTime) : ()),
+        ($self->has_created_time   ? (Created_time   => $self->CreatedTime)   : ()),
+        ($self->has_received_time  ? (Received_time  => $self->ReceivedTime)  : ()),
+    };
+    return $envelope; 
+    
+}
+
+sub _now {
+    my $self = shift;
+    return +gettimeofday;
+}
+
+sub _build_uuid {
+    my $self = shift;
+    my $ug   = Data::UUID->new;
+    return $ug->to_string($ug->create());
+}
+
+has Timeblocks => ( is => 'ro', isa => 'ArrayRef', );
+has Ruleversions => ( is => 'ro', isa => 'ArrayRef[HashRef]', );
+has Windows => ( is => 'ro', isa => 'ArrayRef[Str]', );
 
 =head1 NAME
 
