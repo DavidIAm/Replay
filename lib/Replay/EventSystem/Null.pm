@@ -6,11 +6,10 @@ package Replay::EventSystem::Null;
 # a queing solution like RabbitMQ, ZeroMQ, AWS SNS/SQS, or anything like that
 
 use Moose;
+with 'Replay::EventSystem::Base';
 
 our $VERSION = '0.01';
 
-use Replay::EventSystem::Base;
-extends 'Replay::EventSystem::Base';
 
 has subscribers => (is => 'ro', isa => 'ArrayRef', default => sub { [] },);
 

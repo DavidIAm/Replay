@@ -2,7 +2,8 @@ package Replay::EventSystem::Base;
 
 # provides a base type to check communication channel implimentations against
 
-use Moose;
+use Moose::Role;
+requires (qw(emit subscribe poll));
 
 our $VERSION = '0.01';
 
@@ -14,10 +15,6 @@ has mode => ( is => 'ro', isa => 'Str', required => 1 );
 
 # Config contains information used to connect to the queuing solution
 has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1 );
-
-sub emit { die "stub, implement emit" }
-sub subscribe { die "stub, implement subscribe" }
-sub poll { die "stub, implement poll" }
 
 =head1 NAME
 

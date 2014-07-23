@@ -5,7 +5,7 @@ use Moose;
 our $VERSION = '0.01';
 
 use Replay::EventSystem::Base;
-extends 'Replay::EventSystem::Base';
+with 'Replay::EventSystem::Base';
 
 use Replay::Message;
 use Replay::Message::Clock;
