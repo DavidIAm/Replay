@@ -12,9 +12,8 @@ use Time::HiRes qw/gettimeofday/;
 has eventSystem => (is => 'ro', required => 1,);
 has directory   => (is => 'ro', required => 0, default => '/var/log/replay');
 has filehandles => (is => 'ro', isa      => 'HashRef', default => sub { {} });
-has uuid => (is => 'ro', isa => 'Data::UUID', builder => '_build_uuid');
+has UUID => (is => 'ro', isa => 'Data::UUID', builder => '_build_uuid');
 
-#Not a reference {"__CLASS__":"Replay::Message::Clock-0.01","createdTime":1404788821.43006,"function":"clock","line":"161","message":{"__CLASS__":"Replay::Types::ClockType","date":7,"epoch":1404788821,"hour":23,"isdst":1,"minute":7,"month":6,"weekday":1,"year":2014,"yearday":187},"messageType":"Timing","program":"/data/sandboxes/ihnend/sand_24525/wwwveh/Replay/lib//Replay/EventSystem.pm","receivedTime":1404788821.43014,"uuid":"EE5CD344-064C-11E4-93B3-86246D109AE0"} at /data/sandboxes/ihnend/sand_24525/wwwveh/Replay/lib//Replay/WORM.pm line 24.
 
 # dummy implimentation - Log them to a file
 sub BUILD {
@@ -27,14 +26,14 @@ sub BUILD {
             warn "Not a reference $message" unless ref $message;
             if (blessed $message && $message->isa('Replay::Message')) {
                 push @{ $message->timeblocks }, $self->timeblock;
-                $message->receivedTime(+gettimeofday);
-                $message->uuid($self->newUuid) unless $message->uuid;
+                $message->ReceivedTime(+gettimeofday);
+                $message->UUID($self->newUuid) unless $message->uuid;
             }
             else {
                 try {
                     push @{ $message->{timeblocks} }, $self->timeblock;
-                    $message->{receivedTime} = gettimeofday;
-                    $message->{uuid} ||= $self->newUuid;
+                    $message->{ReceivedTime} = gettimeofday;
+                    $message->{UUID} ||= $self->newUuid;
                 }
                 catch {
                     warn "unable to push timeblock on message?" . $message;
@@ -47,7 +46,7 @@ sub BUILD {
 
 sub newUuid {
     my $self = shift;
-    return $self->uuid->to_string($self->uuid->create());
+    return $self->UUID->to_string($self->UUID->create());
 }
 
 sub serialize {
@@ -91,7 +90,7 @@ sub timeblock {
 
 sub _build_uuid {
         my $self;
-        return $self->{uuid} ||= Data::UUID->new;
+        return $self->{UUID} ||= Data::UUID->new;
 }
 
 =head1 NAME
