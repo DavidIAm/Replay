@@ -53,6 +53,10 @@ override absorb => sub {
 sub revertThisRecord {
     my ($self, $idkey, $signature, $record) = @_;
 
+    die
+        "This record isn't locked with this signature ($record->{locked},$signature)"
+        unless $record->{locked} eq $signature;
+
     # reabsorb all of the desktop atoms into the record
     foreach my $atom (@{ $record->{'desktop'} || [] }) {
         $self->absorb($idkey, $atom);
@@ -62,8 +66,8 @@ sub revertThisRecord {
     my $unlockresult
         = $self->collection($idkey)
         ->update({ idkey => $idkey->cubby, locked => $signature } =>
-            { '$unset' => { desktop => 1, lock => 1, lockExpireEpoch => 1 } });
-    die "UNABLE TO RESET DESKTOP AFTER REVERT " unless $unlockresult->{ok} == 1;
+            { '$unset' => { desktop => 1 } });
+    die "UNABLE TO RESET DESKTOP AFTER REVERT " unless $unlockresult->{n} > 0;
     return $unlockresult;
 }
 
@@ -166,7 +170,8 @@ override checkout => sub {
     }
 
     # if it failed, check to see if we can relock an expired record
-    my $unlsignature = $self->stateSignature($idkey, [ $uuid, 'UNLOCKING' ]);
+    my $unluuid      = $self->generate_uuid;
+    my $unlsignature = $self->stateSignature($idkey, [$unluuid]);
     my $expireRelock = $self->relockExpired($idkey, $unlsignature, $timeout);
 
     # If it didn't relock, give up.  Its locked by somebody else.
@@ -208,9 +213,10 @@ override checkout => sub {
 
 override revert => sub {
     my ($self, $idkey, $uuid) = @_;
-    my $signature = $self->stateSignature($idkey, [$uuid]);
-    my $unlsignature = $self->stateSignature($idkey, [ $uuid, 'UNLOCKING' ]);
-    my $state = $self->collection($idkey)->find_and_modify(
+    my $signature    = $self->stateSignature($idkey, [$uuid]);
+    my $unluuid      = $self->generate_uuid;
+    my $unlsignature = $self->stateSignature($idkey, [$unluuid]);
+    my $state        = $self->collection($idkey)->find_and_modify(
         {   query  => { idkey => $idkey->cubby, locked => $signature, },
             update => {
                 '$set' =>
@@ -221,10 +227,19 @@ override revert => sub {
         }
     );
     warn "tried to do a revert but didn't have a lock on it" unless $state;
-    $self->revertThisRecord($idkey, $signature, $state);
-    my $result = $self->unlock($idkey, $signature);
+    return unless $state;
+    $self->revertThisRecord($idkey, $unlsignature, $state);
+    my $result = $self->unlock($idkey, $unluuid);
     return defined $result;
 };
+
+sub lockreport {
+    my ($self, $idkey) = @_;
+    return [
+        $self->collection($idkey)->find({ idkey => $idkey->cubby },
+            { locked => JSON::true, lockExpireEpoch => JSON::true })->all
+    ];
+}
 
 sub unlock {
     my ($self, $idkey, $uuid) = @_;
@@ -234,10 +249,12 @@ sub unlock {
 sub updateAndUnlock {
     my ($self, $idkey, $uuid, $state) = @_;
     my $signature = $self->stateSignature($idkey, [$uuid]);
-    delete $state->{inbox};             # we must not affect the inbox on updates!
-    delete $state->{desktop};           # there is no more desktop on checkin
-    delete $state->{lockExpireEpoch};   # there is no more expire time on checkin
-    delete $state->{locked};    # there is no more locked signature on checkin
+    if ($state) {
+        delete $state->{inbox};             # we must not affect the inbox on updates!
+        delete $state->{desktop};           # there is no more desktop on checkin
+        delete $state->{lockExpireEpoch};   # there is no more expire time on checkin
+        delete $state->{locked};    # there is no more locked signature on checkin
+    }
     return $self->collection($idkey)->find_and_modify(
         {   query  => { idkey => $idkey->cubby, locked => $signature },
             update => {

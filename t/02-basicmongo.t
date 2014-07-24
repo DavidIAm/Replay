@@ -163,9 +163,20 @@ print Dumper $replay->storageEngine->engine->collection($idkey)->update({ idkey 
         { upsert => 0, multiple => 0 },
 );
 
+
+warn "TRY TO CHECK OUT WHEN EXPIRED";
 my ($uuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
 warn "UUID IS $uuid";
+warn "Try to revert after checkout";
 print Dumper $replay->storageEngine->engine->revert($idkey, $uuid);
 
+warn "open checkout";
+my ($buuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
+warn "GOOD OPEN" if $buuid;
+exit unless $buuid;
+warn "checkout while already open";
+#my ($cuuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
 
+warn "revert with uuid while locked";
+print Dumper $replay->storageEngine->engine->revert($idkey, $buuid);
 
