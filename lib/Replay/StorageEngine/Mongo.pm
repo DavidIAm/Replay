@@ -42,7 +42,7 @@ override absorb => sub {
                 timeblocks   => { '$each' => $meta->{timeblocks} || [] },
                 ruleversions => { '$each' => $meta->{ruleversions} || [] },
             },
-            '$setOnInsert' => { idkey => $idkey->cubby }
+            '$setOnInsert' => { idkey => $idkey->cubby, IdKey => $idkey->pack }
         },
         { upsert => 1, multiple => 0 },
     );
@@ -80,7 +80,7 @@ sub checkoutRecord {
                     {   '$and' => [
                             { locked => $signature },
                             {   '$or' => [
-                                    { lockExpireEpoch => { '$lt'     => time } },
+                                    { lockExpireEpoch => { '$gt'     => time } },
                                     { lockExpireEpoch => { '$exists' => 0 } }
                                 ]
                             }
@@ -261,10 +261,10 @@ override checkin => sub {
 
 override windowAll => sub {
     my ($self, $idkey) = @_;
-    return
-        map { $_->{idkey} => $_ }
-        $self->collection($idkey)
-        ->find({ idkey => { '$regex' => '^' . $idkey->windowPrefix } })->all;
+
+    return { map { Replay::IdKey->new($_->{IdKey})->key => $_->{canonical} }
+            $self->collection($idkey)
+            ->find({ idkey => { '$regex' => '^' . $idkey->windowPrefix } })->all };
 };
 
 #}}}}
