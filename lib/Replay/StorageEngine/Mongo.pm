@@ -67,7 +67,7 @@ sub revertThisRecord {
     return $unlockresult;
 }
 
-sub lockOpenRecord {
+sub checkoutRecord {
     my ($self, $idkey, $signature, $timeout) = @_;
 
     # try to get lock
@@ -75,7 +75,18 @@ sub lockOpenRecord {
         {   query => {
                 idkey   => $idkey->cubby,
                 desktop => { '$exists' => 0 },
-                locked  => { '$exists' => 0 },
+                '$or'   => [
+                    { locked => { '$exists' => 0 } },
+                    {   '$and' => [
+                            { locked => $signature },
+                            {   '$or' => [
+                                    { lockExpireEpoch => { '$lt'     => time } },
+                                    { lockExpireEpoch => { '$exists' => 0 } }
+                                ]
+                            }
+                        ]
+                    }
+                ]
             },
             update => {
                 '$set'    => { locked  => $signature, lockExpireEpoch => time + $timeout, },
@@ -130,13 +141,24 @@ sub relock {
     return $unlockresult;
 }
 
+# Locking states
+# 1. unlocked ( lock does not exist )
+# 2. locked unexpired ( lock set to a signature, lockExpired epoch in future )
+# 3. locked expired ( lock est to a signature, lockExpired epoch in past )
+# checkout allowed when in states (1) and sometimes (2) when we supply the
+# signature it is currently locked with
+# if is in state 2 and we don't have the signature, lock is unavailable
+# if it is in state 3, we lock it with a temporary signature as an expired
+# lock, revert its desktop to the inbox, then try to relock it with a new
+# signature  If it relocks we are in state-2-with-signature and are able to
+# check it out
 override checkout => sub {
     my ($self, $idkey, $timeout) = @_;
     $timeout ||= $self->timeout;
     my $uuid = $self->generate_uuid;
 
     my $signature = $self->stateSignature($idkey, [$uuid]);
-    my $lockresult = $self->lockOpenRecord($idkey, $signature, $timeout);
+    my $lockresult = $self->checkoutRecord($idkey, $signature, $timeout);
 
     if (defined $lockresult) {
         super();
@@ -154,19 +176,34 @@ override checkout => sub {
 
     # Oh my, we did. Well then, we should...
     $self->revertThisRecord($idkey, $unlsignature, $expireRelock);
-    $lockresult = $self->lockOpenRecord($idkey, $signature, $timeout);
 
-    warn "Unable to obtain lock after revert? " . $idkey->checkstring . "\n"
-        unless defined $lockresult;
+    # Get a new signature to use for the relocked record
+    my $newuuid = $self->generate_uuid;
+    my $newsignature = $self->stateSignature($idkey, [$newuuid]);
+
+    # move the lock from teh temp reverting lock to the new one
+    my $relockresult
+        = $self->relock($idkey, $unlsignature, $newsignature, $timeout);
+
+    warn "Unable to relock after revert? " . $idkey->checkstring . "\n"
+        unless defined $relockresult;
     use Data::Dumper;
-    warn Dumper $self->collection($idkey)->find( { idkey => $idkey->cubby } )->all
-        unless defined $lockresult;
-    return unless defined $lockresult;
+    warn Dumper $self->collection($idkey)->find({ idkey => $idkey->cubby })->all
+        unless defined $relockresult;
+    return unless defined $relockresult;
 
-    # This takes care of sending the 'locked' event
-    super();
+    # check out the r
+    my $checkresult = $self->checkoutRecord($idkey, $newsignature, $timeout);
 
-    return $uuid, $lockresult;
+    if (defined $checkresult) {
+        super();
+        return $uuid, $lockresult;
+    }
+
+    warn "checkout after revert and relock failed.  Look in COLLECTION ("
+        . $idkey->collection
+        . ") IDKEY ("
+        . $idkey->cubby . ")";
 };
 
 override revert => sub {
@@ -174,10 +211,7 @@ override revert => sub {
     my $signature = $self->stateSignature($idkey, [$uuid]);
     my $unlsignature = $self->stateSignature($idkey, [ $uuid, 'UNLOCKING' ]);
     my $state = $self->collection($idkey)->find_and_modify(
-        {   query => {
-                idkey   => $idkey->cubby,
-                locked  => $signature,
-            },
+        {   query  => { idkey => $idkey->cubby, locked => $signature, },
             update => {
                 '$set' =>
                     { locked => $unlsignature, lockExpireEpoch => time + $self->timeout, },
@@ -189,7 +223,7 @@ override revert => sub {
     warn "tried to do a revert but didn't have a lock on it" unless $state;
     $self->revertThisRecord($idkey, $signature, $state);
     my $result = $self->unlock($idkey, $signature);
-    return defined $result
+    return defined $result;
 };
 
 sub unlock {
@@ -227,8 +261,10 @@ override checkin => sub {
 
 override windowAll => sub {
     my ($self, $idkey) = @_;
-    return map { $_->{idkey} => $_ } $self->collection($idkey)
-                ->find({ idkey => { '$regex' => '^' . $idkey->windowPrefix } })->all
+    return
+        map { $_->{idkey} => $_ }
+        $self->collection($idkey)
+        ->find({ idkey => { '$regex' => '^' . $idkey->windowPrefix } })->all;
 };
 
 #}}}}
@@ -325,7 +361,7 @@ return the document indicated by the idkey
 
 create and return a new uuid
 
-=head2 lockOpenRecord(idkey, signature)
+=head2 checkoutRecord(idkey, signature)
 
 This will return the uuid and document, when the state it is trying to open is unlocked and unexpired
 
