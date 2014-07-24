@@ -3,6 +3,7 @@ package Replay::Reducer;
 use Moose;
 use Scalar::Util;
 use Replay::DelayedEmitter;
+use Replay::Message;
 use Scalar::Util qw/blessed/;
 
 use Try::Tiny;
@@ -32,12 +33,12 @@ sub rule {
 sub reduceWrapper {
     my ($self, $envelope) = @_;
     my $type
-        = blessed $envelope ? $envelope->messageType : $envelope->{messageType};
+        = blessed $envelope ? $envelope->MessageType : $envelope->{MessageType};
     return unless $type eq 'Reducable';
     my $idkey;
     my $message;
     if (blessed $envelope) {
-        $message = $envelope->message;
+        $message = $envelope->Message;
         $idkey   = Replay::IdKey->new(
             {   name    => $message->name,
                 version => $message->version,
@@ -47,8 +48,8 @@ sub reduceWrapper {
         );
     }
     else {
-        $message = $envelope->{message};
-        $idkey   = Replay::IdKey->new($envelope->{message});
+        $message = $envelope->{Message};
+        $idkey   = Replay::IdKey->new($envelope->{Message});
     }
     my ($signature, $meta, @state)
         = $self->storageEngine->fetchTransitionalState($idkey);
@@ -70,13 +71,13 @@ sub reduceWrapper {
         warn "Reverting because there was a reduce exception\n";
         $self->storageEngine->revert($idkey, $signature);
         $self->eventSystem->control->emit(
-            CargoTel::Message->new(
-                messageType => 'ReducerException',
-                message     => {
+            Replay::Message->new(
+                MessageType => 'ReducerException',
+                Message     => {
                     rule    => $self->rule->name,
                     version => $self->rule->version,
                     exception => (blessed $_ && $_->can('trace') ? $_->trace->as_string : $_),
-                    message => $message
+                    Message => $message
                 }
             )
         );
@@ -151,7 +152,7 @@ do it. You won't like the results. If you don't understand why... learn more
 about the system first.
 
 # an input message might look like this
-{ messageType => 'TypeThatGetsRequest', message => { url => 'URI' } }
+{ messageType => 'TypeThatGetsRequest', Message => { url => 'URI' } }
 
 # we will match both the type that gets, and the response type
 # so they will be in the same state

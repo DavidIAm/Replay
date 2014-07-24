@@ -7,8 +7,7 @@ use AnyEvent;
 use Readonly;
 use Carp qw/confess carp cluck/;
 use Time::HiRes;
-use Replay::Message::Clock;
-use Replay::Message::Envelope;
+use Replay::Message::Timing;
 use Try::Tiny;
 
 use Replay::EventSystem::AWSQueue;
@@ -144,8 +143,8 @@ sub clock {
                 = localtime(time);
             $self->emit(
                 'origin',
-                Replay::Message::Clock->new(
-                    message => {
+                Replay::Message::Timing->new(
+                    Message => {
                         epoch   => time,
                         minute  => $min,
                         hour    => $hour,

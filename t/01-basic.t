@@ -73,7 +73,7 @@ my $funMessage
     = { a => [ 5, 1, 2, 3, 4 ], is_interesting => 1, messageType => 'adhoc' };
 my $notAfterAll = { b => [ 1, 2, 3, 4, 5, 6 ] };
 my $secondMessage = { c => [ 6, 7, 8, 9, 10 ], is_interesting => 1,
-    messageType => 'adhoc' };
+    MessageType => 'adhoc' };
 
 is_deeply [ $tr->keyValueSet($funMessage) ],
     [ a => 5, a => 1, a => 2, a => 3, a => 4 ], 'expands';
@@ -129,7 +129,7 @@ $replay->eventSystem->control->subscribe(
 
         #warn "This is a control message of type ".$message->{messageType}."\n";
         return                     unless blessed $message;
-        return                     unless $message->messageType eq 'NewCanonical';
+        return                     unless $message->MessageType eq 'NewCanonical';
         $replay->eventSystem->stop unless ++$canoncount;
     }
 );

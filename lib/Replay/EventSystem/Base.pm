@@ -1,5 +1,6 @@
 package Replay::EventSystem::Base;
 
+
 # provides a base type to check communication channel implimentations against
 
 use Moose::Role;

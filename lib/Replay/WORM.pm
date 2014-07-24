@@ -25,7 +25,7 @@ sub BUILD {
             my $message   = shift;
             my $timeblock = $self->log($message);
             warn "Not a reference $message" unless ref $message;
-            if (blessed $message && $message->isa('CargoTel::Message')) {
+            if (blessed $message && $message->isa('Replay::Message')) {
                 push @{ $message->timeblocks }, $self->timeblock;
                 $message->receivedTime(+gettimeofday);
                 $message->uuid($self->newUuid) unless $message->uuid;

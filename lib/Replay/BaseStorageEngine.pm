@@ -47,32 +47,32 @@ sub merge {
 sub checkout {
     my ($self, $idkey) = @_;
     $self->eventSystem->control->emit(
-        Replay::Message::Locked->new(message => { $idkey->hashList }));
+        Replay::Message::Locked->new(Message => { $idkey->hashList }));
 }
 
 sub checkin {
     my ($self, $idkey) = @_;
     $self->eventSystem->control->emit(
-        Replay::Message::Unlocked->new(message => { $idkey->hashList }));
+        Replay::Message::Unlocked->new(Message => { $idkey->hashList }));
 }
 
 sub revert {
     my ($self, $idkey) = @_;
     $self->eventSystem->control->emit(
-        Replay::Message::Reverted->new(message => { $idkey->hashList }));
+        Replay::Message::Reverted->new(Message => { $idkey->hashList }));
 }
 
 sub retrieve {
     my ($self, $idkey) = @_;
     $self->eventSystem->control->emit(
-        Replay::Message::Fetched->new(message => { $idkey->hashList }));
+        Replay::Message::Fetched->new(Message => { $idkey->hashList }));
 }
 
 sub absorb {
     my ($self, $idkey) = @_;
 		$self->delayToDoOnce( $idkey->hash . 'Reducable', sub {
 	    $self->eventSystem->control->emit(
-        Replay::Message::Reducable->new(message => { $idkey->hashList }));
+        Replay::Message::Reducable->new(Message => { $idkey->hashList }));
 		})
 }
 
@@ -132,7 +132,7 @@ sub fetchTransitionalState {
 
     # notify interested parties
     $self->eventSystem->control->emit(
-        Replay::Message::Reducing->new(message => { $idkey->hashList }));
+        Replay::Message::Reducing->new(Message => { $idkey->hashList }));
 
     # return uuid and list
     return $uuid => {
@@ -152,9 +152,9 @@ sub storeNewCanonicalState {
     delete $cubby->{desktop};
     my $newstate = $self->checkin($idkey, $uuid, $cubby);
     $self->eventSystem->control->emit(
-        Replay::Message::NewCanonical->new(message => { $idkey->hashList }));
+        Replay::Message::NewCanonical->new(Message => { $idkey->hashList }));
     $self->eventSystem->control->emit(
-        Replay::Message::Reducable->new(message => { $idkey->hashList }))
+        Replay::Message::Reducable->new(Message => { $idkey->hashList }))
         if scalar @{ $newstate->{inbox} || [] }
         ;                # renotify reducable if inbox has entries now
     return $newstate;    # release pending messages
@@ -168,14 +168,14 @@ sub fetchCanonicalState {
         warn "canonical corruption $cubby->{canonSignature} vs. " . $e;
     }
     $self->eventSystem->control->emit(
-        Replay::Message::Fetched->new(message => { $idkey->hashList }));
+        Replay::Message::Fetched->new(Message => { $idkey->hashList }));
     return @{ $cubby->{canonical} || [] };
 }
 
 sub windowAll {
     my ($self, $idkey) = @_;
     $self->eventSystem->control->emit(
-        Replay::Message::WindowAll->new(message => { $idkey->hashList }));
+        Replay::Message::WindowAll->new(Message => { $idkey->hashList }));
 }
 
 sub enumerateWindows {

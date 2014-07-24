@@ -8,7 +8,7 @@ use Replay::EventSystem::Base;
 with 'Replay::EventSystem::Base';
 
 use Replay::Message;
-use Replay::Message::Clock;
+#use Replay::Message::Clock;
 
 use Perl::Version;
 use Amazon::SNS;

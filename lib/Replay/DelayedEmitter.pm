@@ -14,7 +14,7 @@ sub emit {
     my $channel = shift;
     my $message = shift;
 
-    if (blessed $channel && $channel->isa('CargoTel::Message')) {
+    if (blessed $channel && $channel->isa('Replay::Message')) {
         $message = $channel;
         $channel = 'derived';
     }
