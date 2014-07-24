@@ -197,7 +197,7 @@ override checkout => sub {
 
     if (defined $checkresult) {
         super();
-        return $uuid, $lockresult;
+        return $newuuid, $lockresult;
     }
 
     warn "checkout after revert and relock failed.  Look in COLLECTION ("

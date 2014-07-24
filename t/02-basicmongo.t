@@ -86,10 +86,12 @@ my $replay = Replay->new(
         QueueClass  => 'Replay::EventSystem::Null',
         StorageMode => 'Mongo',
         timeout     => 5,
-				stage => 'testscript',
+				stage => 'testscript-'.$ENV{USER},
     },
     rules => [ new TESTRULE ]
 );
+my $ourtestkey = Replay::IdKey->new( { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' });
+print Dumper $replay->storageEngine->engine->collection($ourtestkey)->remove({});
 
 $replay->worm;
 $replay->reducer;
@@ -161,7 +163,9 @@ print Dumper $replay->storageEngine->engine->collection($idkey)->update({ idkey 
         { upsert => 0, multiple => 0 },
 );
 
-print Dumper $replay->storageEngine->engine->checkout($idkey, 5);
+my ($uuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
+warn "UUID IS $uuid";
+print Dumper $replay->storageEngine->engine->revert($idkey, $uuid);
 
 
 
