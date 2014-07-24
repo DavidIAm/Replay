@@ -19,7 +19,6 @@ Documentation
 has MessageType => (
     is          => 'ro',
     isa         => 'Str',
-    required    => 1,
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'envelope' },
 );

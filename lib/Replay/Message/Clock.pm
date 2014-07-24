@@ -1,7 +1,7 @@
 package Replay::Message::Clock;
 
 use Moose;
-
+extends ('Replay::Message');
 our $VERSION = '0.01';
 
 has epoch   => (is => 'ro', isa => 'Int', required => 1);

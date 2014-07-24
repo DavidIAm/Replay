@@ -6,7 +6,7 @@ use Data::UUID;
 
 has Message => (
     is          => 'ro',
-    isa         => 'Str',
+    isa         => 'Str|HashRef',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'envelope' },
 );
