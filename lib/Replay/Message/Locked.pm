@@ -5,6 +5,7 @@ extends ('Replay::Message');
 
 has '+MessageType' => ( default => 'Locked' );
 has '+Message' => ( isa => 'IdKey', coerce => 1);
+
 =head1 NAME
 
 Replay::Message::Locked - signal that a state has been locked

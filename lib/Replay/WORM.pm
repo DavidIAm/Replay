@@ -70,7 +70,7 @@ sub log {
 
 sub path {
         my $self = shift;
-        File::Spec->catfile($self->directory, $self->timeblock);
+        File::Spec->catfile($self->directory, $self->timeblock . '-' . $self->eventSystem->config->{stage});
 }
 
 sub filehandle {
