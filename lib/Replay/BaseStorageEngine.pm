@@ -118,17 +118,24 @@ sub fetchTransitionalState {
     return unless defined $cubby;
 
     # drop the checkout if we don't have any items to reduce
-    unless (scalar @{$cubby->{desktop}||[]}) {
-				warn "Reverting because we didn't check out any work to do?\n";
-				use Data::Dumper;
-				warn Dumper $cubby;
+    unless (scalar @{ $cubby->{desktop} || [] }) {
+        warn "Reverting because we didn't check out any work to do?\n";
         $self->revert($idkey, $uuid);
         return;
     }
 
     # merge in canonical, moving atoms from desktop
-    my $reducing
-        = $self->merge($idkey, $cubby->{desktop}, $cubby->{canonical} || []);
+    my $reducing;
+    try {
+        my $reducing
+            = $self->merge($idkey, $cubby->{desktop}, $cubby->{canonical} || []);
+    }
+    catch {
+        warn "Reverting because doing the merge caused an exception\n";
+				use Data::Dumper;
+        warn Dumper $self->revert($idkey, $uuid);
+        return;
+    }
 
     # notify interested parties
     $self->eventSystem->control->emit(

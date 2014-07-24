@@ -157,26 +157,31 @@ is_deeply $replay->storageEngine->windowAll(
     { a => [15], c => [40] }, "windowall returns all";
 
 
-my $idkey = Replay::IdKey->new( { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' });
+my $idkey = Replay::IdKey->new( { name => 'TESTRULE', version => 1, window => 'alltime', key => 'x' });
 
-print Dumper $replay->storageEngine->engine->collection($idkey)->update({ idkey => $idkey->cubby },{'$set' => { locked => 'notreallylocked', lockExpireEpoch => time - 50000} },
+# Manually set up an expired record
+$replay->storageEngine->engine->collection($idkey)->update({ idkey => $idkey->cubby },{'$set' => { locked => 'notreallylocked', lockExpireEpoch => time - 50000} },
         { upsert => 0, multiple => 0 },
 );
 
-
 warn "TRY TO CHECK OUT WHEN EXPIRED";
 my ($uuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
+ok $uuid, "able to check out block";
+
 warn "UUID IS $uuid";
 warn "Try to revert after checkout";
-print Dumper $replay->storageEngine->engine->revert($idkey, $uuid);
+ok $replay->storageEngine->engine->revert($idkey, $uuid), "Able to revert";
 
 warn "open checkout";
 my ($buuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
 warn "GOOD OPEN" if $buuid;
-exit unless $buuid;
+ok $buuid, 'checkout good';
+
 warn "checkout while already open";
-#my ($cuuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
+my ($cuuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
+ok !$cuuid, 'failed while checkout already proper';
 
 warn "revert with uuid while locked";
 print Dumper $replay->storageEngine->engine->revert($idkey, $buuid);
+
 

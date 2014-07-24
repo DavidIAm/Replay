@@ -51,15 +51,16 @@ sub reduceWrapper {
         $message = $envelope->{Message};
         $idkey   = Replay::IdKey->new($envelope->{Message});
     }
-    my ($signature, $meta, @state)
+    my ($uuid, $meta, @state);
+    try {
+    ($uuid, $meta, @state)
         = $self->storageEngine->fetchTransitionalState($idkey);
-    return unless ($signature && $meta);    # there was nothing to do, apparently
+    return unless ($uuid && $meta);    # there was nothing to do, apparently
     my $emitter = Replay::DelayedEmitter->new(eventSystem => $self->eventSystem,
         %{$meta});
 
-    try {
         if ($self->storageEngine->storeNewCanonicalState(
-                $idkey, $signature, $self->rule($idkey)->reduce($emitter, @state)
+                $idkey, $uuid, $self->rule($idkey)->reduce($emitter, @state)
             )
             )
         {
@@ -69,7 +70,7 @@ sub reduceWrapper {
     catch {
         warn "REDUCING EXCEPTION: $_";
         warn "Reverting because there was a reduce exception\n";
-        $self->storageEngine->revert($idkey, $signature);
+        $self->storageEngine->revert($idkey, $uuid);
         $self->eventSystem->control->emit(
             Replay::Message->new(
                 MessageType => 'ReducerException',
