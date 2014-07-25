@@ -77,7 +77,7 @@ sub filehandle {
         return $self->filehandles->{ $self->timeblock }
             if exists $self->filehandles->{ $self->timeblock }
             && -f $self->filehandles->{ $self->timeblock };
-        umask 0664;
+        umask 6; # not entirely sure why this works
         open $self->filehandles->{ $self->timeblock }, '>>', $self->path
             or confess "Unable to open " . $self->path . " for append";
         return $self->filehandles->{ $self->timeblock };
