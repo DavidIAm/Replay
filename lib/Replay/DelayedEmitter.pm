@@ -5,8 +5,8 @@ use Moose;
 our $VERSION = '0.01';
 
 has eventSystem  => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
-has timeblocks   => (is => 'rw', isa => 'ArrayRef',            required => 1);
-has ruleversions => (is => 'rw', isa => 'ArrayRef',            required => 1);
+has Timeblocks   => (is => 'rw', isa => 'ArrayRef',            required => 1);
+has Ruleversions => (is => 'rw', isa => 'ArrayRef',            required => 1);
 has messagesToSend => (is => 'rw', isa => 'ArrayRef', default => sub { [] });
 
 sub emit {
@@ -22,11 +22,11 @@ sub emit {
 
 		if (blessed $message) {
 	    # augment message with metadata from storage
-    	$message->timeblocks($self->timeblocks);
-    	$message->ruleversions($self->ruleversions);
+    	$message->Timeblocks($self->Timeblocks);
+    	$message->Ruleversions($self->Ruleversions);
 		} else {
-    	$message->{timeblocks} = $self->timeblocks;
-    	$message->{ruleversions} = $self->ruleversions;
+    	$message->{Timeblocks} = $self->Timeblocks;
+    	$message->{Ruleversions} = $self->Ruleversions;
 		}
     push @{ $self->messagesToSend }, sub { $self->eventSystem->emit( $channel , $message ) };
     return 1;
@@ -51,8 +51,8 @@ my ($self, $state, $meta) = @_;
 
 my $emitter = new Replay::DelayedEmitter(
     eventSystem  => $es,
-    timeblocks   => $stateMeta->{timeblocks},
-    ruleversions => $stateMeta->{ruleversions},
+    Timeblocks   => $stateMeta->{Timeblocks},
+    Ruleversions => $stateMeta->{Ruleversions},
 );
 
 $emitter->emit('origin',  "new data");

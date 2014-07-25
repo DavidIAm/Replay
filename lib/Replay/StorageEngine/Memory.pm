@@ -22,21 +22,21 @@ override absorb => sub {
     my $state = $store->{ $idkey->collection }{ $idkey->cubby }
         ||= $self->new_document($idkey);
 
-    # unique list of windows
-    $state->{windows} = [
-        keys %{ { map { $_ => 1 } @{ $state->{windows} }, $idkey->window } } ];
+    # unique list of Windows
+    $state->{Windows} = [
+        keys %{ { map { $_ => 1 } @{ $state->{Windows} }, $idkey->window } } ];
 
-    # unique list of timeblocks
-    $state->{timeblocks} = [
-        keys %{ { map { $_ => 1 } grep { $_ } @{ $state->{timeblocks} }, $meta->{timeblock} } } ];
+    # unique list of Timeblocks
+    $state->{Timeblocks} = [
+        keys %{ { map { $_ => 1 } grep { $_ } @{ $state->{Timeblocks} }, $meta->{timeblock} } } ];
 
-    # unique list of ruleversions
-    $state->{ruleversions} = [
+    # unique list of Ruleversions
+    $state->{Ruleversions} = [
         values %{
             {   map {
                     my $m = $_;
                     join('+', map { $_ . '-' . $m->{$_} } sort keys %{$m}) => $m;
-                } (@{ $state->{ruleversions} }, $meta->{ruleversion})
+                } (@{ $state->{Ruleversions} }, $meta->{ruleversion})
             }
         }
     ];
@@ -208,8 +208,8 @@ STATE DOCUMENT GENERAL TO STORAGE ENGINE
 inbox: [ Array of Atoms ] - freshly arrived atoms are stored here.
 canonical: [ Array of Atoms ] - the current reduced 
 canonSignature: "SIGNATURE" - a sanity check to see if this canonical has been mucked with
-timeblocks: [ Array of input timeblock names ]
-ruleversions: [ Array of objects like { name: <rulename>, version: <ruleversion> } ]
+Timeblocks: [ Array of input timeblock names ]
+Ruleversions: [ Array of objects like { name: <rulename>, version: <ruleversion> } ]
 
 STATE DOCUMENT SPECIFIC TO THIS IMPLIMENTATION
 

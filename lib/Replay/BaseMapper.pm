@@ -56,11 +56,11 @@ sub map {
                     }
                 ),
                 $atom,
-                {   timeblocks      => $message->{timeblocks},
-                    domain       => $self->eventSystem->domain,
-                    ruleversions => [
+                {   Timeblocks      => $message->{Timeblocks},
+                    Domain       => $self->eventSystem->domain,
+                    Ruleversions => [
                         { rule => $rule->name, version => $rule->version },
-                        @{ $message->{ruleversions} || [] }
+                        @{ $message->{Ruleversions} || [] }
                     ]
                 }
                 );
@@ -100,9 +100,9 @@ get the version by calling the ->version(message) subrule
 
 sets the domain operating in from the event system
 
-adds to the set of timeblocks as relevant
+adds to the set of Timeblocks as relevant
 
-adds to the set of ruleversions as relevant
+adds to the set of Ruleversions as relevant
 
 =head2 BUILD
 

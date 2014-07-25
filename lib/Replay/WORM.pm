@@ -25,13 +25,13 @@ sub BUILD {
             my $timeblock = $self->log($message);
             warn "Not a reference $message" unless ref $message;
             if (blessed $message && $message->isa('Replay::Message')) {
-                push @{ $message->timeblocks }, $self->timeblock;
+                push @{ $message->Timeblocks }, $self->timeblock;
                 $message->ReceivedTime(+gettimeofday);
                 $message->UUID($self->newUuid) unless $message->uuid;
             }
             else {
                 try {
-                    push @{ $message->{timeblocks} }, $self->timeblock;
+                    push @{ $message->{Timeblocks} }, $self->timeblock;
                     $message->{ReceivedTime} = gettimeofday;
                     $message->{UUID} ||= $self->newUuid;
                 }

@@ -70,7 +70,7 @@ ok $tr->window($nowindowmessage), 'alltime';
 ok $tr->window($windowmessage),   'sometime';
 
 my $funMessage
-    = { a => [ 5, 1, 2, 3, 4 ], is_interesting => 1, messageType => 'adhoc' };
+    = { a => [ 5, 1, 2, 3, 4 ], is_interesting => 1, MessageType => 'adhoc' };
 my $notAfterAll = { b => [ 1, 2, 3, 4, 5, 6 ] };
 my $secondMessage = { c => [ 6, 7, 8, 9, 10 ], is_interesting => 1,
     MessageType => 'adhoc' };
@@ -83,22 +83,28 @@ is_deeply [ $tr->keyValueSet({ b => [ 1, 2, 3, 4 ] }) ],
 
 my $replay = Replay->new(
     config => {
-        QueueClass  => 'Replay::EventSystem::Null',
+        QueueClass  => 'Replay::EventSystem::AWSQueue',
         StorageMode => 'Mongo',
-        timeout     => 5,
-				stage => 'testscript-'.$ENV{USER},
+        timeout     => 20,
+        stage       => 'testscript-03-' . $ENV{USER},
+  awsIdentity => {
+    access => 'AKIAJUZLBY2RIDB6LSJA',
+    secret => '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',
     },
+  snsService => 'https://sns.us-east-1.amazonaws.com',
+  sqsService => 'https://sqs.us-east-1.amazonaws.com',
+	},
     rules => [ new TESTRULE ]
 );
-my $ourtestkey = Replay::IdKey->new( { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' });
-print Dumper $replay->storageEngine->engine->collection($ourtestkey)->remove({});
+my $ourtestkey = Replay::IdKey->new(
+    { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' });
+print Dumper $replay->storageEngine->engine->collection($ourtestkey)
+    ->remove({});
 
 $replay->worm;
 $replay->reducer;
 $replay->mapper;
 
-$replay->eventSystem->derived->emit($funMessage);
-$replay->eventSystem->derived->emit($secondMessage);
 
 is_deeply [
     $replay->storageEngine->fetchCanonicalState(
@@ -116,29 +122,50 @@ $replay->eventSystem->origin->subscribe(
     sub {
         my ($message) = @_;
 
-        #warn "This is a origin message of type ".$message->{messageType}."\n";
+        warn "This is a origin message of type ".$message->{MessageType}."\n";
     }
 );
 $replay->eventSystem->derived->subscribe(
     sub {
         my ($message) = @_;
 
-        #warn "This is a derived message of type ".$message->{messageType}."\n";
+        warn "This is a derived message of type ".$message->{MessageType}."\n";
     }
 );
 $replay->eventSystem->control->subscribe(
     sub {
         my ($message) = @_;
 
-        #warn "This is a control message of type ".$message->{messageType}."\n";
+        warn "This is a control message of type ".$message->{MessageType}."\n";
         return                     unless blessed $message;
         return                     unless $message->MessageType eq 'NewCanonical';
         $replay->eventSystem->stop unless ++$canoncount;
     }
 );
 
+
+
 my $time = gettimeofday;
+warn "Running";
+use AnyEvent;
+     AnyEvent->timer(
+after    => 0.25,
+interval => 0.25,
+cb       => sub {
+	warn "TICK\n";
+});
+
+ AnyEvent->timer(
+after    => 5,
+cb       => sub {
+warn "EMITTING";
+
+$replay->eventSystem->derived->emit($funMessage);
+$replay->eventSystem->derived->emit($secondMessage);
+			}
+		);
 $replay->eventSystem->run;
+
 
 is_deeply [
     $replay->storageEngine->fetchCanonicalState(
@@ -156,12 +183,15 @@ is_deeply $replay->storageEngine->windowAll(
     ),
     { a => [15], c => [40] }, "windowall returns all";
 
-
-my $idkey = Replay::IdKey->new( { name => 'TESTRULE', version => 1, window => 'alltime', key => 'x' });
+my $idkey = Replay::IdKey->new(
+    { name => 'TESTRULE', version => 1, window => 'alltime', key => 'x' });
 
 # Manually set up an expired record
-$replay->storageEngine->engine->collection($idkey)->insert({ idkey => $idkey->cubby },{'$set' => { locked => 'notreallylocked', lockExpireEpoch => time - 50000} },
-        { upsert => 0, multiple => 0 },
+$replay->storageEngine->engine->collection($idkey)->insert(
+    { idkey => $idkey->cubby },
+    {   '$set' => { locked => 'notreallylocked', lockExpireEpoch => time - 50000 }
+    },
+    { upsert => 0, multiple => 0 },
 );
 
 my ($uuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
@@ -176,5 +206,4 @@ my ($cuuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
 ok !$cuuid, 'failed while checkout already proper';
 
 ok $replay->storageEngine->engine->revert($idkey, $buuid), "revert clean";
-
 

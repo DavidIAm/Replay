@@ -37,9 +37,9 @@ sub deliver {
     my $state = $self->storageEngine->retrieve($idKey);
     return $self->reportEngine->newReportVersion(
         report => $self->ruleSource->byIdKey($idKey)->delivery($state->{canonical}),
-        ruleversions => $state->ruleversions,
-        timeblocks   => $state->timeblocks,
-        windows      => $state->windows,
+        Ruleversions => $state->Ruleversions,
+        Timeblocks   => $state->Timeblocks,
+        Windows      => $state->Windows,
     );
 }
 
@@ -49,10 +49,10 @@ sub summarize {
     $self->reportEngine->newSummary(
         $self->ruleSource->byIdKey($idKey)->summary(
             reports => $reports,
-            ruleversions =>
-                Replay::Meta::union(map { $_->ruleversions } values %{$reports}),
-            timeblocks => Replay::Meta::union(map { $_->timeblocks } values %{$reports}),
-            windows    => Replay::Meta::union(map { $_->windows } values %{$reports}),
+            Ruleversions =>
+                Replay::Meta::union(map { $_->Ruleversions } values %{$reports}),
+            Timeblocks => Replay::Meta::union(map { $_->Timeblocks } values %{$reports}),
+            Windows    => Replay::Meta::union(map { $_->Windows } values %{$reports}),
         )
     );
 }

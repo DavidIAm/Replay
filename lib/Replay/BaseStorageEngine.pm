@@ -18,6 +18,7 @@ use Replay::Message::Locked;
 use Replay::Message::Unlocked;
 use Replay::Message::WindowAll;
 use Storable qw/freeze/;
+use Try::Tiny;
 $Storable::canonical = 1;
 
 Readonly my $READONLY => 1;
@@ -39,8 +40,10 @@ sub rule {
 # merge a list of atoms with the existing list in that slot
 sub merge {
     my ($self, $idkey, $alpha, $beta) = @_;
+		warn "MERGE";
     my @sorted = sort { $self->rule($idkey)->compare($a, $b) } @{$alpha},
         @{$beta};
+		warn "ENDMERGE";
     return [@sorted];
 }
 
@@ -127,15 +130,15 @@ sub fetchTransitionalState {
     # merge in canonical, moving atoms from desktop
     my $reducing;
     try {
-        my $reducing
+        $reducing
             = $self->merge($idkey, $cubby->{desktop}, $cubby->{canonical} || []);
     }
     catch {
-        warn "Reverting because doing the merge caused an exception\n";
+        warn "Reverting because doing the merge caused an exception $_\n";
 				use Data::Dumper;
         warn Dumper $self->revert($idkey, $uuid);
         return;
-    }
+    };
 
     # notify interested parties
     $self->eventSystem->control->emit(
@@ -143,9 +146,9 @@ sub fetchTransitionalState {
 
     # return uuid and list
     return $uuid => {
-        windows      => $idkey->window,
-        timeblocks   => $cubby->{timeblocks} || [],
-        ruleversions => $cubby->{ruleversions} || [],
+        Windows      => $idkey->window,
+        Timeblocks   => $cubby->{Timeblocks} || [],
+        Ruleversions => $cubby->{Ruleversions} || [],
     } => @{$reducing};
 
 }
@@ -199,9 +202,9 @@ sub new_document {
     my ($self, $idkey) = @_;
     return {
         idkey        => { $idkey->hashList },
-        windows      => [],
-        timeblocks   => [],
-        ruleversions => [],
+        Windows      => [],
+        Timeblocks   => [],
+        Ruleversions => [],
     };
 }
 
@@ -291,9 +294,9 @@ This includes all the components of the document model and is usually used inter
 
 This is expected to be something like:
 
-{ timeblocks => [ ... ]
-, ruleversions => [ { ...  }, { ... }, ... ]
-, windows => [ ... ]
+{ Timeblocks => [ ... ]
+, Ruleversions => [ { ...  }, { ... }, ... ]
+, Windows => [ ... ]
 , inbox => [ <unprocessed atoms> ]
 , desktop => [ <atoms in processing ]
 , canonical => [ a
@@ -306,9 +309,9 @@ This is expected to be something like:
 Insert a new atom into the indicated state, with metadata
 
 append the new atom atomically to the 'inbox' in the state document referenced
-ensure the meta->{windows} member are in the 'windows' set in the state document referenced
-ensure the meta->{ruleversions} members are in the 'ruleversions' set in the state document referenced
-ensure the meta->{timeblocks} members are in the 'timeblocks' set in the state document referenced
+ensure the meta->{Windows} member are in the 'Windows' set in the state document referenced
+ensure the meta->{Ruleversions} members are in the 'Ruleversions' set in the state document referenced
+ensure the meta->{Timeblocks} members are in the 'Timeblocks' set in the state document referenced
 
 
 =head2 (uuid, state) = checkout ( idkey, timeout )
@@ -370,7 +373,7 @@ A possible interface that lets a consumer get a list of keys within a window
 
 not yet implimented
 
-A possible interface that lets a consumer get a list of windows within a domain rule version
+A possible interface that lets a consumer get a list of Windows within a domain rule version
 
 =head2 merge($idkey, $alpha, $beta)
 

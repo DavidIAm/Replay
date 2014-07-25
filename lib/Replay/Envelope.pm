@@ -65,7 +65,8 @@ has UUID => (
 
 sub marshall {
     my $self     = shift;
-    my $envelope = {Messsage    => $self,
+    my $envelope = {
+        Messsage    => $self,
         MessageType => $self->MessageType,
         UUID        => $self->UUID,
         ($self->has_program        ? (Program        => $self->Program)       : ()),
@@ -74,9 +75,12 @@ sub marshall {
         ($self->has_effective_time ? (Effective_time => $self->EffectiveTime) : ()),
         ($self->has_created_time   ? (Created_time   => $self->CreatedTime)   : ()),
         ($self->has_received_time  ? (Received_time  => $self->ReceivedTime)  : ()),
+        ($self->has_timeblocks     ? (Timeblocks     => $self->Timeblocks)    : ()),
+        ($self->has_ruleversions   ? (Ruleversions   => $self->Ruleversions)  : ()),
+        ($self->has_windows        ? (Windows        => $self->Windows)       : ()),
     };
-    return $envelope; 
-    
+    return $envelope;
+
 }
 
 sub _now {
@@ -90,9 +94,27 @@ sub _build_uuid {
     return $ug->to_string($ug->create());
 }
 
-has Timeblocks => ( is => 'ro', isa => 'ArrayRef', );
-has Ruleversions => ( is => 'ro', isa => 'ArrayRef[HashRef]', );
-has Windows => ( is => 'ro', isa => 'ArrayRef[Str]', );
+has Timeblocks => (
+    is          => 'ro',
+    isa         => 'ArrayRef',
+    predicate   => 'has_timeblocks',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'envelope' },
+);
+has Ruleversions => (
+    is          => 'ro',
+    isa         => 'ArrayRef[HashRef]',
+    predicate   => 'has_ruleversions',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'envelope' },
+);
+has Windows => (
+    is          => 'ro',
+    isa         => 'ArrayRef[Str]',
+    predicate   => 'has_windows',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'envelope' },
+);
 
 =head1 NAME
 
@@ -111,9 +133,9 @@ This is a message data type envelop used for most messages on the derived channe
 effectiveTime - the time this event refers to
 receivedTime - the time the message entered the system
 createdTime - the time the message was created originally
-timeblocks - an array of the time block identifiers related to this message state
-ruleversions - an array of { name:, version: } objects related to this message state
-windows - an array of window identifiers related to this message state
+Timeblocks - an array of the time block identifiers related to this message state
+Ruleversions - an array of { name:, version: } objects related to this message state
+Windows - an array of window identifiers related to this message state
 
 ...
 
@@ -204,5 +226,4 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 =cut
 
 1;
-
 

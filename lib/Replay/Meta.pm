@@ -13,9 +13,9 @@ use Digest::MD5 qw/md5_hex/;
 use Storable qw/freeze/;
 $Storable::canonical = 1;
 
-has windows => (is => 'ro', isa => 'ArrayRef', required => 1,);
-has ruleversions => (is => 'ro', isa => 'ArrayRef[HashRef]', required => 1,);
-has timeblocks => (is => 'ro', isa => 'ArrayRef', required => 1,);
+has Windows => (is => 'ro', isa => 'ArrayRef', required => 1,);
+has Ruleversions => (is => 'ro', isa => 'ArrayRef[HashRef]', required => 1,);
+has Timeblocks => (is => 'ro', isa => 'ArrayRef', required => 1,);
 
 # static method
 sub union {

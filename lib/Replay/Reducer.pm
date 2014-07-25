@@ -19,6 +19,8 @@ sub BUILD {
     my $self = shift;
     $self->eventSystem->control->subscribe(
         sub {
+					use Data::Dumper;
+					warn "GOT A MESSAGE". Dumper @_;
             $self->reduceWrapper(@_);
         }
     );

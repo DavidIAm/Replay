@@ -38,9 +38,9 @@ override absorb => sub {
         { idkey => $idkey->cubby },
         {   '$push'     => { inbox => $atom },
             '$addToSet' => {
-                windows      => $idkey->window,
-                timeblocks   => { '$each' => $meta->{timeblocks} || [] },
-                ruleversions => { '$each' => $meta->{ruleversions} || [] },
+                Windows      => $idkey->window,
+                Timeblocks   => { '$each' => $meta->{Timeblocks} || [] },
+                Ruleversions => { '$each' => $meta->{Ruleversions} || [] },
             },
             '$setOnInsert' => { idkey => $idkey->cubby, IdKey => $idkey->pack }
         },
@@ -501,8 +501,8 @@ STATE DOCUMENT GENERAL TO STORAGE ENGINE
 inbox: [ Array of Atoms ] - freshly arrived atoms are stored here.
 canonical: [ Array of Atoms ] - the current reduced 
 canonSignature: "SIGNATURE" - a sanity check to see if this canonical has been mucked with
-timeblocks: [ Array of input timeblock names ]
-ruleversions: [ Array of objects like { name: <rulename>, version: <ruleversion> } ]
+Timeblocks: [ Array of input timeblock names ]
+Ruleversions: [ Array of objects like { name: <rulename>, version: <ruleversion> } ]
 
 STATE DOCUMENT SPECIFIC TO THIS IMPLIMENTATION
 

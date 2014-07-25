@@ -157,9 +157,9 @@ This includes all the components of the document model and is usually used inter
 
 This is expected to be something like:
 
-{ timeblocks => [ ... ]
-, ruleversions => [ { ...  }, { ... }, ... ]
-, windows => [ ... ]
+{ Timeblocks => [ ... ]
+, Ruleversions => [ { ...  }, { ... }, ... ]
+, Windows => [ ... ]
 , inbox => [ <unprocessed atoms> ]
 , desktop => [ <atoms in processing ]
 , canonical => [ a
@@ -175,9 +175,9 @@ absorb a new atom into the storage system.
 call engine absorb
 
 append the new atom atomically to the 'inbox' in the state document referenced
-ensure the meta->{windows} member are in the 'windows' set in the state document referenced
-ensure the meta->{ruleversions} members are in the 'ruleversions' set in the state document referenced
-ensure the meta->{timeblocks} members are in the 'timeblocks' set in the state document referenced
+ensure the meta->{Windows} member are in the 'Windows' set in the state document referenced
+ensure the meta->{Ruleversions} members are in the 'Ruleversions' set in the state document referenced
+ensure the meta->{Timeblocks} members are in the 'Timeblocks' set in the state document referenced
 
 =head2 (@state) = fetchCanonicalState(idkey)
 
@@ -328,8 +328,8 @@ STATE DOCUMENT GENERAL TO STORAGE ENGINE
 inbox: [ Array of Atoms ] - freshly arrived atoms are stored here.
 canonical: [ Array of Atoms ] - the current reduced 
 canonSignature: "SIGNATURE" - a sanity check to see if this canonical has been mucked with
-timeblocks: [ Array of input timeblock names ]
-ruleversions: [ Array of objects like { name: <rulename>, version: <ruleversion> } ]
+Timeblocks: [ Array of input timeblock names ]
+Ruleversions: [ Array of objects like { name: <rulename>, version: <ruleversion> } ]
 
 STATE DOCUMENT SPECIFIC TO THIS IMPLIMENTATION
 
