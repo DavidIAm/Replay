@@ -46,6 +46,7 @@ use Replay;
 use Time::HiRes qw/gettimeofday/;
 use Test::Most tests => 10;
 use Config::Locale;
+use Scalar::Util qw/blessed/;
 use JSON;
 
 # test the event transition interface
@@ -98,7 +99,7 @@ my $replay = Replay->new(
 );
 my $ourtestkey = Replay::IdKey->new(
     { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' });
-print Dumper $replay->storageEngine->engine->collection($ourtestkey)
+warn Dumper $replay->storageEngine->engine->collection($ourtestkey)
     ->remove({});
 
 $replay->worm;
@@ -148,14 +149,14 @@ $replay->eventSystem->control->subscribe(
 my $time = gettimeofday;
 warn "Running";
 use AnyEvent;
-     AnyEvent->timer(
+my $d =    AnyEvent->timer(
 after    => 0.25,
 interval => 0.25,
 cb       => sub {
 	warn "TICK\n";
 });
 
- AnyEvent->timer(
+my $e =AnyEvent->timer(
 after    => 5,
 cb       => sub {
 warn "EMITTING";
@@ -206,4 +207,20 @@ my ($cuuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
 ok !$cuuid, 'failed while checkout already proper';
 
 ok $replay->storageEngine->engine->revert($idkey, $buuid), "revert clean";
+
+my ($uuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
+ok $uuid, "checked out for error cause";
+
+my $r = $replay->storageEngine->engine->collection($idkey)->update(
+    { idkey => $idkey->cubby },
+    {   '$unset' => { lockExpireEpoch => 1 },
+    },
+    { upsert => 0, multiple => 0 },
+);
+
+ok $r->{n}, "The update was successful";
+
+my ($uuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
+
+ok $uuid, "Was able to check it out again";
 

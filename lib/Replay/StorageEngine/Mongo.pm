@@ -4,6 +4,7 @@ use Moose;
 use MongoDB;
 use MongoDB::OID;
 use Data::UUID;
+use Replay::IdKey;
 use Readonly;
 use JSON;
 
@@ -175,9 +176,10 @@ override checkout => sub {
     my $expireRelock = $self->relockExpired($idkey, $unlsignature, $timeout);
 
     # If it didn't relock, give up.  Its locked by somebody else.
-    warn "Unable to obtain lock because the current one is locked and unexpired\n"
-        unless defined $expireRelock;
-    return unless defined $expireRelock;
+    unless (defined $expireRelock) {
+    warn "Unable to obtain lock because the current one is locked and unexpired\n";
+    return
+	}
 
     # Oh my, we did. Well then, we should...
     $self->revertThisRecord($idkey, $unlsignature, $expireRelock);
@@ -190,7 +192,7 @@ override checkout => sub {
     my $relockresult
         = $self->relock($idkey, $unlsignature, $newsignature, $timeout);
 
-    warn "Unable to relock after revert? " . $idkey->checkstring . "\n"
+    warn "Unable to relock after revert ($unlsignature)? " . $idkey->checkstring . "\n"
         unless defined $relockresult;
     use Data::Dumper;
     warn Dumper $self->collection($idkey)->find({ idkey => $idkey->cubby })->all

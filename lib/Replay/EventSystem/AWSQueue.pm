@@ -57,6 +57,7 @@ has queueName =>
 
 sub emit {
     my ($self, $message) = @_;
+warn "TRYING TO EMIT $message";
     $message = $message->stringify
         if blessed $message && $message->can('stringify');
     $message = $message->freeze if blessed $message && $message->can('freeze');
@@ -109,6 +110,7 @@ sub _receive {
     my ($self) = @_;
     my @messages = $self->queue->ReceiveMessageBatch;
     return unless scalar @messages;
+warn "WE HAVE RECIEVED MESSAGES: @messages";;
     $self->_acknowledge(@messages);
     my @payloads;
     foreach (@messages) {

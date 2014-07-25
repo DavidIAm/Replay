@@ -3,6 +3,7 @@ package Replay::Reducer;
 use Moose;
 use Scalar::Util;
 use Replay::DelayedEmitter;
+use Replay::IdKey;
 use Replay::Message;
 use Scalar::Util qw/blessed/;
 
@@ -19,8 +20,6 @@ sub BUILD {
     my $self = shift;
     $self->eventSystem->control->subscribe(
         sub {
-					use Data::Dumper;
-					warn "GOT A MESSAGE". Dumper @_;
             $self->reduceWrapper(@_);
         }
     );
@@ -50,18 +49,23 @@ sub reduceWrapper {
         );
     }
     else {
-        
+
         $message = $envelope->{Message};
         $idkey   = Replay::IdKey->new($message);
-        
+
     }
+		use Data::Dumper;
+		warn "\n\nIDKEY: ".Dumper($idkey)."\n\n";
+		warn "\n\nMESSAGE: ".Dumper($message)."\n\n";
     my ($uuid, $meta, @state);
     try {
-    ($uuid, $meta, @state)
-        = $self->storageEngine->fetchTransitionalState($idkey);
-    return unless ($uuid && $meta);    # there was nothing to do, apparently
-    my $emitter = Replay::DelayedEmitter->new(eventSystem => $self->eventSystem,
-        %{$meta});
+			warn "\n\nGOING TO FETCH\n";
+        ($uuid, $meta, @state) = $self->storageEngine->fetchTransitionalState($idkey);
+			warn "\n\nGOT THE STATE ($uuid)\n";
+        return unless ($uuid && $meta);    # there was nothing to do, apparently
+        my $emitter = Replay::DelayedEmitter->new(eventSystem => $self->eventSystem,
+            %{$meta});
+					warn "\n\nGOT EMITTER, GOING TO REDUCE (rule is ".$self->rule($idkey) .")\n";
 
         if ($self->storageEngine->storeNewCanonicalState(
                 $idkey, $uuid, $self->rule($idkey)->reduce($emitter, @state)

@@ -177,4 +177,20 @@ ok !$cuuid, 'failed while checkout already proper';
 
 ok $replay->storageEngine->engine->revert($idkey, $buuid), "revert clean";
 
+my ($uuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
+ok $uuid, "checked out for error cause";
+
+my $r = $replay->storageEngine->engine->collection($idkey)->update(
+    { idkey => $idkey->cubby },
+    {   '$unset' => { lockExpireEpoch => 1 },
+    },
+    { upsert => 0, multiple => 0 },
+);
+
+ok $r->{n}, "The update was successful";
+
+my ($uuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
+
+ok $uuid, "Was able to check it out again";
+
 

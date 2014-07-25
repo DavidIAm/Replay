@@ -1,6 +1,7 @@
 package Replay::BaseMapper;
 
 use Moose;
+use Replay::IdKey;
 
 our $VERSION = '0.01';
 

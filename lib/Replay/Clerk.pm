@@ -6,6 +6,7 @@ our $VERSION = '0.01';
 
 use POSIX qw/strftime/;
 use File::Spec qw//;
+use Replay::IdKey;
 use Replay::Meta;
 use Scalar::Util qw/blessed/;
 use Try::Tiny;

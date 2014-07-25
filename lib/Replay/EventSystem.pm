@@ -91,7 +91,6 @@ sub run {
         after    => 0,
         interval => 0.1,
         cb       => sub {
-					warn "poll";
             $self->poll();
         }
     );
