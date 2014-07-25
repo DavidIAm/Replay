@@ -48,8 +48,10 @@ sub reduceWrapper {
         );
     }
     else {
+        
         $message = $envelope->{Message};
-        $idkey   = Replay::IdKey->new($envelope->{Message});
+        $idkey   = Replay::IdKey->new($message);
+        
     }
     my ($uuid, $meta, @state);
     try {
