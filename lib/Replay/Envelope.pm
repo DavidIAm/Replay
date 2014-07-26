@@ -95,21 +95,21 @@ sub _build_uuid {
 }
 
 has Timeblocks => (
-    is          => 'ro',
+    is          => 'rw',
     isa         => 'ArrayRef',
     predicate   => 'has_timeblocks',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'envelope' },
 );
 has Ruleversions => (
-    is          => 'ro',
+    is          => 'rw',
     isa         => 'ArrayRef[HashRef]',
     predicate   => 'has_ruleversions',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'envelope' },
 );
 has Windows => (
-    is          => 'ro',
+    is          => 'rw',
     isa         => 'ArrayRef[Str]',
     predicate   => 'has_windows',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
