@@ -1,4 +1,4 @@
-package Replay::BaseStorageEngine;
+package Replay::BaseReportEngine;
 
 use Readonly;
 use Replay::IdKey;
@@ -38,60 +38,51 @@ sub rule {
 }
 
 # merge a list of atoms with the existing list in that slot
-sub merge {
-    my ($self, $idkey, $alpha, $beta) = @_;
-    warn "MERGE";
-    my @sorted = sort { $self->rule($idkey)->compare($a, $b) } @{$alpha},
-        @{$beta};
-    warn "ENDMERGE";
-    return [@sorted];
-}
-
-sub checkout {
+sub delivery {
     my ($self, $idkey) = @_;
     $self->eventSystem->control->emit(
-        Replay::Message::Locked->new(Message => { $idkey->hashList }));
+        Replay::Message::Report::NewDelivery->new(Message => { $idkey->hashList }));
 }
 
-sub checkin {
+sub summary {
     my ($self, $idkey) = @_;
     $self->eventSystem->control->emit(
-        Replay::Message::Unlocked->new(Message => { $idkey->hashList }));
+        Replay::Message::Report::NewSummary->new(Message => { $idkey->hashList }));
 }
 
-sub revert {
+sub globsummary {
     my ($self, $idkey) = @_;
     $self->eventSystem->control->emit(
-        Replay::Message::Reverted->new(Message => { $idkey->hashList }));
+        Replay::Message::Report::NewGlobSummary->new(Message => { $idkey->hashList }));
 }
 
-sub retrieve {
+sub freeze {
     my ($self, $idkey) = @_;
     $self->eventSystem->control->emit(
-        Replay::Message::Fetched->new(Message => { $idkey->hashList }));
+        Replay::Message::Report::Freeze->new(Message => { $idkey->hashList }));
 }
 
-sub absorb {
+sub copydomain {
     my ($self, $idkey) = @_;
-    $self->delayToDoOnce(
-        $idkey->hash . 'Reducable',
-        sub {
-            $self->eventSystem->control->emit(
-                Replay::Message::Reducable->new(Message => { $idkey->hashList }));
-        }
-    );
+    $self->eventSystem->control->emit(
+        Replay::Message::Report::CopyDomain->new(Message => { $idkey->hashList }));
+}
+
+sub checkpoint {
+    my ($self, $idkey) = @_;
+		$self->delayToDoOnce( $idkey->hash . 'Reducable', sub {
+	    $self->eventSystem->control->emit(
+        Replay::Message::Report::Checkpoint->new(Message => { $idkey->hashList }));
+		})
 }
 
 sub delayToDoOnce {
-    my ($self, $name, $code) = @_;
-    use AnyEvent;
-    $self->{timers}{$name} = AnyEvent->timer(
-        after => 1,
-        cb    => sub {
-            delete $self->{timers}{$name};
-            $code->();
-        }
-    );
+	my ($self, $name, $code) = @_;
+	use AnyEvent;
+  $self->{timers}{$name} = AnyEvent->timer(after => 1,  cb => sub {
+			delete $self->{timers}{$name};
+			$code->();
+		});
 }
 
 # accessor - given a state, generate a signature
@@ -215,7 +206,7 @@ sub new_document {
 
 =head1 NAME
 
-Replay::BaseStorageEngine - wrappers for the storage engine implimentation
+Replay::BaseReportEngine - wrappers for the storage engine implimentation
 
 =head1 VERSION
 
@@ -235,23 +226,37 @@ This is the base class for the implimentation specific parts of the Replay syste
 
 These methods are used by consumers of the storage class
 
-=head2 success = absorb(idkey, atom, meta)
+=head2 delivery ( idkey, state )
 
-accept a new atom at a location idkey with metadata attached.  no locking
+return the output of the delivery method of the rule indicated with the given state
 
-=head2 statelist = fetchCanonicalState(idkey)
+=head2 summary ( idkey, deliveries )
 
-get the canonical state.  no locking
+return the output of the summary method of the rule indicated with the given delivery reports
 
-=head2 uuid, statelist = fetchTransitionalState(idkey)
+=head2 globsummary ( idkey, summaries )
 
-check out a state for transition.  locks record
+return the output of the globsummary method of the rule indicated with the given summary reports
 
-automatically reverts previous checkout if lock is expired
+=head2 freezeKey ( $idkey )
 
-=head2 success = storeNewCanonicalState(idkey, uuid)
+return the success of the freeze operation on the key level delivery report
 
-check in a state for transition if uuid matches.  unlocks record if success.
+=head2 freezeWindow ( idkey window )
+
+return the success of the freeze operation on the window level delivery report
+
+=head2 freezeGlob ( idkey )
+
+return the success of the freeze operation on the rule level delivery report
+
+=head2 checkpoint ( domain )
+
+freeze and tag everything.  return the checkpoint identifier when complete
+
+=head2 copydomain ( newdomain, oldcheckpoint )
+
+create a new domain starting from an existing checkpoint
 
 =head1 DATA TYPES
 
@@ -496,4 +501,5 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 =cut
 
 1;    # End of Replay
+
 
