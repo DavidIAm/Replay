@@ -44,7 +44,7 @@ use Data::Dumper;
 
 use Replay;
 use Time::HiRes qw/gettimeofday/;
-use Test::Most tests => 10;
+use Test::Most tests => 18;
 use Config::Locale;
 use JSON;
 
@@ -91,7 +91,8 @@ my $replay = Replay->new(
     rules => [ new TESTRULE ]
 );
 my $ourtestkey = Replay::IdKey->new( { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' });
-print Dumper $replay->storageEngine->engine->collection($ourtestkey)->remove({});
+warn "clearing collection ".$ourtestkey->collection." in db ".$replay->storageEngine->engine->dbname()." result is ".
+Dumper $replay->storageEngine->engine->collection($ourtestkey)->remove({});
 
 $replay->worm;
 $replay->reducer;
@@ -116,23 +117,22 @@ $replay->eventSystem->origin->subscribe(
     sub {
         my ($message) = @_;
 
-        #warn "This is a origin message of type ".$message->{messageType}."\n";
+        #warn "This is a origin message of type ".$message->{MessageType}."\n";
     }
 );
 $replay->eventSystem->derived->subscribe(
     sub {
         my ($message) = @_;
 
-        #warn "This is a derived message of type ".$message->{messageType}."\n";
+        #warn "This is a derived message of type ".$message->{MessageType}."\n";
     }
 );
 $replay->eventSystem->control->subscribe(
     sub {
         my ($message) = @_;
 
-        #warn "This is a control message of type ".$message->{messageType}."\n";
-        return                     unless blessed $message;
-        return                     unless $message->MessageType eq 'NewCanonical';
+				#warn "This is a control message of type ".$message->{MessageType}."\n";
+        return                     unless $message->{MessageType} eq 'NewCanonical';
         $replay->eventSystem->stop unless ++$canoncount;
     }
 );
@@ -164,22 +164,31 @@ $replay->storageEngine->engine->collection($idkey)->insert({ idkey => $idkey->cu
         { upsert => 0, multiple => 0 },
 );
 
+{
 my ($uuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
 ok $uuid, "able to check out block";
 
 ok $replay->storageEngine->engine->revert($idkey, $uuid), "Able to revert";
+}
 
+{
 my ($buuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
 ok $buuid, 'checkout good';
 
+{
 my ($cuuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
 ok !$cuuid, 'failed while checkout already proper';
+}
 
 ok $replay->storageEngine->engine->revert($idkey, $buuid), "revert clean";
+}
 
+{
 my ($uuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
 ok $uuid, "checked out for error cause";
+}
 
+{
 my $r = $replay->storageEngine->engine->collection($idkey)->update(
     { idkey => $idkey->cubby },
     {   '$unset' => { lockExpireEpoch => 1 },
@@ -188,9 +197,12 @@ my $r = $replay->storageEngine->engine->collection($idkey)->update(
 );
 
 ok $r->{n}, "The update was successful";
+}
 
+{
 my ($uuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
 
 ok $uuid, "Was able to check it out again";
+}
 
 

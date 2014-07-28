@@ -5,6 +5,7 @@ package Replay::EventSystem::Null;
 # memory.  Good enough for testing functionality without a dependency on
 # a queing solution like RabbitMQ, ZeroMQ, AWS SNS/SQS, or anything like that
 
+use Scalar::Util qw/blessed/;
 use Moose;
 with 'Replay::EventSystem::Base';
 
@@ -25,6 +26,7 @@ sub poll {
 
 sub emit {
     my ($self, $message) = @_;
+    return push @{ $self->{events} }, $message->pack if blessed $message;
     push @{ $self->{events} }, $message;
 }
 

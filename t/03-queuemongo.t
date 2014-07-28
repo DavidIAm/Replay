@@ -44,9 +44,8 @@ use Data::Dumper;
 
 use Replay;
 use Time::HiRes qw/gettimeofday/;
-use Test::Most tests => 10;
+use Test::Most tests => 18;
 use Config::Locale;
-use Scalar::Util qw/blessed/;
 use JSON;
 
 # test the event transition interface
@@ -86,26 +85,25 @@ my $replay = Replay->new(
     config => {
         QueueClass  => 'Replay::EventSystem::AWSQueue',
         StorageMode => 'Mongo',
-        timeout     => 20,
+        timeout     => 40,
         stage       => 'testscript-03-' . $ENV{USER},
-  awsIdentity => {
-    access => 'AKIAJUZLBY2RIDB6LSJA',
-    secret => '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',
+        awsIdentity => {
+            access => 'AKIAJUZLBY2RIDB6LSJA',
+            secret => '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',
+        },
+        snsService => 'https://sns.us-east-1.amazonaws.com',
+        sqsService => 'https://sqs.us-east-1.amazonaws.com',
     },
-  snsService => 'https://sns.us-east-1.amazonaws.com',
-  sqsService => 'https://sqs.us-east-1.amazonaws.com',
-	},
     rules => [ new TESTRULE ]
 );
 my $ourtestkey = Replay::IdKey->new(
     { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' });
-warn Dumper $replay->storageEngine->engine->collection($ourtestkey)
+warn "REMOVE RESULT" . Dumper $replay->storageEngine->engine->collection($ourtestkey)
     ->remove({});
 
 $replay->worm;
 $replay->reducer;
 $replay->mapper;
-
 
 is_deeply [
     $replay->storageEngine->fetchCanonicalState(
@@ -123,50 +121,38 @@ $replay->eventSystem->origin->subscribe(
     sub {
         my ($message) = @_;
 
-        warn "This is a origin message of type ".$message->{MessageType}."\n";
+        warn __FILE__ . ": This is a origin message of type " . $message->{MessageType} . "\n";
     }
 );
 $replay->eventSystem->derived->subscribe(
     sub {
         my ($message) = @_;
 
-        warn "This is a derived message of type ".$message->{MessageType}."\n";
+        warn __FILE__ . ": This is a derived message of type " . $message->{MessageType} . "\n";
     }
 );
 $replay->eventSystem->control->subscribe(
     sub {
         my ($message) = @_;
 
-        warn "This is a control message of type ".$message->{MessageType}."\n";
-        return                     unless blessed $message;
-        return                     unless $message->MessageType eq 'NewCanonical';
+        warn __FILE__ . ": This is a control message of type " . $message->{MessageType} . "\n";
+        return                     unless $message->{MessageType} eq 'NewCanonical';
         $replay->eventSystem->stop unless ++$canoncount;
     }
 );
 
-
-
 my $time = gettimeofday;
-warn "Running";
 use AnyEvent;
-my $d =    AnyEvent->timer(
-after    => 0.25,
-interval => 0.25,
-cb       => sub {
-	warn "TICK\n";
-});
+my $e = AnyEvent->timer(
+    after => 5,
+    cb    => sub {
+        warn "EMITTING MESSAGES NOW";
 
-my $e =AnyEvent->timer(
-after    => 5,
-cb       => sub {
-warn "EMITTING";
-
-$replay->eventSystem->derived->emit($funMessage);
-$replay->eventSystem->derived->emit($secondMessage);
-			}
-		);
+        $replay->eventSystem->derived->emit($funMessage);
+        $replay->eventSystem->derived->emit($secondMessage);
+    }
+);
 $replay->eventSystem->run;
-
 
 is_deeply [
     $replay->storageEngine->fetchCanonicalState(
@@ -195,32 +181,43 @@ $replay->storageEngine->engine->collection($idkey)->insert(
     { upsert => 0, multiple => 0 },
 );
 
-my ($uuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
-ok $uuid, "able to check out block";
+{
+    my ($uuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
+    ok $uuid, "able to check out block";
 
-ok $replay->storageEngine->engine->revert($idkey, $uuid), "Able to revert";
+    ok $replay->storageEngine->engine->revert($idkey, $uuid), "Able to revert";
+}
 
-my ($buuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
-ok $buuid, 'checkout good';
+{
+    my ($buuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
+    ok $buuid, 'checkout good';
 
-my ($cuuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
-ok !$cuuid, 'failed while checkout already proper';
+    {
+        my ($cuuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
+        ok !$cuuid, 'failed while checkout already proper';
+    }
 
-ok $replay->storageEngine->engine->revert($idkey, $buuid), "revert clean";
+    ok $replay->storageEngine->engine->revert($idkey, $buuid), "revert clean";
+}
 
-my ($uuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
-ok $uuid, "checked out for error cause";
+{
+    my ($uuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
+    ok $uuid, "checked out for error cause";
+}
 
-my $r = $replay->storageEngine->engine->collection($idkey)->update(
-    { idkey => $idkey->cubby },
-    {   '$unset' => { lockExpireEpoch => 1 },
-    },
-    { upsert => 0, multiple => 0 },
-);
+{
+    my $r = $replay->storageEngine->engine->collection($idkey)->update(
+        { idkey    => $idkey->cubby },
+        { '$unset' => { lockExpireEpoch => 1 }, },
+        { upsert   => 0, multiple => 0 },
+    );
 
-ok $r->{n}, "The update was successful";
+    ok $r->{n}, "The update was successful";
+}
 
-my ($uuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
+{
+    my ($uuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
 
-ok $uuid, "Was able to check it out again";
+    ok $uuid, "Was able to check it out again";
+}
 

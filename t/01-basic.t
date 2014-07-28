@@ -70,7 +70,7 @@ ok $tr->window($nowindowmessage), 'alltime';
 ok $tr->window($windowmessage),   'sometime';
 
 my $funMessage
-    = { a => [ 5, 1, 2, 3, 4 ], is_interesting => 1, messageType => 'adhoc' };
+    = { a => [ 5, 1, 2, 3, 4 ], is_interesting => 1, MessageType => 'adhoc' };
 my $notAfterAll = { b => [ 1, 2, 3, 4, 5, 6 ] };
 my $secondMessage = { c => [ 6, 7, 8, 9, 10 ], is_interesting => 1,
     MessageType => 'adhoc' };
@@ -113,23 +113,22 @@ $replay->eventSystem->origin->subscribe(
     sub {
         my ($message) = @_;
 
-        #warn "This is a origin message of type ".$message->{messageType}."\n";
+        #warn "This is a origin message of type ".$message->{MessageType}."\n";
     }
 );
 $replay->eventSystem->derived->subscribe(
     sub {
         my ($message) = @_;
 
-        #warn "This is a derived message of type ".$message->{messageType}."\n";
+        #warn "This is a derived message of type ".$message->{MessageType}."\n";
     }
 );
 $replay->eventSystem->control->subscribe(
     sub {
         my ($message) = @_;
 
-        #warn "This is a control message of type ".$message->{messageType}."\n";
-        return                     unless blessed $message;
-        return                     unless $message->MessageType eq 'NewCanonical';
+        #warn "This is a control message of type ".$message->{MessageType}."\n";
+        return                     unless $message->{MessageType} eq 'NewCanonical';
         $replay->eventSystem->stop unless ++$canoncount;
     }
 );

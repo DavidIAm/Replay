@@ -4,6 +4,14 @@ use Moose::Role;
 use Time::HiRes qw/gettimeofday/;
 use Data::UUID;
 
+has Replay => (
+    is          => 'ro',
+    isa         => 'Str',
+    default     => '20140727',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'envelope' },
+);
+
 has Message => (
     is          => 'ro',
     isa         => 'Str|HashRef',
@@ -116,6 +124,8 @@ has Windows => (
     description => { layer => 'envelope' },
 );
 
+=pod
+
 =head1 NAME
 
 Replay::Message::Envelope - General replay message envelope 
@@ -137,7 +147,34 @@ Timeblocks - an array of the time block identifiers related to this message stat
 Ruleversions - an array of { name:, version: } objects related to this message state
 Windows - an array of window identifiers related to this message state
 
-...
+=head1 FIELDS
+
+=head2 Replay => The version of this replay message
+=head2 Message => The message will go here
+=head2 Program => What program generated this message
+=head2 Function => What function were we in when this message was created
+=head2 Line => What line of the application created this message
+=head2 EffectiveTime => The time this message is relevant to
+=head2 CreatedTime => The time at which this message was created
+=head2 ReceivedTime => The time at which this message was recieved (probably by WORM)
+=head2 UUID => The unique identifier for this message
+=head2 Timeblocks => The time blocks from which this message is derived
+=head2 Ruleversions => The rules (and their versions) from which this message is derived
+=head2 Windows => The window blocks from which this message is derived
+
+=head1 METHODS
+
+=head2 marshall
+
+Collects the elements of the message that form our Logistics Message
+
+=head2 _now
+
+Accessor for the current time
+
+=head2 _build_uuid
+
+Builder for instantiating the uuid object that creates new UUIDs
 
 =head1 AUTHOR
 

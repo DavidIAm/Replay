@@ -110,7 +110,6 @@ sub _receive {
     my ($self) = @_;
     my @messages = $self->queue->ReceiveMessageBatch;
     return unless scalar @messages;
-warn "WE HAVE RECIEVED MESSAGES: @messages";;
     $self->_acknowledge(@messages);
     my @payloads;
     foreach (@messages) {

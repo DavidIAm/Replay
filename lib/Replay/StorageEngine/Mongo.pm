@@ -18,6 +18,7 @@ has mongo => (
 );
 
 has db => (is => 'ro', builder => '_build_db', lazy => 1);
+has dbname => (is => 'ro', builder => '_build_dbname', lazy => 1);
 
 has uuid => (is => 'ro', builder => '_build_uuid', lazy => 1);
 
@@ -34,7 +35,6 @@ override retrieve => sub {
 override absorb => sub {
     my ($self, $idkey, $atom, $meta) = @_;
     use JSON;
-    warn "ABSORBING " . to_json([$atom]) . "\n";
     my $r = $self->collection($idkey)->update(
         { idkey => $idkey->cubby },
         {   '$push'     => { inbox => $atom },
@@ -194,9 +194,6 @@ override checkout => sub {
 
     warn "Unable to relock after revert ($unlsignature)? " . $idkey->checkstring . "\n"
         unless defined $relockresult;
-    use Data::Dumper;
-    warn Dumper $self->collection($idkey)->find({ idkey => $idkey->cubby })->all
-        unless defined $relockresult;
     return unless defined $relockresult;
 
     # check out the r
@@ -293,10 +290,15 @@ sub _build_mongo {
     return MongoDB::MongoClient->new();
 }
 
+sub _build_dbname {
+    my $self = shift;
+    return $self->config->{stage} . '-replay';
+}
+
 sub _build_db {
     my ($self) = @_;
     my $config = $self->config;
-    my $db     = $self->mongo->get_database($config->{stage} . '-replay');
+    my $db     = $self->mongo->get_database($self->dbname);
     return $db;
 }
 
@@ -571,6 +573,11 @@ if the record is locked, (expiration agnostic)
   clear expire time
 else
   return nothing, we aren't allowed to do this
+
+=head2 lockreport ( idkey )
+
+For debugging purposes - returns a string that shows the current state
+of the lock on this record
 
 =cut
 

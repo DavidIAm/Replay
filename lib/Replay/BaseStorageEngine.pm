@@ -135,8 +135,7 @@ sub fetchTransitionalState {
     }
     catch {
         warn "Reverting because doing the merge caused an exception $_\n";
-				use Data::Dumper;
-        warn Dumper $self->revert($idkey, $uuid);
+        $self->revert($idkey, $uuid);
         return;
     };
 
