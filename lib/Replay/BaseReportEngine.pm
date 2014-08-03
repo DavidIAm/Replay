@@ -17,7 +17,7 @@ use Replay::Message::Fetched;
 use Replay::Message::Locked;
 use Replay::Message::Unlocked;
 use Replay::Message::WindowAll;
-use Storable qw/freeze/;
+use Storable qw//;
 use Try::Tiny;
 $Storable::canonical = 1;
 
@@ -90,7 +90,7 @@ sub stateSignature {
     my ($self, $idkey, $list) = @_;
     return undef unless defined $list;
     $self->stringtouch($list);
-    return md5_hex($idkey->hash . freeze($list));
+    return md5_hex($idkey->hash . Storable::freeze($list));
 }
 
 sub stringtouch {
@@ -226,6 +226,27 @@ This is the base class for the implimentation specific parts of the Replay syste
 
 These methods are used by consumers of the storage class
 
+=head2 ( uuid, meta, state ) = fetchTransitionalState(idkey)
+
+uuid is a key used for the new lock that will be obtained on this record
+
+meta is a hash with keys, critical to emit new events
+    Windows      =>
+    Timeblocks   =>
+    Ruleversions =>
+
+state is an array of atoms
+
+=head2 storeNewCanonicalState ( idkey, uuid, state )
+
+if the lock indicated by uuid is still valid, stores state (a list of atoms) 
+into the canonical state of this cubby.
+
+=head2 fetchCanonicalState ( idkey )
+
+simply returns the list of atoms that represents the previously stored 
+canonical state of this cubby
+
 =head2 delivery ( idkey, state )
 
 return the output of the delivery method of the rule indicated with the given state
@@ -238,9 +259,9 @@ return the output of the summary method of the rule indicated with the given del
 
 return the output of the globsummary method of the rule indicated with the given summary reports
 
-=head2 freezeKey ( $idkey )
+=head2 freeze ( $idkey )
 
-return the success of the freeze operation on the key level delivery report
+the base method that emits the freeze report message
 
 =head2 freezeWindow ( idkey window )
 
