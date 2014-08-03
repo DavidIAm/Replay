@@ -14,6 +14,7 @@ sub emit {
     my $channel = shift;
     my $message = shift;
 
+		# handle single argument construct
     if (blessed $channel && $channel->isa('Replay::Message')) {
         $message = $channel;
         $channel = 'derived';

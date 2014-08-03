@@ -110,7 +110,8 @@ sub stop {
 sub emit {
     my ($self, $channel, $message) = @_;
     return $self->$channel->emit($message) if $self->can($channel);
-    die "Unknown channel $channel";
+		use Carp qw/confess/;
+    confess "Unknown channel $channel";
 }
 
 sub poll {

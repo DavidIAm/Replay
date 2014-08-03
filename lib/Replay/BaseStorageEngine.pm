@@ -40,10 +40,8 @@ sub rule {
 # merge a list of atoms with the existing list in that slot
 sub merge {
     my ($self, $idkey, $alpha, $beta) = @_;
-    warn "MERGE";
     my @sorted = sort { $self->rule($idkey)->compare($a, $b) } @{$alpha},
         @{$beta};
-    warn "ENDMERGE";
     return [@sorted];
 }
 
