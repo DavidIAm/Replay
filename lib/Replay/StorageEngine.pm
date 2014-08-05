@@ -3,57 +3,63 @@ package Replay::StorageEngine;
 use Replay::BaseStorageEngine;
 use Moose;
 use Try::Tiny;
+use Carp qw/croak/;
 
 has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
 has engine => (
     is      => 'ro',
     isa     => 'Replay::BaseStorageEngine',
     builder => '_build_engine',
-    lazy => 1,
+    lazy    => 1,
 );
-has mode =>
-    (is => 'ro', isa => 'Str', required => 1, builder => '_build_mode', lazy => 1);
+has mode => (
+    is       => 'ro',
+    isa      => 'Str',
+    required => 1,
+    builder  => '_build_mode',
+    lazy     => 1
+);
 has ruleSource  => (is => 'ro', isa => 'Replay::RuleSource',  required => 1);
 has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
 
 # Delegate the api points
 sub retrieve {
-    my $self = shift;
-    $self->engine->retrieve(@_);
+    my ($self, @args) = @_;
+    return $self->engine->retrieve(@args);
 }
 
 sub absorb {
-    my $self = shift;
-    $self->engine->absorb(@_);
+    my ($self, @args) = @_;
+    return $self->engine->absorb(@args);
 }
 
 sub fetchCanonicalState {
-    my $self = shift;
-    $self->engine->fetchCanonicalState(@_);
+    my ($self, @args) = @_;
+    return $self->engine->fetchCanonicalState(@args);
 }
 
 sub fetchTransitionalState {
-    my $self = shift;
-    $self->engine->fetchTransitionalState(@_);
+    my ($self, @args) = @_;
+    return $self->engine->fetchTransitionalState(@args);
 }
 
 sub revert {
-    my $self = shift;
-    $self->engine->revert(@_);
+    my ($self, @args) = @_;
+    return $self->engine->revert(@args);
 }
 
 sub storeNewCanonicalState {
-    my $self = shift;
-    $self->engine->storeNewCanonicalState(@_);
+    my ($self, @args) = @_;
+    return $self->engine->storeNewCanonicalState(@args);
 }
 
 sub windowAll {
-    my $self = shift;
-    $self->engine->windowAll(@_);
+    my ($self, @args) = @_;
+    return $self->engine->windowAll(@args);
 }
 
-sub _build_engine {
-    my $self      = shift;
+sub _build_engine { ## no critic (ProhibitUnusedPrivateSubroutines)
+    my ($self, @args) = @_;
     my $classname = $self->mode;
     return $classname->new(
         config      => $self->config,
@@ -62,18 +68,19 @@ sub _build_engine {
     );
 }
 
-sub _build_mode {
-    my $self = shift;
-    die "No StorageMode?" unless $self->config->{StorageMode};
+sub _build_mode { ## no critic (ProhibitUnusedPrivateSubroutines)
+    my ($self, @args) = @_;
+    croak "No StorageMode?" unless $self->config->{StorageMode};
     my $class = 'Replay::StorageEngine::' . $self->config->{StorageMode};
     try {
-        eval "require $class";
-        die $@ if $@;
+        require $class;
     }
     catch {
-        confess "No such storage mode available ".$self->config->{StorageMode}." --> $_";
+        confess "No such storage mode available "
+            . $self->config->{StorageMode}
+            . " --> $_";
     };
-		return $class;
+    return $class;
 }
 
 1;

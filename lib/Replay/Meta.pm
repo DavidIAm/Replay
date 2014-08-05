@@ -11,7 +11,7 @@ use Time::HiRes qw/gettimeofday/;
 use Digest::MD5 qw/md5_hex/;
 
 use Storable qw/freeze/;
-$Storable::canonical = 1;
+$Storable::canonical = 1;  ## no critic (ProhibitPackageVars)
 
 has Windows => (is => 'ro', isa => 'ArrayRef', required => 1,);
 has Ruleversions => (is => 'ro', isa => 'ArrayRef[HashRef]', required => 1,);

@@ -8,7 +8,7 @@ has rules => (is => 'ro', isa => 'ArrayRef[Replay::BusinessRule]',);
 has index => (is => 'rw', default => 0,);
 has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
 
-sub next {
+sub next { ## no critic (ProhibitBuiltinHomonyms)
     my ($self) = @_;
     my $i = $self->index;
     $self->index($self->index + 1);
@@ -27,7 +27,6 @@ sub byIdKey {
     return (grep { $_->name eq $idkey->name && $_->version eq $idkey->version }
             @{ $self->rules })[0];
 }
-#}}
 
 =pod
 

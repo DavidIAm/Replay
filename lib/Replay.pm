@@ -23,9 +23,9 @@ has ruleSource => (
     lazy    => 1,
 );
 
-sub _build_ruleSource {
+sub _build_ruleSource { ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return new Replay::RuleSource(
+    return Replay::RuleSource->new(
         rules       => $self->rules,
         eventSystem => $self->eventSystem
     );
@@ -38,7 +38,7 @@ has eventSystem => (
     lazy    => 1,
 );
 
-sub _build_eventSystem {
+sub _build_eventSystem { ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return Replay::EventSystem->new(config => $self->config);
 }
@@ -52,7 +52,7 @@ has storageEngine => (
 
 has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
 
-sub _build_storageEngine {
+sub _build_storageEngine { ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return Replay::StorageEngine->new(
         config      => $self->config,
@@ -68,7 +68,7 @@ has reducer => (
     lazy    => 1,
 );
 
-sub _build_reducer {
+sub _build_reducer { ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return Replay::Reducer->new(
         eventSystem   => $self->eventSystem,
@@ -84,7 +84,7 @@ has mapper => (
     lazy    => 1,
 );
 
-sub _build_mapper {
+sub _build_mapper { ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return Replay::Mapper->new(
         eventSystem   => $self->eventSystem,
@@ -96,7 +96,7 @@ sub _build_mapper {
 has worm =>
     (is => 'ro', isa => 'Replay::WORM', builder => '_build_worm', lazy => 1,);
 
-sub _build_worm {
+sub _build_worm { ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return Replay::WORM->new(eventSystem => $self->eventSystem);
 }

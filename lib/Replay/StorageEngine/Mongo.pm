@@ -7,6 +7,7 @@ use Data::UUID;
 use Replay::IdKey;
 use Readonly;
 use JSON;
+use Carp qw/croak carp/;;
 
 extends 'Replay::BaseStorageEngine';
 
@@ -52,14 +53,14 @@ override absorb => sub {
 };
 
 sub revertThisRecord {
-    my ($self, $idkey, $signature, $record) = @_;
+    my ($self, $idkey, $signature, $document) = @_;
 
-    die
-        "This record isn't locked with this signature ($record->{locked},$signature)"
-        unless $record->{locked} eq $signature;
+    croak
+        "This document isn't locked with this signature ($document->{locked},$signature)"
+        unless $document->{locked} eq $signature;
 
-    # reabsorb all of the desktop atoms into the record
-    foreach my $atom (@{ $record->{'desktop'} || [] }) {
+    # reabsorb all of the desktop atoms into the document
+    foreach my $atom (@{ $document->{'desktop'} || [] }) {
         $self->absorb($idkey, $atom);
     }
 
@@ -68,7 +69,7 @@ sub revertThisRecord {
         = $self->collection($idkey)
         ->update({ idkey => $idkey->cubby, locked => $signature } =>
             { '$unset' => { desktop => 1 } });
-    die "UNABLE TO RESET DESKTOP AFTER REVERT " unless $unlockresult->{n} > 0;
+    croak "UNABLE TO RESET DESKTOP AFTER REVERT " if $unlockresult->{n} == 0;
     return $unlockresult;
 }
 
@@ -177,7 +178,7 @@ override checkout => sub {
 
     # If it didn't relock, give up.  Its locked by somebody else.
     unless (defined $expireRelock) {
-    warn "Unable to obtain lock because the current one is locked and unexpired\n";
+    carp "Unable to obtain lock because the current one is locked and unexpired\n";
     return
 	}
 
@@ -192,7 +193,7 @@ override checkout => sub {
     my $relockresult
         = $self->relock($idkey, $unlsignature, $newsignature, $timeout);
 
-    warn "Unable to relock after revert ($unlsignature)? " . $idkey->checkstring . "\n"
+    carp "Unable to relock after revert ($unlsignature)? " . $idkey->checkstring . "\n"
         unless defined $relockresult;
     return unless defined $relockresult;
 
@@ -204,7 +205,7 @@ override checkout => sub {
         return $newuuid, $lockresult;
     }
 
-    warn "checkout after revert and relock failed.  Look in COLLECTION ("
+    carp "checkout after revert and relock failed.  Look in COLLECTION ("
         . $idkey->collection
         . ") IDKEY ("
         . $idkey->cubby . ")";
@@ -225,7 +226,7 @@ override revert => sub {
             new    => 1,
         }
     );
-    warn "tried to do a revert but didn't have a lock on it" unless $state;
+    carp "tried to do a revert but didn't have a lock on it" unless $state;
     return unless $state;
     $self->revertThisRecord($idkey, $unlsignature, $state);
     my $result = $self->unlock($idkey, $unluuid);
@@ -242,7 +243,7 @@ sub lockreport {
 
 sub unlock {
     my ($self, $idkey, $uuid) = @_;
-    $self->updateAndUnlock($idkey, $uuid);
+    return $self->updateAndUnlock($idkey, $uuid);
 }
 
 sub updateAndUnlock {
@@ -285,24 +286,24 @@ override windowAll => sub {
 
 #}}}}
 
-sub _build_mongo {
+sub _build_mongo { ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     return MongoDB::MongoClient->new();
 }
 
-sub _build_dbname {
+sub _build_dbname { ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return $self->config->{stage} . '-replay';
 }
 
-sub _build_db {
+sub _build_db { ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     my $config = $self->config;
     my $db     = $self->mongo->get_database($self->dbname);
     return $db;
 }
 
-sub _build_uuid {
+sub _build_uuid { ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     return Data::UUID->new;
 }
@@ -321,7 +322,7 @@ sub document {
 
 sub generate_uuid {
     my ($self) = @_;
-    $self->uuid->to_string($self->uuid->create);
+    return $self->uuid->to_string($self->uuid->create);
 }
 
 =head1 NAME

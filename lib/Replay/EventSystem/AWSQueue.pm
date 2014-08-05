@@ -9,6 +9,7 @@ with 'Replay::EventSystem::Base';
 
 use Replay::Message;
 #use Replay::Message::Clock;
+use Carp qw/carp croak/;
 
 use Perl::Version;
 use Amazon::SNS;
@@ -57,7 +58,6 @@ has queueName =>
 
 sub emit {
     my ($self, $message) = @_;
-warn "TRYING TO EMIT $message";
     $message = $message->stringify
         if blessed $message && $message->can('stringify');
     $message = $message->freeze if blessed $message && $message->can('freeze');
@@ -65,7 +65,7 @@ warn "TRYING TO EMIT $message";
         $message = to_json($message) if ref $message;
     }
     catch {
-        die "WE WERE TRYING TO EMIT A "
+        croak "WE WERE TRYING TO EMIT A "
             . ref($message)
             . " BUT GOT EXCEPTIOIN $_ - NO STRINGIFY OR FREEZE??"
             . to_json [$message];
@@ -87,7 +87,7 @@ sub poll {
                 $subscriber->($message);
             }
             catch {
-                warn "There was an exception while processing message through subscriber "
+                carp "There was an exception while processing message through subscriber "
                     . $_;
             };
         }
@@ -97,13 +97,14 @@ sub poll {
 
 sub subscribe {
     my ($self, $callback) = @_;
-    die 'callback must be code' unless 'CODE' eq ref $callback;
+    croak 'callback must be code' unless 'CODE' eq ref $callback;
     push @{ $self->subscribers }, $callback;
+    return;
 }
 
 sub _acknowledge {
     my ($self, @messages) = @_;
-    $self->queue->DeleteMessageBatch([@messages]);
+    return $self->queue->DeleteMessageBatch([@messages]);
 }
 
 sub _receive {
@@ -121,16 +122,16 @@ sub _receive {
 #                    my ($class, $c, $version)
 #                        = $innermessage->{__CLASS__} =~ /^(.+?)(-(v?[0-9.[:alpha:]-]+))?$/;
 #                    unless ($class) {
-#                        warn "Didn't parse out class and version from " . $innermessage->{__CLASS__};
+#                        carp "Didn't parse out class and version from " . $innermessage->{__CLASS__};
 #                        push @payloads, $innermessage;
 #                    }
 #                    else {
 #                        eval "require $class";
-#                        warn "RESULT OF REQUIRE OF $class is $@\n" if $@;
+#                        carp "RESULT OF REQUIRE OF $class is $@\n" if $@;
 #                        if ($version) {
 #                            my $packver = Perl::Version->new(eval "\$$class\::VERSION");
 #                            my $objver  = Perl::Version->new($version);
-#                            die "This object is newer than the package we have!!" if ($objver > $packver);
+#                            croak "This object is newer than the package we have!!" if ($objver > $packver);
 #                        }
 #                        $class->thaw($messageBody->{Message}) || $innermessage;
 #                    }
@@ -140,22 +141,22 @@ sub _receive {
 #                }
 #            }
 #            catch {
-#                warn "GOT AN ERROR IN THAWER? $_\n";
+#                carp "GOT AN ERROR IN THAWER? $_\n";
 #                push @payloads, $messageBody->{Message};
 #            }
 #        }
 #        catch {
-#					warn "GOT ERROR IN FROM JSON ON BODY?  $_\n";
+#					carp "GOT ERROR IN FROM JSON ON BODY?  $_\n";
 #            push @payloads, $_->MessageBody;
 #        }
     }
 		return @payloads;
 }
 
-sub _build_sqs {
+sub _build_sqs { ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     my $config = $self->config;
-    die "No sqs service?" unless $config->{sqsService};
+    croak "No sqs service?" unless $config->{sqsService};
     my $sqs = Amazon::SQS::Simple->new(
         $config->{awsIdentity}{access},
         $config->{awsIdentity}{secret},
@@ -164,7 +165,7 @@ sub _build_sqs {
     return $sqs;
 }
 
-sub _build_sns {
+sub _build_sns { ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     my $config = $self->config;
     my $sns    = Amazon::SNS->new(
@@ -176,9 +177,9 @@ sub _build_sns {
     return $sns;
 }
 
-sub _build_queue {
+sub _build_queue { ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    warn "BUILDING QUEUE " . $self->queueName;
+    carp "BUILDING QUEUE " . $self->queueName;
     my $queue = $self->sqs->CreateQueue($self->queueName);
     $queue->SetAttribute(
         'Policy',
@@ -212,18 +213,19 @@ sub DEMOLISH {
     $self->sns->dispatch(
         { Action => 'Unsubscribe', SubscriptionArn => $self->{subscriptionARN} })
         if $self->{subscriptionARN};
+    return;
 }
 
-sub _build_topicName {
+sub _build_topicName { ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     confess "No purpose" unless $self->purpose;
     return join '_', $self->config->{stage}, 'replay', $self->purpose;
 }
 
-sub _build_topic {
+sub _build_topic { ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     my $topic;
-    warn "BUILDING TOPIC " . $self->topicName;
+    carp "BUILDING TOPIC " . $self->topicName;
     if ($self->has_topicarn) {
         $topic = $self->sns->GetTopic($self->topicarn);
     }
@@ -233,7 +235,7 @@ sub _build_topic {
     return $topic;
 }
 
-sub _build_queueName {
+sub _build_queueName { ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     my $ug   = Data::UUID->new;
     return join '_', $self->config->{stage}, 'replay', $self->purpose,
@@ -241,11 +243,11 @@ sub _build_queueName {
 }
 
 # this derives the arn from the topic name.
-sub _build_queuearn {
+sub _build_queuearn { ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     my ($type, $domain, $service, $region, $id, $name) = split ':',
         $self->topic->arn;
-    my $qarn = join ':', $type, $domain, 'sqs', $region, $id, $self->queueName;
+    return join ':', $type, $domain, 'sqs', $region, $id, $self->queueName;
 }
 
 =head1 NAME

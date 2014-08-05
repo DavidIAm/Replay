@@ -3,6 +3,7 @@ package Replay::StorageEngine::Memory;
 use Moose;
 use Scalar::Util qw/blessed/;
 use Replay::IdKey;
+use Carp qw/croak/;
 
 extends 'Replay::BaseStorageEngine';
 
@@ -18,28 +19,25 @@ override retrieve => sub {
 # State transition = add new atom to inbox
 override absorb => sub {
     my ($self, $idkey, $atom, $meta) = @_;
-		$meta ||= {};
+    $meta ||= {};
     my $state = $store->{ $idkey->collection }{ $idkey->cubby }
         ||= $self->new_document($idkey);
 
     # unique list of Windows
-    $state->{Windows} = [
-        keys %{ { map { $_ => 1 } @{ $state->{Windows} }, $idkey->window } } ];
+    my %windows = map { $_ => 1 } @{ $state->{Windows} }, $idkey->window;
+    $state->{Windows} = [ keys %windows ];
 
     # unique list of Timeblocks
-    $state->{Timeblocks} = [
-        keys %{ { map { $_ => 1 } grep { $_ } @{ $state->{Timeblocks} }, $meta->{timeblock} } } ];
+    my %timeblocks = map { $_ => 1 } grep {$_} @{ $state->{Timeblocks} },
+        $meta->{timeblock};
+    $state->{Timeblocks} = [ keys %timeblocks ];
 
     # unique list of Ruleversions
-    $state->{Ruleversions} = [
-        values %{
-            {   map {
-                    my $m = $_;
-                    join('+', map { $_ . '-' . $m->{$_} } sort keys %{$m}) => $m;
-                } (@{ $state->{Ruleversions} }, $meta->{ruleversion})
-            }
-        }
-    ];
+    my %ruleversions = ();
+    foreach my $m (@{ $state->{Ruleversions} }, $meta->{ruleversion}) {
+        $ruleversions{ join('+', map { $_ . '-' . $m->{$_} } sort keys %{$m}) } = $m;
+    }
+    $state->{Ruleversions} = [ values %ruleversions ];
     push @{ $state->{inbox} ||= [] }, $atom;
     super();
     return 1;
@@ -59,7 +57,7 @@ override checkout => sub {
 
 override checkin => sub {
     my ($self, $idkey, $uuid, $state) = @_;
-    die "not checked out" unless exists $self->{checkouts}{$uuid};
+    croak "not checked out" unless exists $self->{checkouts}{$uuid};
     my $data = delete $self->{checkouts}{$uuid};
     delete $data->{desktop};
     super();
@@ -76,6 +74,7 @@ override windowAll => sub {
             keys %{ $store->{ $idkey->collection } }
     };
 };
+
 #}}}}}}}}}}}}}}}}}}}}
 
 =head1 NAME
@@ -196,7 +195,6 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 =cut
 
 1;
-
 
 =head1 STORAGE ENGINE MODEL ASSUMPTIONS
 

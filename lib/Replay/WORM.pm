@@ -8,12 +8,12 @@ use File::Spec qw//;
 use Scalar::Util qw/blessed/;
 use Try::Tiny;
 use Time::HiRes qw/gettimeofday/;
+use Carp qw/carp croak/;
 
 has eventSystem => (is => 'ro', required => 1,);
 has directory   => (is => 'ro', required => 0, default => '/var/log/replay');
 has filehandles => (is => 'ro', isa      => 'HashRef', default => sub { {} });
 has UUID => (is => 'ro', isa => 'Data::UUID', builder => '_build_uuid');
-
 
 # dummy implimentation - Log them to a file
 sub BUILD {
@@ -23,7 +23,7 @@ sub BUILD {
         sub {
             my $message   = shift;
             my $timeblock = $self->log($message);
-            warn "Not a reference $message" unless ref $message;
+            carp "Not a reference $message" unless ref $message;
             if (blessed $message && $message->isa('Replay::Message')) {
                 push @{ $message->Timeblocks }, $self->timeblock;
                 $message->ReceivedTime(+gettimeofday);
@@ -36,12 +36,13 @@ sub BUILD {
                     $message->{UUID} ||= $self->newUuid;
                 }
                 catch {
-                    warn "unable to push timeblock on message?" . $message;
+                    carp "unable to push timeblock on message?" . $message;
                 };
             }
             $self->eventSystem->derived->emit($message);
         }
     );
+    return;
 }
 
 sub newUuid {
@@ -50,47 +51,47 @@ sub newUuid {
 }
 
 sub serialize {
-        my ($self, $message) = @_;
-        return $message unless ref $message;
-        return JSON->new->encode($message) unless blessed $message;
-        return $message->stringify
-            if blessed $message && $message->can('stringify');
-        return $message->freeze if blessed $message && $message->can('freeze');
-        return $message->serialize
-            if blessed $message && $message->can('serialize');
-        warn "blessed but no serializer found? $message";
+    my ($self, $message) = @_;
+    return $message unless ref $message;
+    return JSON->new->encode($message) unless blessed $message;
+    return $message->stringify if blessed $message && $message->can('stringify');
+    return $message->freeze    if blessed $message && $message->can('freeze');
+    return $message->serialize if blessed $message && $message->can('serialize');
+    carp "blessed but no serializer found? $message";
+    return;
 }
 
-sub log {
-        my $self    = shift;
-        my $message = shift;
-        $self->filehandle->print($self->serialize($message) . "\n");
+sub log {    ## no critic (ProhibitBuiltinHomonyms)
+    my $self    = shift;
+    my $message = shift;
+    return $self->filehandle->print($self->serialize($message) . "\n");
 }
 
 sub path {
-        my $self = shift;
-        File::Spec->catfile($self->directory, $self->timeblock . '-' . $self->eventSystem->config->{stage});
+    my $self = shift;
+    return File::Spec->catfile($self->directory,
+        $self->timeblock . '-' . $self->eventSystem->config->{stage});
 }
 
 sub filehandle {
-        my $self = shift;
-        return $self->filehandles->{ $self->timeblock }
-            if exists $self->filehandles->{ $self->timeblock }
-            && -f $self->filehandles->{ $self->timeblock };
-        umask 6; # not entirely sure why this works
-        open $self->filehandles->{ $self->timeblock }, '>>', $self->path
-            or confess "Unable to open " . $self->path . " for append";
-        return $self->filehandles->{ $self->timeblock };
+    my $self = shift;
+    return $self->filehandles->{ $self->timeblock }
+        if exists $self->filehandles->{ $self->timeblock }
+        && -f $self->filehandles->{ $self->timeblock };
+    umask 6;    # not entirely sure why this works
+    open $self->filehandles->{ $self->timeblock }, '>>', $self->path
+        or confess "Unable to open " . $self->path . " for append";
+    return $self->filehandles->{ $self->timeblock };
 }
 
 sub timeblock {
-        my $self = shift;
-        return strftime '%Y-%m-%d-%H', localtime time;
+    my $self = shift;
+    return strftime '%Y-%m-%d-%H', localtime time;
 }
 
-sub _build_uuid {
-        my $self;
-        return $self->{UUID} ||= Data::UUID->new;
+sub _build_uuid { ## no critic (ProhibitUnusedPrivateSubroutines)
+    my $self;
+    return $self->{UUID} ||= Data::UUID->new;
 }
 
 =head1 NAME

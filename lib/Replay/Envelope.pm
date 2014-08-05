@@ -91,12 +91,12 @@ sub marshall {
 
 }
 
-sub _now {
+sub _now { ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return +gettimeofday;
 }
 
-sub _build_uuid {
+sub _build_uuid { ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     my $ug   = Data::UUID->new;
     return $ug->to_string($ug->create());

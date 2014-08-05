@@ -2,6 +2,8 @@ package Replay::BaseMapper;
 
 use Moose;
 use Replay::IdKey;
+use Carp qw/croak/;
+use Data::Dumper;
 
 our $VERSION = '0.01';
 
@@ -20,34 +22,39 @@ has storageEngine => (
 
 sub buildStorageSink {
     my $self = shift;
-    die "no storage class?" unless $self->storageClass;
-    $self->storageClass->new(ruleSource => $self->ruleSource);
+    croak "no storage class?" unless $self->storageClass;
+    return $self->storageClass->new(ruleSource => $self->ruleSource);
 }
 
 sub BUILD {
     my $self = shift;
-    die "need either storageEngine or storageClass"
+    croak "need either storageEngine or storageClass"
         unless $self->storageEngine || $self->storageClass;
-    $self->eventSystem->derived->subscribe(
+    return $self->eventSystem->derived->subscribe(
         sub {
             $self->map(@_);
         }
     );
 }
 
-sub map {
+sub map { ## no critic (ProhibitBuiltinHomonyms)
     my $self    = shift;
     my $message = shift;
-    die "I CANNOT MAP UNDEF" unless defined $message;
+    croak "I CANNOT MAP UNDEF" unless defined $message;
     while (my $rule = $self->ruleSource->next) {
         next unless $rule->match($message);
         my @all = $rule->keyValueSet($message);
-        die "key value list from key value set must be even" if scalar @all % 2;
+        croak "key value list from key value set must be even" if scalar @all % 2;
         my $window = $rule->window($message);
         while (scalar @all) {
             my $key  = shift @all;
             my $atom = shift @all;
-            die "unable to store"
+            croak "I WAS GIVEN AN UNDEF KEY WHILE LOOKING AT $rule ATOM "
+                . Dumper($atom)
+                . " OUT OF MESSAGE "
+                . Dumper $message
+                unless defined $key;
+            croak "unable to store"
                 unless $self->storageEngine->absorb(
                 Replay::IdKey->new(
                     {   name    => $rule->name,
@@ -57,7 +64,7 @@ sub map {
                     }
                 ),
                 $atom,
-                {   Timeblocks      => $message->{Timeblocks},
+                {   Timeblocks   => $message->{Timeblocks},
                     Domain       => $self->eventSystem->domain,
                     Ruleversions => [
                         { rule => $rule->name, version => $rule->version },
@@ -67,6 +74,7 @@ sub map {
                 );
         }
     }
+    return;
 }
 
 =head1 NAME

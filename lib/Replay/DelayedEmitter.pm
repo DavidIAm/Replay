@@ -40,6 +40,7 @@ sub emit {
 sub release {
     my $self = shift;
     $_->() foreach (@{ $self->messagesToSend });
+    return;
 }
 
 =head1 NAME

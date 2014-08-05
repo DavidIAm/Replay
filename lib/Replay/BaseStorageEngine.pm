@@ -1,12 +1,5 @@
 package Replay::BaseStorageEngine;
 
-use Readonly;
-use Replay::IdKey;
-
-Readonly my $REDUCE_TIMEOUT => 60;
-
-our $VERSION = '0.01';
-
 use Moose;
 use Digest::MD5 qw/md5_hex/;
 use Replay::Message::Reducable;
@@ -19,7 +12,15 @@ use Replay::Message::Unlocked;
 use Replay::Message::WindowAll;
 use Storable qw/freeze/;
 use Try::Tiny;
-$Storable::canonical = 1;
+use Readonly;
+use Replay::IdKey;
+use Carp qw/croak carp/;
+
+our $VERSION = '0.01';
+
+Readonly my $REDUCE_TIMEOUT => 60;
+
+$Storable::canonical = 1;    ## no critic (ProhibitPackageVars)
 
 Readonly my $READONLY => 1;
 
@@ -33,7 +34,7 @@ has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
 sub rule {
     my ($self, $idkey) = @_;
     my $rule = $self->ruleSource->byIdKey($idkey);
-    die "No such rule $idkey->ruleSpec" unless $rule;
+    croak "No such rule $idkey->ruleSpec" unless $rule;
     return $rule;
 }
 
@@ -47,31 +48,31 @@ sub merge {
 
 sub checkout {
     my ($self, $idkey) = @_;
-    $self->eventSystem->control->emit(
+    return $self->eventSystem->control->emit(
         Replay::Message::Locked->new(Message => { $idkey->hashList }));
 }
 
 sub checkin {
     my ($self, $idkey) = @_;
-    $self->eventSystem->control->emit(
+    return $self->eventSystem->control->emit(
         Replay::Message::Unlocked->new(Message => { $idkey->hashList }));
 }
 
 sub revert {
     my ($self, $idkey) = @_;
-    $self->eventSystem->control->emit(
+    return $self->eventSystem->control->emit(
         Replay::Message::Reverted->new(Message => { $idkey->hashList }));
 }
 
 sub retrieve {
     my ($self, $idkey) = @_;
-    $self->eventSystem->control->emit(
+    return $self->eventSystem->control->emit(
         Replay::Message::Fetched->new(Message => { $idkey->hashList }));
 }
 
 sub absorb {
     my ($self, $idkey) = @_;
-    $self->delayToDoOnce(
+    return $self->delayToDoOnce(
         $idkey->hash . 'Reducable',
         sub {
             $self->eventSystem->control->emit(
@@ -83,7 +84,7 @@ sub absorb {
 sub delayToDoOnce {
     my ($self, $name, $code) = @_;
     use AnyEvent;
-    $self->{timers}{$name} = AnyEvent->timer(
+    return $self->{timers}{$name} = AnyEvent->timer(
         after => 1,
         cb    => sub {
             delete $self->{timers}{$name};
@@ -95,14 +96,14 @@ sub delayToDoOnce {
 # accessor - given a state, generate a signature
 sub stateSignature {
     my ($self, $idkey, $list) = @_;
-    return undef unless defined $list;
+    return undef unless defined $list;  ## no critic (ProhibitExplicitReturnUndef)
     $self->stringtouch($list);
     return md5_hex($idkey->hash . freeze($list));
 }
 
 sub stringtouch {
     my ($self, $struct) = @_;
-    $_[1] .= '' unless (ref $struct);
+    $struct .= '' unless ref $struct;
     if ('ARRAY' eq ref $struct) {
         foreach (0 .. $#{$struct}) {
             stringtouch($struct->[$_]) if ref $struct->[$_];
@@ -115,6 +116,7 @@ sub stringtouch {
             $struct->{$_} .= '' unless ref $struct->{$_};
         }
     }
+    return;
 }
 
 sub fetchTransitionalState {
@@ -126,7 +128,7 @@ sub fetchTransitionalState {
 
     # drop the checkout if we don't have any items to reduce
     unless (scalar @{ $cubby->{desktop} || [] }) {
-        warn "Reverting because we didn't check out any work to do?\n";
+        carp "Reverting because we didn't check out any work to do?\n";
         $self->revert($idkey, $uuid);
         return;
     }
@@ -138,7 +140,7 @@ sub fetchTransitionalState {
             = $self->merge($idkey, $cubby->{desktop}, $cubby->{canonical} || []);
     }
     catch {
-        warn "Reverting because doing the merge caused an exception $_\n";
+        carp "Reverting because doing the merge caused an exception $_\n";
         $self->revert($idkey, $uuid);
         return;
     };
@@ -178,7 +180,7 @@ sub fetchCanonicalState {
     my $cubby = $self->retrieve($idkey);
     my $e = $self->stateSignature($idkey, $cubby->{canonical}) || '';
     if (($cubby->{canonSignature} || '') ne ($e || '')) {
-        warn "canonical corruption $cubby->{canonSignature} vs. " . $e;
+        carp "canonical corruption $cubby->{canonSignature} vs. " . $e;
     }
     $self->eventSystem->control->emit(
         Replay::Message::Fetched->new(Message => { $idkey->hashList }));
@@ -187,18 +189,18 @@ sub fetchCanonicalState {
 
 sub windowAll {
     my ($self, $idkey) = @_;
-    $self->eventSystem->control->emit(
+    return $self->eventSystem->control->emit(
         Replay::Message::WindowAll->new(Message => { $idkey->hashList }));
 }
 
 sub enumerateWindows {
     my ($self, $idkey) = @_;
-    die "unimplemented";
+    croak "unimplemented";
 }
 
 sub enumerateKeys {
     my ($self, $idkey) = @_;
-    die "unimplemented";
+    croak "unimplemented";
 }
 
 sub new_document {

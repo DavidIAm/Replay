@@ -3,62 +3,70 @@ package Replay::ReportEngine;
 use Replay::BaseReportEngine;
 use Moose;
 use Try::Tiny;
+use Carp qw/croak/;
 
 has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
 has engine => (
     is      => 'ro',
     isa     => 'Replay::BaseReportEngine',
     builder => '_build_engine',
-    lazy => 1,
+    lazy    => 1,
 );
-has mode =>
-    (is => 'ro', isa => 'Str', required => 1, builder => '_build_mode', lazy => 1);
+has mode => (
+    is       => 'ro',
+    isa      => 'Str',
+    required => 1,
+    builder  => '_build_mode',
+    lazy     => 1
+);
 has ruleSource  => (is => 'ro', isa => 'Replay::RuleSource',  required => 1);
 has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
 has storage => (is => 'ro', isa => 'Replay::StorageEngine', required => 1);
 
 # Delegate the api points
 sub delivery {
-    my $self = shift;
-    $self->engine->retrieve(@_);
+    my ($self, @args) = @_;
+    return $self->engine->retrieve(@args);
 }
 
 sub summary {
-    my $self = shift;
-    $self->engine->absorb(@_);
+    my ($self, @args) = @_;
+    return $self->engine->absorb(@args);
 }
 
 sub freeze {
-    my $self = shift;
-    $self->engine->freeze(@_);
+    my ($self, @args) = @_;
+    return $self->engine->freeze(@args);
 }
 
 sub checkpoint {
+    return;
 }
 
-sub _build_engine {
+sub _build_engine { ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self      = shift;
     my $classname = $self->mode;
     return $classname->new(
         config      => $self->config,
         ruleSource  => $self->ruleSource,
         eventSystem => $self->eventSystem,
-        storage => $self->storage,
+        storage     => $self->storage,
     );
 }
 
-sub _build_mode {
+sub _build_mode { ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    die "No ReportMode?" unless $self->config->{ReportMode};
+    croak "No ReportMode?" unless $self->config->{ReportMode};
     my $class = 'Replay::ReportEngine::' . $self->config->{ReportMode};
     try {
-        eval "require $class";
-        die $@ if $@;
+        require $class;
     }
     catch {
-        confess "No such report mode available ".$self->config->{ReportMode}." --> $_";
+        confess "No such report mode available "
+            . $self->config->{ReportMode}
+            . " --> $_";
     };
-		return $class;
+    return $class;
 }
 
 1;

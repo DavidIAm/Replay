@@ -46,6 +46,7 @@ sub checkstring {
     $self->version($self->version . '');
     $self->window($self->window . '');
     $self->key($self->key . '');
+    return;
 }
 
 sub hash {

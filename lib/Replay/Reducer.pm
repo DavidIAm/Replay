@@ -6,6 +6,7 @@ use Replay::DelayedEmitter;
 use Replay::IdKey;
 use Replay::Message;
 use Scalar::Util qw/blessed/;
+use Carp qw/carp/;
 
 use Try::Tiny;
 
@@ -23,6 +24,7 @@ sub BUILD {
             $self->reduceWrapper(@_);
         }
     );
+		return;
 }
 
 # accessor - how to get the rule for an idkey
@@ -70,8 +72,8 @@ sub reduceWrapper {
         }
     }
     catch {
-        warn "REDUCING EXCEPTION: $_";
-        warn "Reverting state because there was a reduce exception\n";
+        carp "REDUCING EXCEPTION: $_";
+        carp "Reverting state because there was a reduce exception\n";
         $self->storageEngine->revert($idkey, $uuid);
         $self->eventSystem->control->emit(
             Replay::Message->new(
@@ -84,7 +86,8 @@ sub reduceWrapper {
                 }
             )
         );
-    }
+    };
+		return;
 }
 
 =pod

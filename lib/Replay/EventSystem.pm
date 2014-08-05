@@ -9,6 +9,7 @@ use Carp qw/confess carp cluck/;
 use Time::HiRes;
 use Replay::Message::Timing;
 use Try::Tiny;
+use Carp qw/croak carp/;
 
 use Replay::EventSystem::AWSQueue;
 
@@ -40,10 +41,10 @@ has domain => (is => 'ro');    # placeholder
 
 sub BUILD {
     my ($self) = @_;
-    my ($generalHandler, $establisher);
-    die "NO QueueClass CONFIG!?  Make sure its in the locale files"
+    croak "NO QueueClass CONFIG!?  Make sure its in the locale files"
         unless $self->config->{QueueClass};
     $self->{stop} = AnyEvent->condvar(cb => sub {exit});
+    return;
 }
 
 sub initialize {
@@ -53,11 +54,12 @@ sub initialize {
     $self->control->queue;
     $self->origin->queue;
     $self->derived->queue;
+    return;
 }
 
 sub heartbeat {
     my ($self) = @_;
-    $self->{hbtimer}
+    return $self->{hbtimer}
         = AnyEvent->timer(after => 1, interval => 1, cb => sub { print "<3"; });
 }
 
@@ -66,25 +68,25 @@ sub run {
     $quitting = 0;
 
     $self->clock;
-    warn "SIGQUIT will stop loop";
-    $SIG{QUIT} = sub {
+    carp "SIGQUIT will stop loop";
+    local $SIG{QUIT} = sub {
         return if $quitting++;
         $self->stop;
-        warn('shutdownBySIGQUIT');
+        carp('shutdownBySIGQUIT');
     };
-    warn "SIGINT will stop loop";
-    $SIG{INT} = sub {
+    carp "SIGINT will stop loop";
+    local $SIG{INT} = sub {
         return if $quitting++;
         $self->stop;
-        warn('shutdownBySIGINT');
+        carp('shutdownBySIGINT');
     };
 
     if ($self->config->{timeout}) {
         $self->{stoptimer} = AnyEvent->timer(
             after => $self->config->{timeout},
-            cb    => sub { warn "Timeout triggered."; $self->stop }
+            cb    => sub { carp "Timeout triggered."; $self->stop }
         );
-        warn "Setting loop timeout to " . $self->config->{timeout};
+        carp "Setting loop timeout to " . $self->config->{timeout};
     }
 
     $self->{polltimer} = AnyEvent->timer(
@@ -94,24 +96,32 @@ sub run {
             $self->poll();
         }
     );
-    warn "Event loop startup now";
+    carp "Event loop startup now";
     EV::loop;
+    return;
 }
 
 sub stop {
     my ($self) = @_;
-    warn "Event loop shutdown by request";
+    carp "Event loop shutdown by request";
     EV::unloop;
+    return;
+}
+
+sub clear {
+    my ($self) = @_;
     $self->clear_control;
     $self->clear_derived;
     $self->clear_origin;
+    return;
 }
 
 sub emit {
     my ($self, $channel, $message) = @_;
     return $self->$channel->emit($message) if $self->can($channel);
-		use Carp qw/confess/;
+    use Carp qw/confess/;
     confess "Unknown channel $channel";
+
 }
 
 sub poll {
@@ -123,22 +133,23 @@ sub poll {
             $activity += $self->$purpose->poll();
         }
         catch {
-            warn "Unable to do poll for purpose $purpose: $_";
+            carp "Unable to do poll for purpose $purpose: $_";
         };
     }
+    return;
 }
 
 sub clock {
     my $self           = shift;
     my $lastSeenMinute = time - time % 60;
-    warn "Clock tick started";
+    carp "Clock tick started";
     $self->{clock} = AnyEvent->timer(
         after    => 0.25,
         interval => 0.25,
         cb       => sub {
             my $thisMinute = time - time % 60;
             return if $lastSeenMinute == $thisMinute;
-            warn "Clock tick on minute $thisMinute";
+            carp "Clock tick on minute $thisMinute";
             $lastSeenMinute = $thisMinute;
             my ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst)
                 = localtime(time);
@@ -163,35 +174,40 @@ sub clock {
             );
         }
     );
+    return;
 }
 
 sub _build_queue {
     my ($self, $purpose, $mode) = @_;
     try {
         my $classname = $self->config->{QueueClass};
-        eval "require $classname";
-        die "error requiring: $@" if $@;
+        try { require $classname }
+        catch {
+            croak "error requiring: $_";
+        };
     }
     catch {
-        die "Unable to load queue class " . $self->config->{QueueClass} . " --> $_ ";
+        croak "Unable to load queue class "
+            . $self->config->{QueueClass}
+            . " --> $_ ";
     };
     return $self->config->{QueueClass}
         ->new(purpose => $purpose, config => $self->config, mode => $mode);
 }
 
-sub _build_control {
+sub _build_control { ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    $self->_build_queue('control', 'fanout');
+    return $self->_build_queue('control', 'fanout');
 }
 
-sub _build_derived {
+sub _build_derived { ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    $self->_build_queue('derived', 'distribute');
+    return $self->_build_queue('derived', 'distribute');
 }
 
-sub _build_origin {
+sub _build_origin { ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    $self->_build_queue('origin', 'distribute');
+    return $self->_build_queue('origin', 'distribute');
 }
 
 =head1 NAME

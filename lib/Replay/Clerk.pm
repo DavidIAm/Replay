@@ -21,7 +21,7 @@ has ruleSource    => (is => 'ro', required => 1,);
 sub BUILD {
     my $self = shift;
     mkdir $self->directory unless -d $self->directory;
-    $self->eventSystem->control->subscribe(
+    return $self->eventSystem->control->subscribe(
         sub {
             my $message = shift;
 
@@ -47,7 +47,7 @@ sub deliver {
 sub summarize {
     my ($self, $idKey) = @_;
     my $reports = $self->reportEngine->windowAll($idKey);
-    $self->reportEngine->newSummary(
+    return $self->reportEngine->newSummary(
         $self->ruleSource->byIdKey($idKey)->summary(
             reports => $reports,
             Ruleversions =>

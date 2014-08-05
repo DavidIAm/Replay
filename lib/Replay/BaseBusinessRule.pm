@@ -1,6 +1,7 @@
 package Replay::BaseBusinessRule;
 
 use Moose;
+use Carp qw/croak/;
 
 our $VERSION = '0.01';
 
@@ -15,7 +16,7 @@ has version => (is => 'ro', isa => 'Str', default => '1',);
 
 # [boolean] function match ( message )
 sub match {
-    die "stub, implement match";
+    croak "stub, implement match";
 }
 
 # [timeWindowIdentifier] function window ( message )
@@ -28,7 +29,7 @@ sub window {
 
 # [list of Key=>message pairs] function keyValueSet ( message )
 sub keyValueSet {
-    die "stub, implement keyValueSet";
+    croak "stub, implement keyValueSet";
 }
 
 # storage
@@ -40,7 +41,7 @@ sub compare {
 # reducer
 # [arrayRef of messages] function reduce (key, arrayref of messages)
 sub reduce {
-    die "stub, implement reduce";
+    croak "stub, implement reduce";
 }
 
 # bureaucrat

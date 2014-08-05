@@ -7,6 +7,7 @@ package Replay::EventSystem::Null;
 
 use Scalar::Util qw/blessed/;
 use Moose;
+use Carp qw/croak/;
 with 'Replay::EventSystem::Base';
 
 our $VERSION = '0.01';
@@ -27,13 +28,13 @@ sub poll {
 sub emit {
     my ($self, $message) = @_;
     return push @{ $self->{events} }, $message->pack if blessed $message;
-    push @{ $self->{events} }, $message;
+    return push @{ $self->{events} }, $message;
 }
 
 sub subscribe {
     my ($self, $callback) = @_;
-    die 'callback must be code' unless 'CODE' eq ref $callback;
-    push @{ $self->subscribers }, $callback;
+    croak 'callback must be code' unless 'CODE' eq ref $callback;
+    return push @{ $self->subscribers }, $callback;
 }
 
 =head1 NAME
