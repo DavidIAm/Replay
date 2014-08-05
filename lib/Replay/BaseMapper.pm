@@ -2,7 +2,7 @@ package Replay::BaseMapper;
 
 use Moose;
 use Replay::IdKey;
-use Carp qw/croak/;
+use Carp qw/croak carp/;
 use Data::Dumper;
 
 our $VERSION = '0.01';
@@ -37,9 +37,12 @@ sub BUILD {
     );
 }
 
-sub map { ## no critic (ProhibitBuiltinHomonyms)
+sub map {    ## no critic (ProhibitBuiltinHomonyms)
     my $self    = shift;
     my $message = shift;
+    carp "Got a message that isn't a hashref" unless 'HASH' eq ref $message;
+    carp "Got a message that doesn't have type and a hashref for a message"
+        unless $message->{MessageType} && 'HASH' eq ref $message->{Message};
     croak "I CANNOT MAP UNDEF" unless defined $message;
     while (my $rule = $self->ruleSource->next) {
         next unless $rule->match($message);
