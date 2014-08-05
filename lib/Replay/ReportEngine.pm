@@ -43,7 +43,7 @@ sub checkpoint {
     return;
 }
 
-sub _build_engine { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self      = shift;
     my $classname = $self->mode;
     return $classname->new(
@@ -54,12 +54,13 @@ sub _build_engine { ## no critic (ProhibitUnusedPrivateSubroutines)
     );
 }
 
-sub _build_mode { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_mode {      ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     croak "No ReportMode?" unless $self->config->{ReportMode};
     my $class = 'Replay::ReportEngine::' . $self->config->{ReportMode};
     try {
-        require $class;
+        eval "require $class";
+        die $@ if $@;
     }
     catch {
         confess "No such report mode available "

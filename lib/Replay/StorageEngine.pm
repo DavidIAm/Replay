@@ -58,7 +58,7 @@ sub windowAll {
     return $self->engine->windowAll(@args);
 }
 
-sub _build_engine { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self, @args) = @_;
     my $classname = $self->mode;
     return $classname->new(
@@ -68,12 +68,13 @@ sub _build_engine { ## no critic (ProhibitUnusedPrivateSubroutines)
     );
 }
 
-sub _build_mode { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_mode {      ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self, @args) = @_;
     croak "No StorageMode?" unless $self->config->{StorageMode};
     my $class = 'Replay::StorageEngine::' . $self->config->{StorageMode};
     try {
-        require $class;
+        eval "require $class";
+        die $@ if $@;
     }
     catch {
         confess "No such storage mode available "

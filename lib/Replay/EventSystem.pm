@@ -181,7 +181,7 @@ sub _build_queue {
     my ($self, $purpose, $mode) = @_;
     try {
         my $classname = $self->config->{QueueClass};
-        try { require $classname }
+        try { eval "require $classname" }
         catch {
             croak "error requiring: $_";
         };
@@ -304,6 +304,10 @@ Call to start printing a heartbeat every second.
 =head2 control
 
 call to access the control purpose channel
+
+=head2 clear
+
+call to clear all of the subscriptions from memory
 
 =head2 origin
 
