@@ -70,7 +70,7 @@ ok $tr->window($nowindowmessage), 'alltime';
 ok $tr->window($windowmessage),   'sometime';
 
 my $funMessage
-    = { a => [ 5, 1, 2, 3, 4 ], is_interesting => 1, messageType => 'adhoc' };
+    = { a => [ 5, 1, 2, 3, 4 ], is_interesting => 1, MessageType => 'adhoc' };
 my $notAfterAll = { b => [ 1, 2, 3, 4, 5, 6 ] };
 my $secondMessage = { c => [ 6, 7, 8, 9, 10 ], is_interesting => 1,
     MessageType => 'adhoc' };

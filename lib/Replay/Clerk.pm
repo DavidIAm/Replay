@@ -25,9 +25,9 @@ sub BUILD {
         sub {
             my $message = shift;
 
-            $self->deliver(Replay::IdKey->new($message->{message}))
+            $self->deliver(Replay::IdKey->new($message->{Message}))
                 if ($message->{MessageType} eq 'NewCanonical');
-            $self->summarize(Replay::IdKey->new($message->{message}))
+            $self->summarize(Replay::IdKey->new($message->{Message}))
                 if ($message->{MessageType} eq 'NewCanonical');
         }
     );

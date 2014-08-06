@@ -158,20 +158,20 @@ do it. You won't like the results. If you don't understand why... learn more
 about the system first.
 
 # an input message might look like this
-{ messageType => 'TypeThatGetsRequest', Message => { url => 'URI' } }
+{ MessageType => 'TypeThatGetsRequest', Message => { url => 'URI' } }
 
 # we will match both the type that gets, and the response type
 # so they will be in the same state
 override match => sub {
     my ($self, $message) = @_;
     return
-        unless $message->messageType eq 'TypeThatGetsRequest'
-        || $message->messageType eq 'RPCURLResponseForRequest';
+        unless $message->MessageType eq 'TypeThatGetsRequest'
+        || $message->MessageType eq 'RPCURLResponseForRequest';
     my @keyvalueset;
 
     # both message types store the key to use in the 'url' parameter
-    push @keyvaluset, $message->{message}->{url}, $message
-        if $message->{message}->{url};
+    push @keyvaluset, $message->{Message}->{url}, $message
+        if $message->{Message}->{url};
     return @keyvalueset;
 };
 
@@ -179,8 +179,8 @@ override match => sub {
 # state later.
 override window => sub {
     my ($self, $message) = @_;
-    return $message->{message}->{window}
-        if ($message->{messageType} eq 'RPCURLResponseForRequest');
+    return $message->{Message}->{window}
+        if ($message->{MessageType} eq 'RPCURLResponseForRequest');
     return myWindowChooserAlgorithm($message);
 };
 
@@ -189,9 +189,9 @@ override window => sub {
 override compare => sub {
     my ($self, $atom) = @_;
 
-    # sort by url, with backup on messageType putting responses immediately
+    # sort by url, with backup on MessageType putting responses immediately
     # before requests
-    return $atom->{messageType} cmp $atom->{messageType}
+    return $atom->{MessageType} cmp $atom->{MessageType}
         unless $atom->{url} cmp $atom->{url};
 };
 
@@ -208,7 +208,7 @@ override reduce => sub {
             $emitter->emit(
                 'derived',
                 Replay::Message->new(
-                    {   messageType => 'StateATypeOfMessage',
+                    {   MessageType => 'StateATypeOfMessage',
                         message     => { relayed => "data for state A" },
                     }
                 )
@@ -218,7 +218,7 @@ override reduce => sub {
             $emitter->emit(
                 'derived',
                 Replay::Message->new(
-                    {   messageType => 'StateBTypeOfMessage',
+                    {   MessageType => 'StateBTypeOfMessage',
                         message     => { relayed => "data for state B" },
                     }
                 )
@@ -228,7 +228,7 @@ override reduce => sub {
             $emitter->emit(
                 'origin',
                 Replay::Message->new(
-                    messageType => 'RPCURLResponseForRequest',
+                    MessageType => 'RPCURLResponseForRequest',
                     message     => {
                         response => $jsonrpcAgent->get('RPCURL')->content->from_json,
                         url      => $key,
