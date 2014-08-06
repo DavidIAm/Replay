@@ -63,13 +63,9 @@ sub reduceWrapper {
         my $emitter = Replay::DelayedEmitter->new(eventSystem => $self->eventSystem,
             %{$meta});
 
-        if ($self->storageEngine->storeNewCanonicalState(
-                $idkey, $uuid, $self->rule($idkey)->reduce($emitter, @state)
-            )
-            )
-        {
-            $emitter->release();
-        }
+        $self->storageEngine->storeNewCanonicalState($idkey, $uuid, $emitter,
+            $self->rule($idkey)->reduce($emitter, @state));
+        $self->eventSystem->control->emit(Replay::Message->new(MessageType => 'Reduced', Message => { $idkey->hashList}));
     }
     catch {
         carp "REDUCING EXCEPTION: $_";
@@ -79,8 +75,8 @@ sub reduceWrapper {
             Replay::Message->new(
                 MessageType => 'ReducerException',
                 Message     => {
-                    rule    => $self->rule->name,
-                    version => $self->rule->version,
+                    rule    => $self->rule($idkey)->name,
+                    version => $self->rule($idkey)->version,
                     exception => (blessed $_ && $_->can('trace') ? $_->trace->as_string : $_),
                     Message => $message
                 }

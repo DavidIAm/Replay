@@ -225,7 +225,7 @@ desktop - deleted
 lock - deleted
 lockExpireEpoch - deleted
 
-=head2 storeNewCanonicalState(idkey, uuid, @state)
+=head2 storeNewCanonicalState(idkey, uuid, emitter, @state)
 
 see BaseStorageEngine storeNewCanonicalState
 

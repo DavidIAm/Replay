@@ -158,13 +158,17 @@ sub fetchTransitionalState {
 }
 
 sub storeNewCanonicalState {
-    my ($self, $idkey, $uuid, @atoms) = @_;
+    my ($self, $idkey, $uuid, $emitter, @atoms) = @_;
     my $cubby = $self->retrieve($idkey);
     $cubby->{canonVersion}++;
     $cubby->{canonical} = [@atoms];
     $cubby->{canonSignature} = $self->stateSignature($idkey, $cubby->{canonical});
     delete $cubby->{desktop};
     my $newstate = $self->checkin($idkey, $uuid, $cubby);
+    $emitter->release;
+    foreach my $atom (@{ $emitter->atomsToDefer }) {
+        $self->absorb($idkey, $atom, {});
+    }
     $self->eventSystem->control->emit(
         Replay::Message::NewCanonical->new(Message => { $idkey->hashList }));
     $self->eventSystem->control->emit(
@@ -245,10 +249,12 @@ meta is a hash with keys, critical to emit new events
 
 state is an array of atoms
 
-=head2 storeNewCanonicalState ( idkey, uuid, state )
+=head2 storeNewCanonicalState ( idkey, uuid, emitter, atoms )
 
 if the lock indicated by uuid is still valid, stores state (a list of atoms) 
-into the canonical state of this cubby.
+into the canonical state of this cubby.  called 'release' on the emitter object,
+also issues absorb calls on the storage engine for each atom listed in the array
+ref returned by 'atomsToDefer' from the emitter object
 
 =head2 fetchCanonicalState ( idkey )
 
@@ -306,7 +312,7 @@ create a new domain starting from an existing checkpoint
  interface:
   - boolean absorb(idkey, atom): accept a new atom into a state
   - state fetchTransitionalState(idkey): returns a new key-state for reduce processing
-  - boolean storeNewCanonicalState(signature, state): accept a new canonical state
+  - boolean storeNewCanonicalState(idkey, uuid, emitter, atoms): accept a new canonical state
   - state fetchCanonicalState(idkey): returns the current collective state
 
  events emitted:

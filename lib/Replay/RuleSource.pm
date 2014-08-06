@@ -2,6 +2,7 @@ package Replay::RuleSource;
 
 use Moose;
 use Replay::Message::RulesReady;
+use Scalar::Util qw/blessed/;
 
 has rules => (is => 'ro', isa => 'ArrayRef[Replay::BusinessRule]',);
 
@@ -24,6 +25,7 @@ sub first {
 
 sub byIdKey {
     my ($self, $idkey) = @_;
+    confess("Called byIdKey without an idkey? ($idkey)") unless $idkey && blessed $idkey && $idkey->can('name');
     return (grep { $_->name eq $idkey->name && $_->version eq $idkey->version }
             @{ $self->rules })[0];
 }

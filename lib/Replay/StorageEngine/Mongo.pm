@@ -178,8 +178,12 @@ override checkout => sub {
 
     # If it didn't relock, give up.  Its locked by somebody else.
     unless (defined $expireRelock) {
-    return $self->eventSystem->control->emit(
-        $self->eventSystem->emit('control', Replay::Message->new(MessageType => 'NoLock', Message => { $idkey->hashList }));
+        return $self->eventSystem->control->emit(
+            Replay::Message->new(
+                MessageType => 'NoLock',
+                Message     => { $idkey->hashList }
+            )
+        );
         carp "Unable to obtain lock because the current one is locked and unexpired ("
             . $idkey->cubby . ")\n";
         return;
@@ -196,7 +200,13 @@ override checkout => sub {
     my $relockresult
         = $self->relock($idkey, $unlsignature, $newsignature, $timeout);
 
-    $self->eventSystem->emit('control', Replay::Message->new(MessageType => 'NoLockPostRevert', Message => { $idkey->hashList }));
+    $self->eventSystem->emit(
+        'control',
+        Replay::Message->new(
+            MessageType => 'NoLockPostRevert',
+            Message     => { $idkey->hashList }
+        )
+    );
     carp "Unable to relock after revert ($unlsignature)? "
         . $idkey->checkstring . "\n"
         unless defined $relockresult;
@@ -210,7 +220,13 @@ override checkout => sub {
         return $newuuid, $lockresult;
     }
 
-    $self->eventSystem->emit('control', Replay::Message->new(MessageType => 'NoLockPostRevertRelock', Message => { $idkey->hashList }));
+    $self->eventSystem->emit(
+        'control',
+        Replay::Message->new(
+            MessageType => 'NoLockPostRevertRelock',
+            Message     => { $idkey->hashList }
+        )
+    );
     carp "checkout after revert and relock failed.  Look in COLLECTION ("
         . $idkey->collection
         . ") IDKEY ("
@@ -233,7 +249,13 @@ override revert => sub {
         }
     );
     carp "tried to do a revert but didn't have a lock on it" unless $state;
-    $self->eventSystem->emit('control', Replay::Message->new(MessageType => 'NoLockDuringRevert', Message => { $idkey->hashList }));
+    $self->eventSystem->emit(
+        'control',
+        Replay::Message->new(
+            MessageType => 'NoLockDuringRevert',
+            Message     => { $idkey->hashList }
+        )
+    );
     return unless $state;
     $self->revertThisRecord($idkey, $unlsignature, $state);
     my $result = $self->unlock($idkey, $unluuid);
@@ -256,17 +278,19 @@ sub unlock {
 sub updateAndUnlock {
     my ($self, $idkey, $uuid, $state) = @_;
     my $signature = $self->stateSignature($idkey, [$uuid]);
+    my @unsetcanon = ();
     if ($state) {
         delete $state->{inbox};             # we must not affect the inbox on updates!
         delete $state->{desktop};           # there is no more desktop on checkin
         delete $state->{lockExpireEpoch};   # there is no more expire time on checkin
         delete $state->{locked};    # there is no more locked signature on checkin
+        @unsetcanon = (canonical => 1) if @{ $state->{canonical} || [] } == 0;
     }
     return $self->collection($idkey)->find_and_modify(
         {   query  => { idkey => $idkey->cubby, locked => $signature },
             update => {
                 ($state ? ('$set' => $state) : ()),
-                '$unset' => { desktop => 1, lockExpireEpoch => 1, locked => 1 }
+                '$unset' => { desktop => 1, lockExpireEpoch => 1, locked => 1, @unsetcanon }
             },
             upsert => 0,
             new    => 1
@@ -276,7 +300,15 @@ sub updateAndUnlock {
 
 override checkin => sub {
     my ($self, $idkey, $uuid, $state) = @_;
-    my $result = $self->updateAndUnlock($idkey, $uuid, $state);
+
+    my $result = $self->updateAndUnlock($idkey, $uuid, $state)
+        if $self->collection($idkey)->remove(
+        {   idkey     => $idkey->cubby,
+            inbox     => { '$exists' => 0 },
+            desktop   => { '$exists' => 0 },
+            canonical => { '$exists' => 0 }
+        }
+        );
     return unless defined $result;
 
     super();

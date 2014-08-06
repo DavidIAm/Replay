@@ -8,13 +8,20 @@ has eventSystem  => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
 has Timeblocks   => (is => 'rw', isa => 'ArrayRef',            required => 1);
 has Ruleversions => (is => 'rw', isa => 'ArrayRef',            required => 1);
 has messagesToSend => (is => 'rw', isa => 'ArrayRef', default => sub { [] });
+has atomsToDefer => (is => 'rw', isa => 'ArrayRef', default => sub { [] });
+
+sub defer {
+    my $self = shift;
+    my $atom = shift;
+    push @{ $self->atomsToDefer }, $atom;
+}
 
 sub emit {
     my $self    = shift;
     my $channel = shift;
     my $message = shift;
 
-		# handle single argument construct
+    # handle single argument construct
     if (blessed $channel && $channel->isa('Replay::Message')) {
         $message = $channel;
         $channel = 'derived';
@@ -76,6 +83,10 @@ delayedEmitter object.  All of the emits to it are held in a buffer
 until the release method is called.
 
 =head1 SUBROUTINES/METHODS
+
+=head2 defer(atom)
+
+We didn't process this atom.  Give it back to the inbox.
 
 =head2 emit(message)
 =head2 emit(channel, message)

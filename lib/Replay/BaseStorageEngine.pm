@@ -159,13 +159,17 @@ sub fetchTransitionalState {
 }
 
 sub storeNewCanonicalState {
-    my ($self, $idkey, $uuid, @atoms) = @_;
+    my ($self, $idkey, $uuid, $emitter, @atoms) = @_;
     my $cubby = $self->retrieve($idkey);
     $cubby->{canonVersion}++;
     $cubby->{canonical} = [@atoms];
     $cubby->{canonSignature} = $self->stateSignature($idkey, $cubby->{canonical});
     delete $cubby->{desktop};
     my $newstate = $self->checkin($idkey, $uuid, $cubby);
+    $emitter->release;
+    foreach my $atom (@{ $emitter->atomsToDefer }) {
+        $self->absorb($idkey, $atom, {});
+    }
     $self->eventSystem->control->emit(
         Replay::Message::NewCanonical->new(Message => { $idkey->hashList }));
     $self->eventSystem->control->emit(
@@ -249,7 +253,7 @@ check out a state for transition.  locks record
 
 automatically reverts previous checkout if lock is expired
 
-=head2 success = storeNewCanonicalState(idkey, uuid)
+=head2 success = storeNewCanonicalState(idkey, uuid, emitter, @atoms)
 
 check in a state for transition if uuid matches.  unlocks record if success.
 
@@ -272,7 +276,7 @@ check in a state for transition if uuid matches.  unlocks record if success.
  interface:
   - boolean absorb(idkey, atom): accept a new atom into a state
   - state fetchTransitionalState(idkey): returns a new key-state for reduce processing
-  - boolean storeNewCanonicalState(signature, state): accept a new canonical state
+  - boolean storeNewCanonicalState(idkey, uuid, emitter, atoms): accept a new canonical state
   - state fetchCanonicalState(idkey): returns the current collective state
 
  events emitted:
