@@ -178,7 +178,7 @@ override checkout => sub {
 
     # If it didn't relock, give up.  Its locked by somebody else.
     unless (defined $expireRelock) {
-    carp "Unable to obtain lock because the current one is locked and unexpired\n";
+    carp "Unable to obtain lock because the current one is locked and unexpired (".$idkey->cubby.")\n";
     return
 	}
 
