@@ -7,7 +7,7 @@ use Data::UUID;
 use Replay::IdKey;
 use Readonly;
 use JSON;
-use Carp qw/croak carp/;;
+use Carp qw/croak carp/;
 
 extends 'Replay::BaseStorageEngine';
 
@@ -18,7 +18,7 @@ has mongo => (
     lazy    => 1
 );
 
-has db => (is => 'ro', builder => '_build_db', lazy => 1);
+has db     => (is => 'ro', builder => '_build_db',     lazy => 1);
 has dbname => (is => 'ro', builder => '_build_dbname', lazy => 1);
 
 has uuid => (is => 'ro', builder => '_build_uuid', lazy => 1);
@@ -178,9 +178,12 @@ override checkout => sub {
 
     # If it didn't relock, give up.  Its locked by somebody else.
     unless (defined $expireRelock) {
-    carp "Unable to obtain lock because the current one is locked and unexpired (".$idkey->cubby.")\n";
-    return
-	}
+    return $self->eventSystem->control->emit(
+        $self->eventSystem->emit('control', Replay::Message->new(MessageType => 'NoLock', Message => { $idkey->hashList }));
+        carp "Unable to obtain lock because the current one is locked and unexpired ("
+            . $idkey->cubby . ")\n";
+        return;
+    }
 
     # Oh my, we did. Well then, we should...
     $self->revertThisRecord($idkey, $unlsignature, $expireRelock);
@@ -193,7 +196,9 @@ override checkout => sub {
     my $relockresult
         = $self->relock($idkey, $unlsignature, $newsignature, $timeout);
 
-    carp "Unable to relock after revert ($unlsignature)? " . $idkey->checkstring . "\n"
+    $self->eventSystem->emit('control', Replay::Message->new(MessageType => 'NoLockPostRevert', Message => { $idkey->hashList }));
+    carp "Unable to relock after revert ($unlsignature)? "
+        . $idkey->checkstring . "\n"
         unless defined $relockresult;
     return unless defined $relockresult;
 
@@ -205,6 +210,7 @@ override checkout => sub {
         return $newuuid, $lockresult;
     }
 
+    $self->eventSystem->emit('control', Replay::Message->new(MessageType => 'NoLockPostRevertRelock', Message => { $idkey->hashList }));
     carp "checkout after revert and relock failed.  Look in COLLECTION ("
         . $idkey->collection
         . ") IDKEY ("
@@ -227,6 +233,7 @@ override revert => sub {
         }
     );
     carp "tried to do a revert but didn't have a lock on it" unless $state;
+    $self->eventSystem->emit('control', Replay::Message->new(MessageType => 'NoLockDuringRevert', Message => { $idkey->hashList }));
     return unless $state;
     $self->revertThisRecord($idkey, $unlsignature, $state);
     my $result = $self->unlock($idkey, $unluuid);
@@ -286,24 +293,24 @@ override windowAll => sub {
 
 #}}}}
 
-sub _build_mongo { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_mongo {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     return MongoDB::MongoClient->new();
 }
 
-sub _build_dbname { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_dbname {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return $self->config->{stage} . '-replay';
 }
 
-sub _build_db { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_db {        ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     my $config = $self->config;
     my $db     = $self->mongo->get_database($self->dbname);
     return $db;
 }
 
-sub _build_uuid { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_uuid {      ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     return Data::UUID->new;
 }

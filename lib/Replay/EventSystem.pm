@@ -36,6 +36,20 @@ has origin => (
     lazy    => 1,
     clearer => 'clear_origin',
 );
+has originsniffer => (
+    is      => 'rw',
+    isa     => 'Object',
+    builder => '_build_origin_sniffer',
+    lazy    => 1,
+    clearer => 'clear_origin_sniffer',
+);
+has derivedsniffer => (
+    is      => 'rw',
+    isa     => 'Object',
+    builder => '_build_derived_sniffer',
+    lazy    => 1,
+    clearer => 'clear_derived_sniffer',
+);
 has config => (is => 'ro', isa => 'HashRef[Item]', required => 1);
 has domain => (is => 'ro');    # placeholder
 
@@ -72,12 +86,14 @@ sub run {
     local $SIG{QUIT} = sub {
         return if $quitting++;
         $self->stop;
+        $self->clear;
         carp('shutdownBySIGQUIT');
     };
     carp "SIGINT will stop loop";
     local $SIG{INT} = sub {
         return if $quitting++;
         $self->stop;
+        $self->clear;
         carp('shutdownBySIGINT');
     };
 
@@ -113,6 +129,8 @@ sub clear {
     $self->clear_control;
     $self->clear_derived;
     $self->clear_origin;
+    $self->clear_derived_sniffer;
+    $self->clear_origin_sniffer;
     return;
 }
 
@@ -195,19 +213,29 @@ sub _build_queue {
         ->new(purpose => $purpose, config => $self->config, mode => $mode);
 }
 
-sub _build_control { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_control {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     return $self->_build_queue('control', 'fanout');
 }
 
-sub _build_derived { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_derived_sniffer {   ## no critic (ProhibitUnusedPrivateSubroutines)
+    my ($self) = @_;
+    return $self->_build_queue('derived', 'fanout');
+}
+
+sub _build_derived {           ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     return $self->_build_queue('derived', 'distribute');
 }
 
-sub _build_origin { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_origin {            ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     return $self->_build_queue('origin', 'distribute');
+}
+
+sub _build_origin_sniffer {    ## no critic (ProhibitUnusedPrivateSubroutines)
+    my ($self) = @_;
+    return $self->_build_queue('origin', 'fanout');
 }
 
 =head1 NAME
