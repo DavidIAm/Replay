@@ -5,6 +5,8 @@ use Moose;
 use Try::Tiny;
 use Carp qw/croak/;
 
+our $VERSION = '0.1';
+
 has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
 has engine => (
     is      => 'ro',
@@ -97,10 +99,6 @@ Replay::StorageEngine - abstracted interface to the storage portion of the Repla
 =head1 VERSION
 
 Version 0.01
-
-=cut
-
-our $VERSION = '0.01';
 
 =head1 SYNOPSIS
 
@@ -243,10 +241,6 @@ see BaseStorageEngine windowAll
 
 see BaseStorageEngine findKeysNeedReduce
 
-=cut
-
-=cut
-
 =head1 AUTHOR
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
@@ -331,10 +325,6 @@ CONTRIBUTOR WILL BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, OR
 CONSEQUENTIAL DAMAGES ARISING IN ANY WAY OUT OF THE USE OF THE PACKAGE,
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-
-=cut
-
-1;    # End of Replay
 
 =head1 STORAGE ENGINE MODEL ASSUMPTIONS
 

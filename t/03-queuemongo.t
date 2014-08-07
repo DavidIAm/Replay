@@ -14,15 +14,15 @@ has '+name' => (default => __PACKAGE__,);
 
 override match => sub {
     my ($self, $message) = @_;
-    return $message->{is_interesting};
+    return $message->{MessageType} eq 'interesting';
 };
 
 override keyValueSet => sub {
     my ($self, $message) = @_;
     my @keyvalues = ();
-    foreach my $key (keys %{$message}) {
-        next unless 'ARRAY' eq ref $message->{$key};
-        foreach (@{ $message->{$key} }) {
+    foreach my $key (keys %{ $message->{Message} }) {
+        next unless 'ARRAY' eq ref $message->{Message}{$key};
+        foreach (@{ $message->{Message}{$key} }) {
             push @keyvalues, $key, $_;
         }
     }
@@ -44,7 +44,7 @@ use Data::Dumper;
 
 use Replay;
 use Time::HiRes qw/gettimeofday/;
-use Test::Most tests => 18;
+use Test::Most tests => 17;
 use Config::Locale;
 use JSON;
 
@@ -52,14 +52,14 @@ use JSON;
 
 # an event transition has a match/map
 
-my $interesting = { interesting => 1 };
+my $interesting = { MessageType => 'interesting', Message => {} };
 
 my $tr = new TESTRULE->new;
 die unless $tr->version;
 is $tr->version, 1, 'version returns';
 
-my $intmessage    = { is_interesting => 1 };
-my $boringmessage = { is_interesting => 0 };
+my $intmessage    = { MessageType => 'interesting', Message => {} };
+my $boringmessage = { MessageType => 'boring',      Message => {} };
 
 ok $tr->match($intmessage), 'is interesting';
 ok !$tr->match($boringmessage), 'is not interesting';
@@ -69,17 +69,15 @@ my $windowmessage   = { window => 'sometime' };
 ok $tr->window($nowindowmessage), 'alltime';
 ok $tr->window($windowmessage),   'sometime';
 
-my $funMessage
-    = { a => [ 5, 1, 2, 3, 4 ], is_interesting => 1, MessageType => 'adhoc' };
-my $notAfterAll = { b => [ 1, 2, 3, 4, 5, 6 ] };
-my $secondMessage = { c => [ 6, 7, 8, 9, 10 ], is_interesting => 1,
-    MessageType => 'adhoc' };
+my $funMessage = { MessageType => 'interesting',
+    Message => { a => [ 5, 1, 2, 3, 4 ], } };
+my $notAfterAll
+    = { MessageType => 'boring', Message => { b => [ 1, 2, 3, 4, 5, 6 ] } };
+my $secondMessage = { MessageType => 'interesting',
+    Message => { c => [ 6, 7, 8, 9, 10 ], } };
 
 is_deeply [ $tr->keyValueSet($funMessage) ],
     [ a => 5, a => 1, a => 2, a => 3, a => 4 ], 'expands';
-
-is_deeply [ $tr->keyValueSet({ b => [ 1, 2, 3, 4 ] }) ],
-    [ b => 1, b => 2, b => 3, b => 4 ];
 
 my $replay = Replay->new(
     config => {
@@ -143,10 +141,10 @@ $replay->eventSystem->control->subscribe(
         warn __FILE__
             . ": This is a control message of type "
             . $message->{MessageType} . "\n";
+
         return unless $message->{MessageType} eq 'NewCanonical';
-        $replay->eventSystem->stop unless ++$canoncount;
-        $replay->storageEngine->engine->db->drop;
-        $replay->eventSystem->clear;
+        return if ++$canoncount;
+        $replay->eventSystem->stop;
     }
 );
 
@@ -229,4 +227,8 @@ $replay->storageEngine->engine->collection($idkey)->insert(
 
     ok $uuid, "Was able to check it out again";
 }
+
+# cleanup
+$replay->storageEngine->engine->db->drop;
+$replay->eventSystem->clear;
 
