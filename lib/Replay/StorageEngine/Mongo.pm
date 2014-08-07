@@ -182,12 +182,13 @@ override checkout => sub {
     unless (defined $expireRelock) {
         carp "Unable to obtain lock because the current one is locked and unexpired ("
             . $idkey->cubby . ")\n";
-        return $self->eventSystem->control->emit(
+        $self->eventSystem->control->emit(
             Replay::Message->new(
                 MessageType => 'NoLock',
                 Message     => { $idkey->hashList }
             )
         );
+        return;
     }
 
     # Oh my, we did. Well then, we should...

@@ -14,15 +14,15 @@ has '+name' => (default => __PACKAGE__,);
 
 override match => sub {
     my ($self, $message) = @_;
-    return $message->{is_interesting};
+    return $message->{MessageType} eq 'interesting';
 };
 
 override keyValueSet => sub {
     my ($self, $message) = @_;
     my @keyvalues = ();
-    foreach my $key (keys %{$message}) {
-        next unless 'ARRAY' eq ref $message->{$key};
-        foreach (@{ $message->{$key} }) {
+    foreach my $key (keys %{$message->{Message}}) {
+        next unless 'ARRAY' eq ref $message->{Message}{$key};
+        foreach (@{ $message->{Message}{$key} }) {
             push @keyvalues, $key, $_;
         }
     }
@@ -52,17 +52,17 @@ use JSON;
 
 # an event transition has a match/map
 
-my $interesting = { interesting => 1 };
+my $interesting = { MessageType => 'interesting' };
 
 my $tr = new TESTRULE->new;
 die unless $tr->version;
 is $tr->version, 1, 'version returns';
 
-my $intmessage    = { is_interesting => 1 };
-my $boringmessage = { is_interesting => 0 };
+my $intmessage    = { MessageType => 'interesting'};
+my $boringmessage = { MessageType => 'boring' };
 
-ok $tr->match($intmessage), 'is interesting';
-ok !$tr->match($boringmessage), 'is not interesting';
+ok $tr->match($intmessage), 'interesting';
+ok !$tr->match($boringmessage), 'boring';
 
 my $nowindowmessage = { vindow => 'sometime' };
 my $windowmessage   = { window => 'sometime' };
@@ -70,15 +70,14 @@ ok $tr->window($nowindowmessage), 'alltime';
 ok $tr->window($windowmessage),   'sometime';
 
 my $funMessage
-    = { a => [ 5, 1, 2, 3, 4 ], is_interesting => 1, MessageType => 'adhoc' };
-my $notAfterAll = { b => [ 1, 2, 3, 4, 5, 6 ] };
-my $secondMessage = { c => [ 6, 7, 8, 9, 10 ], is_interesting => 1,
-    MessageType => 'adhoc' };
+    = { Message => { a => [ 5, 1, 2, 3, 4 ] }, MessageType => 'interesting' };
+my $notAfterAll = { MessageType => 'Boring', Message => { b => [ 1, 2, 3, 4, 5, 6 ] } };
+my $secondMessage = {Message => { c => [ 6, 7, 8, 9, 10 ] }, MessageType => 'interesting' };
 
 is_deeply [ $tr->keyValueSet($funMessage) ],
     [ a => 5, a => 1, a => 2, a => 3, a => 4 ], 'expands';
 
-is_deeply [ $tr->keyValueSet({ b => [ 1, 2, 3, 4 ] }) ],
+is_deeply [ $tr->keyValueSet({ Message => { b => [ 1, 2, 3, 4 ] }}) ],
     [ b => 1, b => 2, b => 3, b => 4 ];
 
 my $replay = Replay->new(
@@ -90,6 +89,10 @@ my $replay = Replay->new(
     },
     rules => [ new TESTRULE ]
 );
+$replay->storageEngine->engine->db->drop;
+
+#goto LATTER;
+
 my $ourtestkey = Replay::IdKey->new( { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' });
 warn "clearing collection ".$ourtestkey->collection." in db ".$replay->storageEngine->engine->dbname()." result is ".
 Dumper $replay->storageEngine->engine->collection($ourtestkey)->remove({});
@@ -117,21 +120,23 @@ $replay->eventSystem->origin->subscribe(
     sub {
         my ($message) = @_;
 
-        #warn "This is a origin message of type ".$message->{MessageType}."\n";
+        warn "This is a origin message of type ".$message->{MessageType}."\n";
     }
 );
 $replay->eventSystem->derived->subscribe(
     sub {
         my ($message) = @_;
 
-        #warn "This is a derived message of type ".$message->{MessageType}."\n";
+        warn "This is a derived message of type ".$message->{MessageType}."\n";
     }
 );
 $replay->eventSystem->control->subscribe(
     sub {
         my ($message) = @_;
 
-				#warn "This is a control message of type ".$message->{MessageType}."\n";
+				my $json = new JSON;
+				$json->canonical(1);
+				warn "This is a control message of type ".$message->{MessageType}. " = " . $message->{Message}{name} . ' - ' . $message->{Message}{key} . "\n";
         return                     unless $message->{MessageType} eq 'NewCanonical';
         $replay->eventSystem->stop unless ++$canoncount;
     }
@@ -156,6 +161,7 @@ is_deeply $replay->storageEngine->windowAll(
     ),
     { a => [15], c => [40] }, "windowall returns all";
 
+LATTER:
 
 my $idkey = Replay::IdKey->new( { name => 'TESTRULE', version => 1, window => 'alltime', key => 'x' });
 
@@ -177,7 +183,7 @@ ok $buuid, 'checkout good';
 
 {
 my ($cuuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
-ok !$cuuid, 'failed while checkout already proper';
+ok !$cuuid, 'failed while checkout already is proper';
 }
 
 ok $replay->storageEngine->engine->revert($idkey, $buuid), "revert clean";
