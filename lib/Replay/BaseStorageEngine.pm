@@ -72,13 +72,8 @@ sub retrieve {
 
 sub absorb {
     my ($self, $idkey) = @_;
-    return $self->delayToDoOnce(
-        $idkey->hash . 'Reducable',
-        sub {
-            $self->eventSystem->control->emit(
-                Replay::Message::Reducable->new(Message => { $idkey->hashList }));
-        }
-    );
+    return $self->eventSystem->control->emit(
+        Replay::Message::Reducable->new(Message => { $idkey->hashList }));
 }
 
 sub delayToDoOnce {
@@ -167,6 +162,7 @@ sub storeNewCanonicalState {
     delete $cubby->{desktop};
     my $newstate = $self->checkin($idkey, $uuid, $cubby);
     $emitter->release;
+
     foreach my $atom (@{ $emitter->atomsToDefer }) {
         $self->absorb($idkey, $atom, {});
     }
@@ -195,6 +191,12 @@ sub windowAll {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
         Replay::Message::WindowAll->new(Message => { $idkey->hashList }));
+}
+
+sub findKeysNeedReduce {
+    my ($self, $idkey) = @_;
+    return $self->eventSystem->control->emit(
+        Replay::Message->new(MessageType => "FoundKeysForReduce", Message => {}));
 }
 
 sub enumerateWindows {
@@ -369,6 +371,12 @@ else
 
 select and return all of the documents representing states within the
 specified window, in a hash keyed by the key within the window
+
+=head2 objectlist = findKeysNeedReduce(idkey)
+
+returns a list of idkey objects which represent all of the keys in the replay
+system that appear to be locked, in progress, or have outstanding absorbtions
+that need reduced.
 
 =head1 INTERNAL METHODS
 

@@ -14,6 +14,7 @@ sub defer {
     my $self = shift;
     my $atom = shift;
     push @{ $self->atomsToDefer }, $atom;
+    return;
 }
 
 sub emit {

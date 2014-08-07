@@ -58,6 +58,11 @@ sub windowAll {
     return $self->engine->windowAll(@args);
 }
 
+sub findKeysNeedReduce {
+    my ($self, @args) = @_;
+    return $self->engine->findKeysNeedReduce(@args);
+}
+
 sub _build_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self, @args) = @_;
     my $classname = $self->mode;
@@ -73,8 +78,7 @@ sub _build_mode {      ## no critic (ProhibitUnusedPrivateSubroutines)
     croak "No StorageMode?" unless $self->config->{StorageMode};
     my $class = 'Replay::StorageEngine::' . $self->config->{StorageMode};
     try {
-        eval "require $class";
-        die $@ if $@;
+        croak $@ unless eval "require $class";
     }
     catch {
         confess "No such storage mode available "
@@ -234,6 +238,12 @@ see BaseStorageEngine storeNewCanonicalState
 =head2 windowAll(idkey)
 
 see BaseStorageEngine windowAll
+
+=head2 findKeysNeedReduce(idkey)
+
+see BaseStorageEngine findKeysNeedReduce
+
+=cut
 
 =cut
 

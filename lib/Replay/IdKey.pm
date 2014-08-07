@@ -20,6 +20,12 @@ sub collection {
     return 'replay-' . $self->name . $self->version;
 }
 
+sub parseCubby {
+    my ($class,  $cubby) = @_;
+    my ($window, $key)   = $cubby =~ /^wind-(.+)-key-(.+)$/ix;
+    return window => $window, key => $key;
+}
+
 sub windowPrefix {
     my ($self) = @_;
     return 'wind-' . $self->window . '-key-';
@@ -37,7 +43,7 @@ sub ruleSpec {
 
 sub hashList {
     my ($self) = @_;
-    return $self->marshall
+    return $self->marshall;
 }
 
 sub checkstring {
@@ -57,7 +63,12 @@ sub hash {
 
 sub marshall {
     my ($self) = @_;
-    return ( name => $self->name, version => $self->version, window => $self->window, key => $self->key );
+    return (
+        name    => $self->name,
+        version => $self->version,
+        window  => $self->window,
+        key     => $self->key
+    );
 }
 
 =head1 NAME
@@ -86,6 +97,12 @@ used to name the collection in which this part of the hierarchy will be found
 =head2 windowPrefix
 
 The window based prefix for the cubby key
+
+=head2 parseCubby
+
+static
+
+translate a cubby name to a window => $window, key => $key sequence
 
 =head2 cubby
 

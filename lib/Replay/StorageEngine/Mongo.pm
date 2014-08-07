@@ -8,6 +8,8 @@ use Replay::IdKey;
 use Readonly;
 use JSON;
 use Carp qw/croak carp/;
+use Replay::Message::Reducable;
+use Replay::Message;
 
 extends 'Replay::BaseStorageEngine';
 
@@ -178,15 +180,14 @@ override checkout => sub {
 
     # If it didn't relock, give up.  Its locked by somebody else.
     unless (defined $expireRelock) {
+        carp "Unable to obtain lock because the current one is locked and unexpired ("
+            . $idkey->cubby . ")\n";
         return $self->eventSystem->control->emit(
             Replay::Message->new(
                 MessageType => 'NoLock',
                 Message     => { $idkey->hashList }
             )
         );
-        carp "Unable to obtain lock because the current one is locked and unexpired ("
-            . $idkey->cubby . ")\n";
-        return;
     }
 
     # Oh my, we did. Well then, we should...
@@ -284,7 +285,10 @@ sub updateAndUnlock {
         delete $state->{desktop};           # there is no more desktop on checkin
         delete $state->{lockExpireEpoch};   # there is no more expire time on checkin
         delete $state->{locked};    # there is no more locked signature on checkin
-        @unsetcanon = (canonical => 1) if @{ $state->{canonical} || [] } == 0;
+        if (@{ $state->{canonical} || [] } == 0) {
+            delete $state->{canonical};
+            @unsetcanon = (canonical => 1);
+        }
     }
     return $self->collection($idkey)->find_and_modify(
         {   query  => { idkey => $idkey->cubby, locked => $signature },
@@ -301,7 +305,13 @@ sub updateAndUnlock {
 override checkin => sub {
     my ($self, $idkey, $uuid, $state) = @_;
 
-    my $result = $self->updateAndUnlock($idkey, $uuid, $state)
+    my $result = $self->updateAndUnlock($idkey, $uuid, $state);
+    $self->eventSystem->control->emit(
+        Replay::Message->new(
+            MessageType => 'ClearedState',
+            Message     => { $idkey->hashList }
+        )
+        )
         if $self->collection($idkey)->remove(
         {   idkey     => $idkey->cubby,
             inbox     => { '$exists' => 0 },
@@ -323,7 +333,41 @@ override windowAll => sub {
             ->find({ idkey => { '$regex' => '^' . $idkey->windowPrefix } })->all };
 };
 
-#}}}}
+sub findKeysNeedReduce {
+    my ($self) = @_;
+    my @idkeys = ();
+    my $rule   = $self->ruleSource->first;
+    do {
+        my $idkey = Replay::IdKey->new(
+            name    => $rule->name,
+            version => $rule->version,
+            window  => '-',
+            key     => '-'
+        );
+        foreach my $result (
+            $self->collection($idkey)->find(
+                {   '$or' => [
+                        { inbox           => { '$exists' => 1 } },
+                        { desktop         => { '$exists' => 1 } },
+                        { locked          => { '$exists' => 1 } },
+                        { lockExpireEpoch => { '$exists' => 1 } }
+                    ]
+                },
+                { idkey => 1 }
+            )->all
+            )
+        {
+            push @idkeys,
+                Replay::IdKey->new(
+                name    => $rule->name,
+                version => $rule->version,
+                Replay::IdKey->parseCubby($result->{idkey})
+                );
+        }
+    } while ($rule = $self->ruleSource->next);
+    super();
+    return @idkeys;
+}
 
 sub _build_mongo {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
@@ -391,6 +435,8 @@ Replay::StorageEngine::Mongo->new( ruleSoruce => $rs, eventSystem => $es, config
 =head2 checkin - update and unlock document
 
 =head2 windowAll - get documents for a particular window
+
+=head2 findKeysNeedReduce - find all the keys that look like they might need reduction
 
 =head1 SUBROUTINES/METHODS
 

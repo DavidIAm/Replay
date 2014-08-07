@@ -54,13 +54,13 @@ sub _build_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
     );
 }
 
-sub _build_mode {      ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_mode {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     croak "No ReportMode?" unless $self->config->{ReportMode};
     my $class = 'Replay::ReportEngine::' . $self->config->{ReportMode};
     try {
-        eval "require $class";
-        die $@ if $@;
+        eval "require $class"; ## no critic (ProhibitStringyEval RequireCheckingReturnValueOfEval)
+        croak $@ if $@;
     }
     catch {
         confess "No such report mode available "

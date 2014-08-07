@@ -98,7 +98,8 @@ my $replay = Replay->new(
 );
 my $ourtestkey = Replay::IdKey->new(
     { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' });
-warn "REMOVE RESULT" . Dumper $replay->storageEngine->engine->collection($ourtestkey)
+warn "REMOVE RESULT"
+    . Dumper $replay->storageEngine->engine->collection($ourtestkey)
     ->remove({});
 
 $replay->worm;
@@ -121,23 +122,31 @@ $replay->eventSystem->origin->subscribe(
     sub {
         my ($message) = @_;
 
-        warn __FILE__ . ": This is a origin message of type " . $message->{MessageType} . "\n";
+        warn __FILE__
+            . ": This is a origin message of type "
+            . $message->{MessageType} . "\n";
     }
 );
 $replay->eventSystem->derived->subscribe(
     sub {
         my ($message) = @_;
 
-        warn __FILE__ . ": This is a derived message of type " . $message->{MessageType} . "\n";
+        warn __FILE__
+            . ": This is a derived message of type "
+            . $message->{MessageType} . "\n";
     }
 );
 $replay->eventSystem->control->subscribe(
     sub {
         my ($message) = @_;
 
-        warn __FILE__ . ": This is a control message of type " . $message->{MessageType} . "\n";
-        return                     unless $message->{MessageType} eq 'NewCanonical';
+        warn __FILE__
+            . ": This is a control message of type "
+            . $message->{MessageType} . "\n";
+        return unless $message->{MessageType} eq 'NewCanonical';
         $replay->eventSystem->stop unless ++$canoncount;
+        $replay->storageEngine->engine->db->drop;
+        $replay->eventSystem->clear;
     }
 );
 

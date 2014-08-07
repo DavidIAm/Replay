@@ -144,7 +144,8 @@ sub emit {
 
 sub poll {
     my ($self, @purposes) = @_;
-    @purposes = qw/origin derived control/ unless scalar @purposes;
+    @purposes = qw/origin derived control derivedsniffer originsniffer/
+        unless scalar @purposes;
     my $activity = 0;
     foreach my $purpose (@purposes) {
         try {
@@ -199,7 +200,9 @@ sub _build_queue {
     my ($self, $purpose, $mode) = @_;
     try {
         my $classname = $self->config->{QueueClass};
-        try { eval "require $classname" }
+        try {
+            croak $@ unless eval "require $classname";
+        }
         catch {
             croak "error requiring: $_";
         };
