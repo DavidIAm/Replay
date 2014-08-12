@@ -11,20 +11,22 @@ use Replay::Meta;
 use Scalar::Util qw/blessed/;
 use Try::Tiny;
 use Time::HiRes qw/gettimeofday/;
-use Replay::Message::NewReportAvailable;
+use Replay::Message::Report::NewReportAvailable;
 
 has eventSystem   => (is => 'ro', required => 1,);
-has storageEngine => (is => 'ro', required => 1,);
 has reportEngine  => (is => 'ro', required => 1,);
-has ruleSource    => (is => 'ro', required => 1,);
 
 # dummy implimentation - Log them to a file
 sub BUILD {
     my $self = shift;
-    mkdir $self->directory unless -d $self->directory;
     return $self->eventSystem->control->subscribe(
         sub {
             my $message = shift;
+            return unless ($message->{MessageType} eq 'NewCanonical') ||
+            ($message->{MessageType} eq 'NewDelivery') ||
+            ($message->{MessageType} eq 'NewSummary');
+
+
             my $idkey   = Replay::IdKey->new($message->{Message});
 
             $self->delivery($idkey)    if ($message->{MessageType} eq 'NewCanonical');
@@ -35,27 +37,31 @@ sub BUILD {
 }
 
 sub delivery {
-    my ($self, $idKey) = @_;
+    my ($self, $idkey) = @_;
     my $newrevision = $self->reportEngine->delivery($idkey);
-    $self->set_latest($idkey, $newrevision);
+    $self->reportEngine->set_latest($idkey, $newrevision);
+    $idkey->revision($newrevision);
     $self->eventSystem->control->emit(
-        Replay::Message::NewReportAvailable->new(
-            idKey->marshall, revision => $newrevision,
+        Replay::Message::Report::NewReportAvailable->new(
+            $idkey->marshall, url => $self->reportEngine->url($idkey)
         )
-    );
+    ) if $newrevision;
 }
 
 sub summarize {
-    my ($self, $idKey) = @_;
-    return $self->reportEngine->newSummary(
-        $self->ruleSource->byIdKey($idKey)->summary(
-            reports => $reports,
-            Ruleversions =>
-                Replay::Meta::union(map { $_->Ruleversions } values %{$reports}),
-            Timeblocks => Replay::Meta::union(map { $_->Timeblocks } values %{$reports}),
-            Windows    => Replay::Meta::union(map { $_->Windows } values %{$reports}),
+    my ($self, $idkey) = @_;
+    my $newrevision = $self->reportEngine->summarize($idkey);
+    $self->eventSystem->control->emit(
+        Replay::Message::Report::NewReportAvailable->new(
+            $idkey->marshall,
+            revision => $newrevision,
+            url      => $self->reportEngine->url($idkey)
         )
-    );
+    ) if $newrevision;
+}
+
+sub globsummarize {
+    my ($self, $idkey) = @_;
 }
 
 =head1 NAME

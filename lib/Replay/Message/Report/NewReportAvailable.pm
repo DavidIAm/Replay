@@ -7,13 +7,6 @@ extends('Replay::Message');
 with qw(Replay::Message::IdKey Replay::Message::Report);
 
 has '+MessageType' => (default => 'NewReportAvailable');
-has revision => (
-    is          => 'ro',
-    isa         => 'Str',
-    required    => 1,
-    traits      => ['MooseX::MetaDescription::Meta::Trait'],
-    description => { layer => 'message' }
-);
 
 =head1 NAME
 

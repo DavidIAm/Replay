@@ -39,6 +39,7 @@ has storageEngine =>
 
 #requires qw/delivery summary globsummary freeze copydomain checkpoint/;
 
+# Construct a new Entry object for a report that already exists
 sub existing_entry {
     my ($self, $idkey, $revision) = @_;
     return Replay::StorageEngine::Filesystem::Entry->new(
@@ -48,6 +49,7 @@ sub existing_entry {
     );
 }
 
+# Construct a new Entry object for a report that does not yet exist
 sub new_entry {
     my ($self, $idkey) = @_;
     my $e = Replay::StorageEngine::Filesystem::Entry->new(
@@ -58,23 +60,58 @@ sub new_entry {
     return $e;
 }
 
+sub url {
+    my ($self, $idkey) = @_;
+    die "configure ReportRESTBaseURL" unless $self->config->{ReportRESTBaseURL};
+    my $baseurl = URI->new($self->config->{ReportRESTBaseURL});
+my $entry = $self->existing_entry($idkey, $idkey->revision);
+    my $url = URI->new_abs($entry->subdirectory . '/'. $entry->filename, $baseurl)->as_string;
+warn "URL is $url";
+return $url;
+}
+
+# TODO: is this the responsibility of the report engine?
 sub deliver {
     my ($self, $idkey, $revision) = @_;
     my $entry = $self->existing_entry($idkey, $revision);
     return $entry->content;
 }
 
+sub summary {
+    my ($self, $idkey) = @_;
+    my $entry = $self->existing_entry($idkey);
+    return $entry->content;
+}
+
+# report system procedures
+
+sub checkpoint {
+my ($idkey, $checkpointidentifier) = @_;
+   die "no checkpoint yet";
+# TODO: freeze everything
+}
+
+sub copydomain {
+my ($olddomain, $newdomain) = @_;
+	die "no copydomain";
+# TODO: copy the state of this domain to a new one
+}
+
+# make the specified revision the active latest revision
 sub set_latest {
     my ($self, $idkey, $revision) = @_;
     my $entry = $self->existing_entry($idkey, $revision);
     return $entry->set_latest;
 }
 
+# make the specified revision the active latest revision
 sub petrify {
     my ($self, $idkey, $revision) = @_;
     return $self->existing_entry($idkey, $revision)->petrify;
 }
 
+# render the report at a key level
+# TODO: Rename as 'renderKey'
 sub delivery {
     my ($self, $idkey) = @_;
 
@@ -92,68 +129,29 @@ sub delivery {
     return $entry->revision;
 }
 
-sub summary {
+# render the report at a window level
+# TODO: Rename as 'renderWindow'
+sub summarize 
+{
     my ($self, $idkey) = @_;
-
-    $idkey->clear_key;
-    my $filename = $self->filename($idkey, 'tmp');
-    my ($file, $dirs) = fileparse($filename);
-    mkpath $dirs unless -d $dirs;
-    my @keys     = $self->keys($idkey);
-    my @keyfiles = map {
-        $self->filename(Replay::IdKey->new($idkey->marshall, key => $_), 'latest')
-    } @keys;
-    my @metadata
-        = map { $self->metadata(Replay::IdKey->new($idkey->marshall, key => $_)) }
-        @keys;
-    my $merge = Hash::Merge->new('RETAINMENT_PRECEDENT');
-    my $meta  = shift @metadata;
-    while (scalar @metadata) {
-        $meta = $merge->merge($meta, shift @metadata);
-    }
-    my $handle = $self->filewritehandle($filename);
-
-    my $rule = $self->ruleSource->byIdKey($idkey);
-    $rule->summary($handle, @keyfiles);
-    $handle->close;
-
-    # Complete the meta information for this report
-    my $type      = File::MimeInfo::Magic::mimetype($filename);
-    my $extension = File::MimeInfo::extensions($type);
-
-    $self->modify_meta(
-        $filename,
-        sub {
-            my ($existing) = @_;
-            %{$meta} = %{$existing}, %{$meta},
-                mimetype  => $type,
-                extension => $extension;    # naive merge
-        }
-    );
-
-    my $newfile = $self->filename($idkey, 'new');
-    link $filename, $newfile;
+return;
 }
 
-sub checkpoint {
-    my ($self, $checkpoint) = @_;
-
-}
-sub copydomain {
-	die "no copydomain";
-}
+# render the report at a rule-version level
+# TODO: Rename as 'renderRuleVersion'
 sub globsummary {
     my ($self, $idkey) = @_;
+return;
 
     $idkey->clear_window;
     $idkey->clear_key;
 
-    my $filename = $self->filename($idkey, 'tmp');
+    my $filename = $self->filepath($idkey, 'tmp');
     my ($file, $dirs) = fileparse($filename);
     mkpath $dirs unless -d $dirs;
     my @windows     = $self->windows($idkey);
     my @sumfiles = map {
-        $self->filename(Replay::IdKey->new($idkey->marshall, window => $_), 'latest')
+        $self->filepath(Replay::IdKey->new($idkey->marshall, window => $_), 'latest')
     } @windows;
     my @metadata
         = map { $self->metadata(Replay::IdKey->new($idkey->marshall, window => $_)) }
@@ -183,33 +181,37 @@ sub globsummary {
         }
     );
 
-    my $newfile = $self->filename($idkey, 'new');
+    my $newfile = $self->filepath($idkey, 'new');
     link $filename, $newfile;
 }
 
+# return the subdirectory this content should reveal in
+# TODO: Rename as 'renderRuleVersion'
 sub subdirectory {
     my ($self, $idkey) = @_;
-    return File::Spec->catdir($self->workdir, $idkey->domain, $idkey->name,
+    return File::Spec->catdir($idkey->domain, $idkey->name,
         $idkey->version, ($idkey->window ? ($idkey->window) : ()));
 }
 
+# list the window identifiers for a particular domain-rule-version
 sub windows {
     my ($self, $idkey) = @_;
     my @windows;
-    opendir DIRECTORY, File::Spec->catdir($self->subdirectory, '..', '..');
+    opendir DIRECTORY, File::Spec->catdir($self->workdir, $self->subdirectory, '..', '..');
     while (my $entry = readdir DIRECTORY) {
         next if $entry =~ /^\./;
-        my $d = File::Spec->catfile($self->subdirectory, '..', '..', $entry);
+        my $d = File::Spec->catfile($self->workdir, $self->subdirectory, '..', '..', $entry);
         push @windows, $entry if (-d $d);
     }
     $self->revert($idkey);
     return @windows;
 }
 
+# list the keys for a particular somain-rule-version-window
 sub keys {
     my ($self, $idkey) = @_;
     my @keys;
-    my $subdir = $self->subdirectory($idkey);
+    my $subdir = File::Spec->catdir($self->wordir, $self->subdirectory($idkey));
     opendir DIRECTORY, $subdir;
     while (my $entry = readdir DIRECTORY) {
         next if $entry =~ /^\./;
@@ -219,6 +221,7 @@ sub keys {
     return map { (split ':')[0] } @keys;
 }
 
+# construct the working directory from the configuration
 sub _build_workdir {
     my ($self) = @_;
     my $workdir = File::Spec->catdir($self->parentdir,
@@ -230,6 +233,7 @@ sub _build_workdir {
     return $workdir;
 }
 
+# construct the parent directory from the configuration
 sub _build_parentdir {
     my ($self) = @_;
     croak "We need a ReportFileRoot configuration"
@@ -242,6 +246,7 @@ sub _build_parentdir {
 }
 
 
+# delete this workdirectory!  SUPER DANGEROUS!!!
 sub drop {
     my ($self) = @_;
     File::Path::rmtree($self->workdir) or die "Unable to delete tree";

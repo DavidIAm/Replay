@@ -27,17 +27,30 @@ has storageEngine =>
 # Delegate the api points
 sub delivery {
     my ($self, @args) = @_;
-    return $self->engine->deivery(@args);
+    return $self->engine->delivery(@args);
+}
+sub set_latest {
+    my ($self, @args) = @_;
+    return $self->engine->set_latest(@args);
+}
+sub url {
+    my ($self, @args) = @_;
+    return $self->engine->url(@args);
+}
+
+sub summarize {
+    my ($self, @args) = @_;
+    return $self->engine->summarize(@args);
 }
 
 sub summary {
     my ($self, @args) = @_;
-    return $self->engine->absorb(@args);
+    return $self->engine->summary(@args);
 }
 
-sub freeze {
+sub petrify {
     my ($self, @args) = @_;
-    return $self->engine->freeze(@args);
+    return $self->engine->petrify(@args);
 }
 
 sub checkpoint {

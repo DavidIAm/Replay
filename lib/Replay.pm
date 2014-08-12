@@ -13,6 +13,7 @@ use Replay::ReportEngine;
 use Replay::Reducer;
 use Replay::Mapper;
 use Replay::WORM;
+use Replay::Clerk;
 
 has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
 
@@ -42,7 +43,7 @@ has eventSystem => (
     lazy    => 1,
 );
 
-sub _build_eventSystem { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_eventSystem {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return Replay::EventSystem->new(config => $self->config);
 }
@@ -54,12 +55,12 @@ has reportEngine => (
     lazy    => 1,
 );
 
-sub _build_reportEngine { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_reportEngine {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return Replay::ReportEngine->new(
-        config      => $self->config,
-        ruleSource  => $self->ruleSource,
-        eventSystem => $self->eventSystem,
+        config        => $self->config,
+        ruleSource    => $self->ruleSource,
+        eventSystem   => $self->eventSystem,
         storageEngine => $self->storageEngine
     );
 }
@@ -70,7 +71,7 @@ has storageEngine => (
     lazy    => 1,
 );
 
-sub _build_storageEngine { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_storageEngine {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return Replay::StorageEngine->new(
         config      => $self->config,
@@ -86,7 +87,7 @@ has reducer => (
     lazy    => 1,
 );
 
-sub _build_reducer { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_reducer {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return Replay::Reducer->new(
         eventSystem   => $self->eventSystem,
@@ -102,7 +103,7 @@ has mapper => (
     lazy    => 1,
 );
 
-sub _build_mapper { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_mapper {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return Replay::Mapper->new(
         eventSystem   => $self->eventSystem,
@@ -114,9 +115,24 @@ sub _build_mapper { ## no critic (ProhibitUnusedPrivateSubroutines)
 has worm =>
     (is => 'ro', isa => 'Replay::WORM', builder => '_build_worm', lazy => 1,);
 
-sub _build_worm { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_worm {      ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return Replay::WORM->new(eventSystem => $self->eventSystem);
+}
+
+has clerk => (
+    is      => 'ro',
+    isa     => 'Replay::Clerk',
+    builder => '_build_clerk',
+    lazy    => 1,
+);
+
+sub _build_clerk {     ## no critic (ProhibitUnusedPrivateSubroutines)
+    my $self = shift;
+    return Replay::Clerk->new(
+        eventSystem  => $self->eventSystem,
+        reportEngine => $self->reportEngine
+    );
 }
 
 =head1 NAME
@@ -206,6 +222,8 @@ override reduce => sub {
 =head2 _build_worm
 
 =head2 _build_reportEngine
+
+=head2 _build_clerk
 
 =cut
 

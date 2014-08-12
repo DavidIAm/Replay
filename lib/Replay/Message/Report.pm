@@ -2,6 +2,8 @@ package Replay::Message::Report;
 
 use Moose::Role;
 use MooseX::MetaDescription::Meta::Trait;
+use Moose::Util::TypeConstraints;
+use URI;
 
 with qw(Replay::Message::IdKey Replay::Message::Report);
 
@@ -12,12 +14,6 @@ has 'url' => (
     description => { layer => 'message' },
 );
 
-has 'revision' => (
-    is          => 'ro',
-    isa         => 'Str',
-    traits      => ['MooseX::MetaDescription::Meta::Trait'],
-    description => { layer => 'message' },
-);
 
 has 'is_frozen' => (
     is          => 'ro',

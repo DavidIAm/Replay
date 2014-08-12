@@ -28,7 +28,7 @@ has ruleSource => (is => 'ro', isa => 'Replay::RuleSource', required => 1);
 
 has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
 
-requires qw/delivery summary globsummary petrify copydomain checkpoint/;
+requires qw/delivery summarize globsummary petrify copydomain checkpoint/;
 
 # accessor - how to get the rule for an idkey
 sub rule {
@@ -39,8 +39,15 @@ sub rule {
 }
 
 sub deliver {
-    my ($orig, $self, $idkey, $revision, $is_frozen) = @_;
+    my ($self, $idkey, $revision, $is_frozen) = @_;
+#TODO: allow freezing
     return $self->engine->deliver($idkey, $revision);
+}
+
+sub url {
+    my ($self, $idkey, $revision, $is_frozen) = @_;
+    $idkey->revision($revision) unless $idkey->has_revision;
+    return $self->engine->url($idkey);
 }
 
 # merge a list of atoms with the existing list in that slot

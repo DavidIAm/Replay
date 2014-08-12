@@ -8,13 +8,50 @@ use Digest::MD5 qw/md5_hex/;
 
 our $VERSION = '0.01';
 
-has domain    => (is => 'rw', isa => 'Str', default => 'default' );
+has domain  => (is => 'rw', isa => 'Str', default  => 'default');
 has name    => (is => 'rw', isa => 'Str', required => 1,);
 has version => (is => 'rw', isa => 'Str', required => 1,);
-has window  => (is => 'rw', isa => 'Str', clearer => 'clear_window', required => 0,);
-has key     => (is => 'rw', isa => 'Str', clearer => 'clear_key', required => 0,);
+has window  => (
+    is        => 'rw',
+    isa       => 'Str',
+    predicate => 'has_window',
+    clearer   => 'clear_window',
+    required  => 0,
+);
+has key => (
+    is        => 'rw',
+    isa       => 'Str',
+    predicate => 'has_key',
+    clearer   => 'clear_key',
+    required  => 0,
+);
+has revision => (
+    is        => 'rw',
+    isa       => 'Str',
+    predicate => 'has_revision',
+    clearer   => 'clear_revision',
+    required  => 0,
+);
 
 with Storage('format' => 'JSON');
+
+sub BUILDARGS {
+    my ($class, $key, $value, %args) = @_;
+    if ('HASH' eq ref $key) {
+        %args = %{$key};
+    }
+    else {
+        $args{$key} = $value;
+    }
+    return {
+        (defined $args{domain}   ? (domain   => $args{domain})   : ()),
+        (defined $args{name}     ? (name     => $args{name})     : ()),
+        (defined $args{version}  ? (version  => $args{version})  : ()),
+        (defined $args{window}   ? (window   => $args{window})   : ()),
+        (defined $args{key}      ? (key      => $args{key})      : ()),
+        (defined $args{revision} ? (revision => $args{revision}) : ()),
+    };
+}
 
 sub collection {
     my ($self) = @_;
@@ -39,7 +76,12 @@ sub cubby {
 
 sub ruleSpec {
     my ($self) = @_;
-    return 'domain-' . $self->domain  .'rule-' . $self->name . '-version-' . $self->version;
+    return
+          'domain-'
+        . $self->domain . 'rule-'
+        . $self->name
+        . '-version-'
+        . $self->version;
 }
 
 sub hashList {
@@ -51,8 +93,9 @@ sub checkstring {
     my ($self) = @_;
     $self->name($self->name . '');
     $self->version($self->version . '');
-    $self->window($self->window . '');
-    $self->key($self->key . '');
+    $self->window($self->window . '') if $self->has_window;
+    $self->key($self->key . '')       if $self->has_window;
+    $self->revision($self->key . '')  if $self->has_revision;
     return;
 }
 
@@ -68,8 +111,9 @@ sub marshall {
         domain  => $self->domain,
         name    => $self->name,
         version => $self->version,
-        window  => $self->window,
-        key     => $self->key
+        ($self->has_window   ? (window   => $self->window)   : ()),
+        ($self->has_key      ? (key      => $self->key)      : ()),
+        ($self->has_revision ? (revision => $self->revision) : ())
     );
 }
 

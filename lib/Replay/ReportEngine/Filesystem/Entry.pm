@@ -35,7 +35,7 @@ die "Couldn't figure out revision" unless $self->has_revision && defined $self->
 
 sub exists {
     my ($self) = @_;
-    return -f $self->filename;
+    return -f $self->filepath;
 }
 
 sub new_revision {
@@ -60,26 +60,31 @@ sub metadata {
 sub list_petrified {
     my ($self) = @_;
     my $lock = $self->_lock;
-    return read_file($self->filename . ".petrified", { chomp => 1 });
+    return read_file($self->filepath . ".petrified", { chomp => 1 });
 }
 
 sub petrify {
     my ($self)  = @_;
     my $lock    = self->_lock;
-    my @serials = read_file($self->filename . ".petrified");    #within lock
+    my @serials = read_file($self->filepath . ".petrified");    #within lock
     push @serials, $self->revision;
-    return write_file($self->filename . ".petrified", @serials);
+    return write_file($self->filepath . ".petrified", @serials);
+}
+
+sub filepath {
+    my ($self, $custom) = @_;
+    my $dir = File::Spec->catdir($self->workdir, $self->subdirectory);
+    my $filepath = File::Spec->catfile($dir, $self->filename($custom));
+    mkpath $dir unless -d $dir;
+    croak "Unable to create directory $dir" unless -d $dir;
+    return $filepath;
 }
 
 sub filename {
     my ($self, $custom) = @_;
-    my $dir = $self->subdirectory;
-    my $filename
-        = File::Spec->catfile($dir, join '.',
+    my $filename = join '.',
         ($self->key->key ? ($self->key->key) : ('rollup')),
-        defined $custom ? $custom : $self->revision);
-    mkpath $dir unless -d $dir;
-croak "Unable to create directory $dir" unless -d $dir;
+        defined $custom ? $custom : $self->revision;
     return $filename;
 }
 
@@ -104,11 +109,11 @@ sub set_latest {
 
 sub serial_file {
     my ($self) = @_;
-    return $self->filename('') . 'serial';
+    return $self->filepath('') . 'serial';
 }
 sub latest_file {
     my ($self) = @_;
-    return $self->filename('') . 'latest';
+    return $self->filepath('') . 'latest';
 }
 
 sub latest_revision {
@@ -119,7 +124,7 @@ sub latest_revision {
 
 sub metafile {
     my $self = shift;
-    return $self->filename . '.meta';
+    return $self->filepath . '.meta';
 }
 
 sub set_metadata {
@@ -133,7 +138,7 @@ sub set_metadata {
 sub derived_metadata {
     my $self = shift;
     my ($type, $extension);
-    open my $typecheck, '<', $self->filename;
+    open my $typecheck, '<', $self->filepath;
     my $buff;
     read($typecheck, $buff, 100);
     close $typecheck;
@@ -147,7 +152,7 @@ sub derived_metadata {
 
     # Complete the meta information for this report
     else {
-        $type      = File::MimeInfo::Magic::mimetype($self->filename);
+        $type      = File::MimeInfo::Magic::mimetype($self->filepath);
         $extension = File::MimeInfo::extensions($type);
     }
     return (type => $type, extension => $extension);
@@ -156,8 +161,8 @@ sub derived_metadata {
 sub readhandle {
     my ($self) = @_;
     return undef unless $self->exists;
-    my $newfile = IO::File->new($self->filename, 'r');
-    croak "Unable to open file " . $self->filename . " as readonly $! $? $@"
+    my $newfile = IO::File->new($self->filepath, 'r');
+    croak "Unable to open file " . $self->filepath . " as readonly $! $? $@"
         unless $newfile;
     return $newfile;
 }
@@ -165,7 +170,7 @@ sub readhandle {
 sub _lock {
     my ($self, $custom) = @_;
     return File::NFSLock->new(
-        {   file               => $custom || $self->filename,
+        {   file               => $custom || $self->filepath,
             lock_type          => LOCK_EX | LOCK_NB,
             blocking_timeout   => 10,
             stale_lock_timeout => 30 * 60,
@@ -193,8 +198,8 @@ sub workdir {
 
 sub writehandle {
     my ($self) = @_;
-    my $newfile = IO::File->new($self->filename, 'w');
-    croak "Unable to open file ".$self->filename." as writeonly" unless $newfile;
+    my $newfile = IO::File->new($self->filepath, 'w');
+    croak "Unable to open file ".$self->filepath." as writeonly" unless $newfile;
     return $newfile;
 }
 

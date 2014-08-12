@@ -36,6 +36,12 @@ has key => (
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'message' },
 );
+has revision => (
+    is          => 'ro',
+    isa         => 'Str',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
 
 =head1 NAME
 

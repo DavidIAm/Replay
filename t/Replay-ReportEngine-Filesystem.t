@@ -60,7 +60,6 @@ override compare => sub {
 override delivery => sub {
     my ($self, $filehandle, $meta, @state) = @_;
     my $r = { output => $state[0] || 0 };
-    warn "RULE DELIVERY $filehandle $meta @state " . YAML::Dump($r);
     print $filehandle YAML::Dump($r);
     return 1;
 };
@@ -92,7 +91,7 @@ use Try::Tiny;
 my $replay;
 my $reportEngine;
 
-sub A_store : Test(5) {
+sub A_store {#: Test(5) {
     isa_ok $reportEngine, 'Replay::ReportEngine::Filesystem';
     my $funMessage = Replay::Message::Interesting->new(
         key    => 'a',
@@ -136,14 +135,11 @@ sub A_store : Test(5) {
             try {
                 if ($message->{MessageType} eq 'NewDelivery') {
                     my $idkey = Replay::IdKey->new($message->{Message});
-                    warn "MESSAGE TYPE: " . $message->{MessageType};
                     $reportEngine->set_latest($idkey, $message->{Message}->{revision});
                     ++$count;
-                    warn "FOUND A NEW NEWDELIVERY ($count)";
                 }
                 if ($message->{MessageType} eq 'NewCanonical') {
                     my $idkey = Replay::IdKey->new($message->{Message});
-                    warn "MESSAGE TYPE: " . $message->{MessageType};
                     $reportEngine->delivery($idkey);
                     ++$count;
                 }
@@ -158,8 +154,6 @@ sub A_store : Test(5) {
     $replay->eventSystem->run;
     {
 
-        warn "FILES IN REPLAYREPORT\n" . `find /replayreport -type f`;
-        warn "Trying to call deliver AGAIN";
         my ($meta, $handle) = $reportEngine->deliver($idkey);
         is_deeply $meta,
             {
@@ -171,12 +165,12 @@ sub A_store : Test(5) {
             },
             'meta';
         is_deeply YAML::Load(do { local $/; <$handle> }), {output=>15},
-            'there is now data in the report yet';
+            'there is now data in the report now';
     }
     return;
 }
 
-sub B_Clerk : Test(5) {
+sub B_Clerk : Test(7) {
     isa_ok $reportEngine, 'Replay::ReportEngine::Filesystem';
     my $funMessage = Replay::Message::Interesting->new(
         key    => 'a',
@@ -208,26 +202,26 @@ sub B_Clerk : Test(5) {
         window  => 'alltime',
         key     => 'a'
     );
+
+    # Should this be a request to the REST service?
     my ($meta, $handle) = $reportEngine->deliver($idkey, 'latest');
     is_deeply $meta, { __EMPTY__ => 1 },
         'there is no meta data in the report yet';
     is_deeply [$handle], [undef], 'there is no data in the report yet';
-    my $count = -4;
+    my $count        = -6;
+    my @nowAvailable = ();
     $replay->eventSystem->control->subscribe(
         sub {
             my $message = shift;
             try {
                 if ($message->{MessageType} eq 'NewDelivery') {
-                    my $idkey = Replay::IdKey->new($message->{Message});
-                    warn "MESSAGE TYPE: " . $message->{MessageType};
-                    $reportEngine->set_latest($idkey, $message->{Message}->{revision});
                     ++$count;
-                    warn "FOUND A NEW NEWDELIVERY ($count)";
                 }
                 if ($message->{MessageType} eq 'NewCanonical') {
-                    my $idkey = Replay::IdKey->new($message->{Message});
-                    warn "MESSAGE TYPE: " . $message->{MessageType};
-                    $reportEngine->delivery($idkey);
+                    ++$count;
+                }
+                if ($message->{MessageType} eq 'NewReportAvailable') {
+                    push @nowAvailable, $message->{Message};
                     ++$count;
                 }
                 $replay->eventSystem->stop unless $count;
@@ -241,20 +235,24 @@ sub B_Clerk : Test(5) {
     $replay->eventSystem->run;
     {
 
-        warn "FILES IN REPLAYREPORT\n" . `find /replayreport -type f`;
-        warn "Trying to call deliver AGAIN";
-        my ($meta, $handle) = $reportEngine->deliver($idkey);
-        is_deeply $meta,
-            {
-            extension  => 'yaml',
-            Windows    => 'alltime',
-            Timeblocks => [strftime('%Y-%m-%d-%H', localtime time)],
-            Ruleversions => [{rule => 'TESTRULE', version => 1}],
-            type       => 'text/yaml'
-            },
-            'meta';
-        is_deeply YAML::Load(do { local $/; <$handle> }), {output=>15},
-            'there is now data in the report yet';
+        foreach (@nowAvailable) {
+            my $idkey = Replay::IdKey->new($_);
+            my ($meta, $handle) = $reportEngine->deliver($idkey);
+            is_deeply $meta,
+                {
+                extension    => 'yaml',
+                Windows      => 'alltime',
+                Timeblocks   => [ strftime('%Y-%m-%d-%H', localtime time) ],
+                Ruleversions => [ { rule => 'TESTRULE', version => 1 } ],
+                type         => 'text/yaml'
+                },
+                'meta';
+            is_deeply YAML::Load(
+                do { local $/; <$handle> }
+                ),
+                $idkey->key eq 'a' ? { output => 15 } : { output => 40 },
+                'there is now data in the report now';
+        }
     }
     return;
 }
@@ -265,13 +263,14 @@ sub startup : Test(startup) {
 sub setup : Test(setup) {
     $replay = Replay->new(
         config => {
-            QueueClass     => 'Replay::EventSystem::Null',
-            StorageMode    => 'Memory',
-            ReportMode     => 'Filesystem',
-            ReportFileRoot => '/replayreport',
-            timeout        => 5,
-            domain         => 'Testing',
-            stage          => 'testscriptfilesystem-' . $ENV{USER},
+            QueueClass        => 'Replay::EventSystem::Null',
+            StorageMode       => 'Memory',
+            ReportMode        => 'Filesystem',
+            ReportFileRoot    => '/replayreport',
+            ReportRESTBaseURL => 'http://42525.ihnend.web.dev.cargotel.com/',
+            timeout           => 5,
+            domain            => 'Testing',
+            stage             => 'tsfs-' . $ENV{USER},
         },
         rules => [ new TESTRULE ]
     );
