@@ -2,6 +2,7 @@ package Replay::Envelope;
 
 use Moose::Role;
 use Time::HiRes qw/gettimeofday/;
+use Carp qw/croak/;
 use Data::UUID;
 
 has Replay => (
@@ -57,7 +58,7 @@ has CreatedTime => (
 has ReceivedTime => (
     is          => 'ro',
     isa         => 'Str',
-    predicate   => 'has_recieved_time',
+    predicate   => 'has_received_time',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'envelope' },
     builder     => '_now'
@@ -71,21 +72,50 @@ has UUID => (
     description => { layer => 'envelope' },
 );
 
+sub envelope_fields {
+    my $self   = shift;
+    my @fields = ();
+    foreach my $attr_name ($self->meta->get_attribute_list()) {
+        my $field = $self->meta->get_attribute($attr_name);
+        croak "no traits in field $attr_name of $self?"
+            unless ($field->does("MooseX::MetaDescription::Meta::Trait"));
+        push @fields, $attr_name if ($field->description->{layer} eq "envelope");
+    }
+		return @fields;
+}
+
+sub message_fields {
+    my $self   = shift;
+    my @fields = ();
+    foreach my $attr_name ($self->meta->get_attribute_list()) {
+        my $field = $self->meta->get_attribute($attr_name);
+        croak "no traits?"
+            unless ($field->does("MooseX::MetaDescription::Meta::Trait"));
+        push @fields, $attr_name if ($field->description->{layer} eq "message");
+    }
+		return @fields;
+}
+
+sub pack { 
+	my $self = shift;
+	return $self->marshall(@_);
+}
 sub marshall {
     my $self     = shift;
     my $envelope = {
-        Messsage    => $self,
         MessageType => $self->MessageType,
         UUID        => $self->UUID,
         ($self->has_program        ? (Program        => $self->Program)       : ()),
         ($self->has_function       ? (Function       => $self->Function)      : ()),
         ($self->has_line           ? (Line           => $self->Line)          : ()),
-        ($self->has_effective_time ? (Effective_time => $self->EffectiveTime) : ()),
-        ($self->has_created_time   ? (Created_time   => $self->CreatedTime)   : ()),
-        ($self->has_received_time  ? (Received_time  => $self->ReceivedTime)  : ()),
+        ($self->has_effective_time ? (EffectiveTime => $self->EffectiveTime) : ()),
+        ($self->has_created_time   ? (CreatedTime   => $self->CreatedTime)   : ()),
+        ($self->has_received_time  ? (ReceivedTime  => $self->ReceivedTime)  : ()),
         ($self->has_timeblocks     ? (Timeblocks     => $self->Timeblocks)    : ()),
         ($self->has_ruleversions   ? (Ruleversions   => $self->Ruleversions)  : ()),
         ($self->has_windows        ? (Windows        => $self->Windows)       : ()),
+        (map { $_ => $self->$_ } $self->envelope_fields),
+        Message    => { map {$_ => $self->$_ } $self->message_fields },
     };
     return $envelope;
 

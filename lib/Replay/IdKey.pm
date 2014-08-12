@@ -8,16 +8,17 @@ use Digest::MD5 qw/md5_hex/;
 
 our $VERSION = '0.01';
 
+has domain    => (is => 'rw', isa => 'Str', default => 'default' );
 has name    => (is => 'rw', isa => 'Str', required => 1,);
 has version => (is => 'rw', isa => 'Str', required => 1,);
-has window  => (is => 'rw', isa => 'Str', required => 1,);
-has key     => (is => 'rw', isa => 'Str', required => 1,);
+has window  => (is => 'rw', isa => 'Str', clearer => 'clear_window', required => 0,);
+has key     => (is => 'rw', isa => 'Str', clearer => 'clear_key', required => 0,);
 
 with Storage('format' => 'JSON');
 
 sub collection {
     my ($self) = @_;
-    return 'replay-' . $self->name . $self->version;
+    return 'replay-' . $self->domain . $self->name . $self->version;
 }
 
 sub parseCubby {
@@ -38,7 +39,7 @@ sub cubby {
 
 sub ruleSpec {
     my ($self) = @_;
-    return 'rule-' . $self->name . '-version-' . $self->version;
+    return 'domain-' . $self->domain  .'rule-' . $self->name . '-version-' . $self->version;
 }
 
 sub hashList {
@@ -64,6 +65,7 @@ sub hash {
 sub marshall {
     my ($self) = @_;
     return (
+        domain  => $self->domain,
         name    => $self->name,
         version => $self->version,
         window  => $self->window,
@@ -110,7 +112,7 @@ The window-and-key part - where the document reflecting the state is found
 
 =head2 ruleSpec
 
-the rule-and-version part - the particular business rule this state will be useing
+the domain-rule-and-version part - the particular business rule this state will be useing
 
 =head2 hashList
 

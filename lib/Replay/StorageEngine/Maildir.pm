@@ -1,4 +1,9 @@
-package Replay::StorageEngine::Memory;
+package Replay::StorageEngine::Maildir;
+
+# This is supposed to store all the atoms and such in maildir files and work
+# with them that way.  It is currently unimplemented.
+
+die "UNIMPLIMENTED";
 
 use Moose;
 use Scalar::Util qw/blessed/;
@@ -29,43 +34,36 @@ override absorb => sub {
 
     # unique list of Timeblocks
     my %timeblocks = map { $_ => 1 } grep {$_} @{ $state->{Timeblocks} },
-        @{$meta->{Timeblocks}};
+        $meta->{timeblock};
     $state->{Timeblocks} = [ keys %timeblocks ];
 
     # unique list of Ruleversions
     my %ruleversions = ();
-    foreach my $m (@{ $state->{Ruleversions} }, @{$meta->{Ruleversions}}) {
+    foreach my $m (@{ $state->{Ruleversions} }, $meta->{ruleversion}) {
         $ruleversions{ join('+', map { $_ . '-' . $m->{$_} } sort keys %{$m}) } = $m;
     }
     $state->{Ruleversions} = [ values %ruleversions ];
-
     push @{ $state->{inbox} ||= [] }, $atom;
     super();
     return 1;
 };
 
-#}}}}}
 override checkout => sub {
     my ($self, $idkey) = @_;
-    my $uuid = $self->generate_uuid;
-    my $signature = $self->stateSignature($idkey, [$uuid]);
-    return if exists $self->{checkouts}{$idkey->hash};
-    $self->{checkouts}{$idkey->hash}{$signature} = $store->{ $idkey->collection }{ $idkey->cubby }
+    my $hash = $idkey->hash;
+    return if exists $self->{checkouts}{$hash};
+    $self->{checkouts}{$hash} = $store->{ $idkey->collection }{ $idkey->cubby }
         ||= {};
-    $self->{checkouts}{$idkey->hash}{$signature}{desktop} = delete $self->{checkouts}{$idkey->hash}{$signature}{inbox};
+    $self->{checkouts}{$hash}{desktop} = delete $self->{checkouts}{$hash}{inbox};
     super();
-    return $uuid, $self->{checkouts}{$idkey->hash}{$signature};
+    return $hash, $self->{checkouts}{$hash};
 };
 
 override checkin => sub {
     my ($self, $idkey, $uuid, $state) = @_;
-    my $signature = $self->stateSignature($idkey, [$uuid]);
-    croak "not checked out" unless exists $self->{checkouts}{$idkey->hash};
-use Data::Dumper;
-    croak "other checked out against $signature".Dumper $self->{checkouts} unless exists $self->{checkouts}{$idkey->hash}{$signature};
-    my $data = delete $self->{checkouts}{$idkey->hash}{$signature};
+    croak "not checked out" unless exists $self->{checkouts}{$uuid};
+    my $data = delete $self->{checkouts}{$uuid};
     delete $data->{desktop};
-    delete $self->{checkouts}{$idkey->hash};
     super();
     $store->{ $idkey->collection }{ $idkey->cubby } = $data;
 };
@@ -80,8 +78,6 @@ override windowAll => sub {
             keys %{ $store->{ $idkey->collection } }
     };
 };
-
-#}}}}}}}}}}}}}}}}}}}}
 
 =head1 NAME
 

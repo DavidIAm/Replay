@@ -4,11 +4,10 @@ use Moose;
 use MooseX::Storage;
 use MooseX::MetaDescription::Meta::Trait;
 
-
 our $VERSION = '0.01';
 
-with Storage (format => 'JSON');
-with (qw(Replay::Types::Messages Replay::Envelope));
+with Storage(format => 'JSON');
+with(qw(Replay::Types::Messages Replay::Envelope));
 
 =pod 
 
@@ -16,6 +15,13 @@ Documentation
  
 =cut
 
+has Replay => (
+    is          => 'ro',
+    isa         => 'Str',
+    default     => '2014.08.12',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'envelope' },
+);
 has MessageType => (
     is          => 'ro',
     isa         => 'Str',

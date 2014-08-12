@@ -104,14 +104,14 @@ $replay->worm;
 $replay->reducer;
 $replay->mapper;
 
-is_deeply [
-    $replay->storageEngine->fetchCanonicalState(
+{
+    my ($meta, @state) = $replay->storageEngine->fetchCanonicalState(
         Replay::IdKey->new(
             { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' }
         )
-    )
-    ],
-    [], 'nonexistant';
+    );
+    is_deeply [ @state ], [], 'nonexistant';
+}
 
 # automatically stop once we get both new canonicals
 my $canoncount = -2;
@@ -161,14 +161,14 @@ my $e = AnyEvent->timer(
 );
 $replay->eventSystem->run;
 
-is_deeply [
-    $replay->storageEngine->fetchCanonicalState(
+{
+    my ($meta, @state) = $replay->storageEngine->fetchCanonicalState(
         Replay::IdKey->new(
             { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' }
         )
-    )
-    ],
-    [15];
+    );
+    is_deeply [ @state ], [15];
+}
 
 is_deeply $replay->storageEngine->windowAll(
     Replay::IdKey->new(

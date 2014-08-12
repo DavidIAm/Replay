@@ -13,7 +13,7 @@ use Carp qw/carp croak/;
 has eventSystem => (is => 'ro', required => 1,);
 has directory   => (is => 'ro', required => 0, default => '/var/log/replay');
 has filehandles => (is => 'ro', isa      => 'HashRef', default => sub { {} });
-has UUID => (is => 'ro', isa => 'Data::UUID', builder => '_build_uuid');
+has UUID   => (is => 'ro', isa => 'Data::UUID', builder => '_build_uuid');
 
 # dummy implimentation - Log them to a file
 sub BUILD {
@@ -89,7 +89,7 @@ sub timeblock {
     return strftime '%Y-%m-%d-%H', localtime time;
 }
 
-sub _build_uuid { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_uuid {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self;
     return $self->{UUID} ||= Data::UUID->new;
 }

@@ -9,9 +9,12 @@ use AnyEvent;
 use Replay::EventSystem;
 use Replay::RuleSource;
 use Replay::StorageEngine;
+use Replay::ReportEngine;
 use Replay::Reducer;
 use Replay::Mapper;
 use Replay::WORM;
+
+has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
 
 has rules =>
     (is => 'ro', isa => 'ArrayRef[Replay::BusinessRule]', required => 1,);
@@ -23,11 +26,12 @@ has ruleSource => (
     lazy    => 1,
 );
 
-sub _build_ruleSource { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_ruleSource {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return Replay::RuleSource->new(
         rules       => $self->rules,
-        eventSystem => $self->eventSystem
+        eventSystem => $self->eventSystem,
+        domain      => $self->config->{domain}
     );
 }
 
@@ -43,14 +47,28 @@ sub _build_eventSystem { ## no critic (ProhibitUnusedPrivateSubroutines)
     return Replay::EventSystem->new(config => $self->config);
 }
 
+has reportEngine => (
+    is      => 'ro',
+    isa     => 'Replay::ReportEngine',
+    builder => '_build_reportEngine',
+    lazy    => 1,
+);
+
+sub _build_reportEngine { ## no critic (ProhibitUnusedPrivateSubroutines)
+    my $self = shift;
+    return Replay::ReportEngine->new(
+        config      => $self->config,
+        ruleSource  => $self->ruleSource,
+        eventSystem => $self->eventSystem,
+        storageEngine => $self->storageEngine
+    );
+}
 has storageEngine => (
     is      => 'ro',
     isa     => 'Replay::StorageEngine',
     builder => '_build_storageEngine',
     lazy    => 1,
 );
-
-has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
 
 sub _build_storageEngine { ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
@@ -186,6 +204,8 @@ override reduce => sub {
 =head2 _build_mapper
 
 =head2 _build_worm
+
+=head2 _build_reportEngine
 
 =cut
 

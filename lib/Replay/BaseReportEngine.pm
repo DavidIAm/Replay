@@ -1,15 +1,14 @@
 package Replay::BaseReportEngine;
 
-use Moose;
+use Data::Dumper;
+use Moose::Role;
 use Digest::MD5 qw/md5_hex/;
-use Replay::Message::Reducable;
-use Replay::Message::Reducing;
-use Replay::Message::Reverted;
-use Replay::Message::NewCanonical;
-use Replay::Message::Fetched;
-use Replay::Message::Locked;
-use Replay::Message::Unlocked;
-use Replay::Message::WindowAll;
+use Replay::Message::Report::NewDelivery;
+use Replay::Message::Report::NewSummary;
+use Replay::Message::Report::NewGlobSummary;
+use Replay::Message::Report::Petrify;
+use Replay::Message::Report::CopyDomain;
+use Replay::Message::Report::Checkpoint;
 use Storable qw//;
 use Try::Tiny;
 use Readonly;
@@ -29,6 +28,8 @@ has ruleSource => (is => 'ro', isa => 'Replay::RuleSource', required => 1);
 
 has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
 
+requires qw/delivery summary globsummary petrify copydomain checkpoint/;
+
 # accessor - how to get the rule for an idkey
 sub rule {
     my ($self, $idkey) = @_;
@@ -37,40 +38,71 @@ sub rule {
     return $rule;
 }
 
+sub deliver {
+    my ($orig, $self, $idkey, $revision, $is_frozen) = @_;
+    return $self->engine->deliver($idkey, $revision);
+}
+
 # merge a list of atoms with the existing list in that slot
-sub delivery {
-    my ($self, $idkey) = @_;
-    return $self->eventSystem->control->emit(
-        Replay::Message::Report::NewDelivery->new(Message => { $idkey->hashList }));
-}
+around delivery => sub {
+    my ($orig, $self, $idkey) = @_;
 
-sub summary {
-    my ($self, $idkey) = @_;
-    return $self->eventSystem->control->emit(
+    shift, shift;
+    my $rule = $self->ruleSource->byIdKey($idkey);
+    return unless $rule->can('delivery');
+    try {
+        my ($revision) = $orig->($self, $idkey);
+        my $e = Replay::Message::Report::NewDelivery->new($idkey->marshall,
+            revision => $revision);
+        $self->eventSystem->control->emit($e);
+    }
+    catch {
+        warn "FAIL to render report: $_";
+        return undef;
+    };
+    return 1;
+};
+
+around summary => sub {
+    my ($orig, $self, $idkey, $revision, $is_frozen) = @_;
+    my $rule = $self->ruleSource->byIdKey($idkey);
+    return unless $rule->can('delivery');
+    my @a = $self->$orig(@_);
+    $self->eventSystem->control->emit(
         Replay::Message::Report::NewSummary->new(Message => { $idkey->hashList }));
-}
+    return @a;
+};
 
-sub globsummary {
-    my ($self, $idkey) = @_;
+around globsummary => sub {
+    my ($orig, $self, $idkey, $url, $revision, $is_frozen) = @_;
+    my $rule = $self->ruleSource->byIdKey($idkey);
+    return unless $rule->can('globsummary');
+    my @a = $self->$orig(@_);
     return $self->eventSystem->control->emit(
         Replay::Message::Report::NewGlobSummary->new(Message => { $idkey->hashList })
     );
-}
+};
 
-sub freeze {
-    my ($self, $idkey) = @_;
+around petrify => sub {
+    my ($orig, $self, $idkey, $url, $revision, $is_frozen) = @_;
+    my $rule = $self->ruleSource->byIdKey($idkey);
+    return unless $rule->can('petrify');
     return $self->eventSystem->control->emit(
-        Replay::Message::Report::Freeze->new(Message => { $idkey->hashList }));
-}
+        Replay::Message::Report::Petrify->new(Message => { $idkey->hashList }));
+};
 
-sub copydomain {
-    my ($self, $idkey) = @_;
+around copydomain => sub {
+    my ($self, $idkey, $url, $revision, $is_frozen) = @_;
+    my $rule = $self->ruleSource->byIdKey($idkey);
+    return unless $rule->can('globsummary');
     return $self->eventSystem->control->emit(
         Replay::Message::Report::CopyDomain->new(Message => { $idkey->hashList }));
-}
+};
 
-sub checkpoint {
-    my ($self, $idkey) = @_;
+around checkpoint => sub {
+    my ($self, $idkey, $url, $revision, $is_frozen) = @_;
+    my $rule = $self->ruleSource->byIdKey($idkey);
+    return unless $rule->can('globsummary');
     return $self->delayToDoOnce(
         $idkey->hash . 'Reducable',
         sub {
@@ -78,7 +110,7 @@ sub checkpoint {
                 Replay::Message::Report::Checkpoint->new(Message => { $idkey->hashList }));
         }
     );
-}
+};
 
 sub delayToDoOnce {
     my ($self, $name, $code) = @_;
@@ -95,7 +127,7 @@ sub delayToDoOnce {
 # accessor - given a state, generate a signature
 sub stateSignature {
     my ($self, $idkey, $list) = @_;
-    return undef unless defined $list; ## no critic (ProhibitExplicitReturnUndef)
+    return undef unless defined $list;  ## no critic (ProhibitExplicitReturnUndef)
     $self->stringtouch($list);
     return md5_hex($idkey->hash . Storable::freeze($list));
 }
@@ -166,6 +198,7 @@ sub storeNewCanonicalState {
     delete $cubby->{desktop};
     my $newstate = $self->checkin($idkey, $uuid, $cubby);
     $emitter->release;
+
     foreach my $atom (@{ $emitter->atomsToDefer }) {
         $self->absorb($idkey, $atom, {});
     }
@@ -218,7 +251,7 @@ sub new_document {
 
 =head1 NAME
 
-Replay::BaseReportEngine - wrappers for the storage engine implimentation
+Replay::BaseReportEngine - wrappers for the report engine implimentation
 
 =head1 VERSION
 
@@ -236,7 +269,7 @@ This is the base class for the implimentation specific parts of the Replay syste
 
 =head1 SUBROUTINES/METHODS
 
-These methods are used by consumers of the storage class
+These methods are used by consumers of the report class
 
 =head2 ( uuid, meta, state ) = fetchTransitionalState(idkey)
 
@@ -253,7 +286,7 @@ state is an array of atoms
 
 if the lock indicated by uuid is still valid, stores state (a list of atoms) 
 into the canonical state of this cubby.  called 'release' on the emitter object,
-also issues absorb calls on the storage engine for each atom listed in the array
+also issues absorb calls on the report engine for each atom listed in the array
 ref returned by 'atomsToDefer' from the emitter object
 
 =head2 fetchCanonicalState ( idkey )
@@ -273,21 +306,21 @@ return the output of the summary method of the rule indicated with the given del
 
 return the output of the globsummary method of the rule indicated with the given summary reports
 
-=head2 freeze ( $idkey )
+=head2 petrify ( $idkey )
 
-the base method that emits the freeze report message
+the base method that emits the petrify report message
 
-=head2 freezeWindow ( idkey window )
+=head2 petrifyWindow ( idkey window )
 
-return the success of the freeze operation on the window level delivery report
+return the success of the petrify operation on the window level delivery report
 
-=head2 freezeGlob ( idkey )
+=head2 petrifyGlob ( idkey )
 
-return the success of the freeze operation on the rule level delivery report
+return the success of the petrify operation on the rule level delivery report
 
 =head2 checkpoint ( domain )
 
-freeze and tag everything.  return the checkpoint identifier when complete
+petrify and tag everything.  return the checkpoint identifier when complete
 
 =head2 copydomain ( newdomain, oldcheckpoint )
 
@@ -534,6 +567,8 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 =cut
+
+use namespace::autoclean;
 
 1;    # End of Replay
 

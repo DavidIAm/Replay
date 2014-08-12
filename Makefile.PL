@@ -43,6 +43,7 @@ WriteMakefile(
         'POSIX'                                => '1.09',
         'Storable'                             => '2.45',
         'Time::HiRes'                          => '1.9717',
+        'File::NFSLock'                        => '1.24',
     },
     dist  => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean => { FILES    => 'Replay-*' },

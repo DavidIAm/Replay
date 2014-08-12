@@ -5,6 +5,7 @@ use Replay::Message::RulesReady;
 use Scalar::Util qw/blessed/;
 
 has rules => (is => 'ro', isa => 'ArrayRef[Replay::BusinessRule]',);
+has domain => (is => 'ro', isa => 'Str', default =>'global');
 
 has index => (is => 'rw', default => 0,);
 has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
@@ -14,6 +15,7 @@ sub next { ## no critic (ProhibitBuiltinHomonyms)
     my $i = $self->index;
     $self->index($self->index + 1);
     do { $self->index(0) and return } if $#{ $self->rules } < $i;
+    $self->rules->[$i]->domain($self->domain) if defined $self->rules->[$i];
     return $self->rules->[$i];
 }
 

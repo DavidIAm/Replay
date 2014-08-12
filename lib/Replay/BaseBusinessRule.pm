@@ -7,6 +7,9 @@ our $VERSION = '0.01';
 
 has eventSystem => (is => 'ro', isa => 'Replay::EventSystem',);
 
+# [string]
+has domain => (is => 'rw', isa => 'Str');
+
 # mapper
 # [string]
 has name => (is => 'ro', required => 1,);

@@ -2,6 +2,7 @@ package Replay::Message::Reducable;
 
 use Moose;
 extends ('Replay::Message');
+with qw(Replay::Message::IdKey);
 
 has '+MessageType' => ( default => 'Reducable' );
 has '+Message' => ( isa => 'IdKey', coerce => 1);

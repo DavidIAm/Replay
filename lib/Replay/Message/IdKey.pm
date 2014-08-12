@@ -1,18 +1,41 @@
 package Replay::Message::IdKey;
 
-use Moose;
+use Moose::Role;
 use MooseX::Storage;
-with Storage (format => 'JSON');
+use MooseX::MetaDescription::Meta::Trait;
+with Storage(format => 'JSON');
 
-has domain => (is => 'ro', isa => 'Str', default => 'global');
-
-has name => (is => 'ro', isa => 'Str',);
-
-has version => (is => 'ro', isa => 'Str',);
-
-has window => (is => 'ro', isa => 'Str',);
-
-has key => (is => 'ro', isa => 'Str',);
+has domain => (
+    is          => 'ro',
+    isa         => 'Str',
+    default     => 'default',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
+has name => (
+    is          => 'ro',
+    isa         => 'Str',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
+has version => (
+    is          => 'ro',
+    isa         => 'Str',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
+has window => (
+    is          => 'ro',
+    isa         => 'Str',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
+has key => (
+    is          => 'ro',
+    isa         => 'Str',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
 
 =head1 NAME
 

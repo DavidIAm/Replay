@@ -11,6 +11,7 @@ use Replay::Meta;
 use Scalar::Util qw/blessed/;
 use Try::Tiny;
 use Time::HiRes qw/gettimeofday/;
+use Replay::Message::NewReportAvailable;
 
 has eventSystem   => (is => 'ro', required => 1,);
 has storageEngine => (is => 'ro', required => 1,);
@@ -24,29 +25,28 @@ sub BUILD {
     return $self->eventSystem->control->subscribe(
         sub {
             my $message = shift;
+            my $idkey   = Replay::IdKey->new($message->{Message});
 
-            $self->deliver(Replay::IdKey->new($message->{Message}))
-                if ($message->{MessageType} eq 'NewCanonical');
-            $self->summarize(Replay::IdKey->new($message->{Message}))
-                if ($message->{MessageType} eq 'NewCanonical');
+            $self->delivery($idkey)    if ($message->{MessageType} eq 'NewCanonical');
+            $self->summarize($idkey)   if ($message->{MessageType} eq 'NewDelivery');
+            $self->globsummary($idkey) if ($message->{MessageType} eq 'NewSummary');
         }
     );
 }
 
-sub deliver {
+sub delivery {
     my ($self, $idKey) = @_;
-    my $state = $self->storageEngine->retrieve($idKey);
-    return $self->reportEngine->newReportVersion(
-        report => $self->ruleSource->byIdKey($idKey)->delivery($state->{canonical}),
-        Ruleversions => $state->Ruleversions,
-        Timeblocks   => $state->Timeblocks,
-        Windows      => $state->Windows,
+    my $newrevision = $self->reportEngine->delivery($idkey);
+    $self->set_latest($idkey, $newrevision);
+    $self->eventSystem->control->emit(
+        Replay::Message::NewReportAvailable->new(
+            idKey->marshall, revision => $newrevision,
+        )
     );
 }
 
 sub summarize {
     my ($self, $idKey) = @_;
-    my $reports = $self->reportEngine->windowAll($idKey);
     return $self->reportEngine->newSummary(
         $self->ruleSource->byIdKey($idKey)->summary(
             reports => $reports,

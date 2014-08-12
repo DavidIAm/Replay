@@ -23,8 +23,6 @@ has mongo => (
 has db     => (is => 'ro', builder => '_build_db',     lazy => 1);
 has dbname => (is => 'ro', builder => '_build_dbname', lazy => 1);
 
-has uuid => (is => 'ro', builder => '_build_uuid', lazy => 1);
-
 has timeout => (is => 'ro', default => 20,);
 
 my $store = {};
@@ -387,11 +385,6 @@ sub _build_db {        ## no critic (ProhibitUnusedPrivateSubroutines)
     return $db;
 }
 
-sub _build_uuid {      ## no critic (ProhibitUnusedPrivateSubroutines)
-    my ($self) = @_;
-    return Data::UUID->new;
-}
-
 sub collection {
     my ($self, $idkey) = @_;
     my $name = $idkey->collection();
@@ -402,11 +395,6 @@ sub document {
     my ($self, $idkey) = @_;
     return $self->collection($idkey)->find({ idkey => $idkey->cubby })->next
         || $self->new_document($idkey);
-}
-
-sub generate_uuid {
-    my ($self) = @_;
-    return $self->uuid->to_string($self->uuid->create);
 }
 
 =head1 NAME
@@ -464,10 +452,6 @@ get the object for the db client that indicates the collection this document is 
 =head2 document
 
 return the document indicated by the idkey
-
-=head2 generate_uuid
-
-create and return a new uuid
 
 =head2 checkoutRecord(idkey, signature)
 

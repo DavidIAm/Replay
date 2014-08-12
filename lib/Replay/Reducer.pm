@@ -24,7 +24,7 @@ sub BUILD {
             $self->reduceWrapper(@_);
         }
     );
-		return;
+    return;
 }
 
 # accessor - how to get the rule for an idkey
@@ -65,7 +65,12 @@ sub reduceWrapper {
 
         $self->storageEngine->storeNewCanonicalState($idkey, $uuid, $emitter,
             $self->rule($idkey)->reduce($emitter, @state));
-        $self->eventSystem->control->emit(Replay::Message->new(MessageType => 'Reduced', Message => { $idkey->hashList}));
+        $self->eventSystem->control->emit(
+            Replay::Message->new(
+                MessageType => 'Reduced',
+                Message     => { $idkey->hashList }
+            )
+        );
     }
     catch {
         carp "REDUCING EXCEPTION: $_";
@@ -83,7 +88,7 @@ sub reduceWrapper {
             )
         );
     };
-		return;
+    return;
 }
 
 =pod

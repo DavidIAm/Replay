@@ -21,12 +21,13 @@ has mode => (
 );
 has ruleSource  => (is => 'ro', isa => 'Replay::RuleSource',  required => 1);
 has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
-has storage => (is => 'ro', isa => 'Replay::StorageEngine', required => 1);
+has storageEngine =>
+    (is => 'ro', isa => 'Replay::StorageEngine', required => 1);
 
 # Delegate the api points
 sub delivery {
     my ($self, @args) = @_;
-    return $self->engine->retrieve(@args);
+    return $self->engine->deivery(@args);
 }
 
 sub summary {
@@ -47,20 +48,19 @@ sub _build_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self      = shift;
     my $classname = $self->mode;
     return $classname->new(
-        config      => $self->config,
-        ruleSource  => $self->ruleSource,
-        eventSystem => $self->eventSystem,
-        storage     => $self->storage,
+        config        => $self->config,
+        ruleSource    => $self->ruleSource,
+        eventSystem   => $self->eventSystem,
+        storageEngine => $self->storageEngine,
     );
 }
 
-sub _build_mode {    ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_mode {      ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     croak "No ReportMode?" unless $self->config->{ReportMode};
     my $class = 'Replay::ReportEngine::' . $self->config->{ReportMode};
     try {
-        eval "require $class"; ## no critic (ProhibitStringyEval RequireCheckingReturnValueOfEval)
-        croak $@ if $@;
+        croak $@ unless eval "require $class";    ## no critic (ProhibitStringyEval)
     }
     catch {
         confess "No such report mode available "
@@ -69,6 +69,8 @@ sub _build_mode {    ## no critic (ProhibitUnusedPrivateSubroutines)
     };
     return $class;
 }
+
+use namespace::autoclean;
 
 1;
 

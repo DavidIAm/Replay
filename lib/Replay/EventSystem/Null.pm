@@ -20,14 +20,17 @@ sub poll {
     my $c    = 0;
     while (my $message = shift @{ $self->{events} }) {
         $c++;
-        $_->($message) foreach (@{ $self->subscribers });
+        foreach my $sub (@{ $self->subscribers }) {
+            $sub->($message);
+        }
     }
     return $c;
 }
 
 sub emit {
     my ($self, $message) = @_;
-    return push @{ $self->{events} }, $message->pack if blessed $message;
+    return push @{ $self->{events} }, $message->marshall if blessed $message && $message->can('marshall');
+#    return push @{ $self->{events} }, $message->pack if blessed $message;
     return push @{ $self->{events} }, $message;
 }
 

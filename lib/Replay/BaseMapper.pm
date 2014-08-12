@@ -46,6 +46,7 @@ sub map {    ## no critic (ProhibitBuiltinHomonyms)
     croak "I CANNOT MAP UNDEF" unless defined $message;
     while (my $rule = $self->ruleSource->next) {
         next unless $rule->match($message);
+# TODO: at some point, do this for each domain!
         my @all = $rule->keyValueSet($message);
         croak "key value list from key value set must be even" if scalar @all % 2;
         my $window = $rule->window($message);
@@ -60,7 +61,8 @@ sub map {    ## no critic (ProhibitBuiltinHomonyms)
             croak "unable to store"
                 unless $self->storageEngine->absorb(
                 Replay::IdKey->new(
-                    {   name    => $rule->name,
+                    {   domain  => $rule->domain,
+                        name    => $rule->name,
                         version => $rule->version,
                         window  => $window,
                         key     => $key
@@ -68,7 +70,7 @@ sub map {    ## no critic (ProhibitBuiltinHomonyms)
                 ),
                 $atom,
                 {   Timeblocks   => $message->{Timeblocks},
-                    Domain       => $self->eventSystem->domain,
+                    Domain       => $rule->domain,
                     Ruleversions => [
                         { rule => $rule->name, version => $rule->version },
                         @{ $message->{Ruleversions} || [] }

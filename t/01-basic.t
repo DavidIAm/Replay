@@ -97,14 +97,14 @@ $replay->mapper;
 $replay->eventSystem->derived->emit($funMessage);
 $replay->eventSystem->derived->emit($secondMessage);
 
-is_deeply [
-    $replay->storageEngine->fetchCanonicalState(
+{
+    my ($meta, @state) = $replay->storageEngine->fetchCanonicalState(
         Replay::IdKey->new(
             { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' }
         )
-    )
-    ],
-    [], 'nonexistant';
+    );
+    is_deeply [ @state ], [], 'nonexistant';
+}
 
 # automatically stop once we get both new canonicals
 my $canoncount = -2;
@@ -128,7 +128,7 @@ $replay->eventSystem->control->subscribe(
         my ($message) = @_;
 
         #warn "This is a control message of type ".$message->{MessageType}."\n";
-        return                     unless $message->{MessageType} eq 'NewCanonical';
+        return unless $message->{MessageType} eq 'NewCanonical';
         $replay->eventSystem->stop unless ++$canoncount;
     }
 );
@@ -136,14 +136,14 @@ $replay->eventSystem->control->subscribe(
 my $time = gettimeofday;
 $replay->eventSystem->run;
 
-is_deeply [
-    $replay->storageEngine->fetchCanonicalState(
+{
+    my ($meta, @state) = $replay->storageEngine->fetchCanonicalState(
         Replay::IdKey->new(
             { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' }
         )
-    )
-    ],
-    [15];
+    );
+    is_deeply [@state], [15];
+}
 
 is_deeply $replay->storageEngine->windowAll(
     Replay::IdKey->new(

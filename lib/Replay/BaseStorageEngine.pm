@@ -30,6 +30,13 @@ has ruleSource => (is => 'ro', isa => 'Replay::RuleSource', required => 1);
 
 has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
 
+has uuid => (is => 'ro', builder => '_build_uuid', lazy => 1);
+
+sub _build_uuid {      ## no critic (ProhibitUnusedPrivateSubroutines)
+    my ($self) = @_;
+    return Data::UUID->new;
+}
+
 # accessor - how to get the rule for an idkey
 sub rule {
     my ($self, $idkey) = @_;
@@ -49,31 +56,31 @@ sub merge {
 sub checkout {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Locked->new(Message => { $idkey->hashList }));
+        Replay::Message::Locked->new( $idkey->hashList ));
 }
 
 sub checkin {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Unlocked->new(Message => { $idkey->hashList }));
+        Replay::Message::Unlocked->new( $idkey->hashList ));
 }
 
 sub revert {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Reverted->new(Message => { $idkey->hashList }));
+        Replay::Message::Reverted->new( $idkey->hashList ));
 }
 
 sub retrieve {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Fetched->new(Message => { $idkey->hashList }));
+        Replay::Message::Fetched->new($idkey->hashList));
 }
 
 sub absorb {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Reducable->new(Message => { $idkey->hashList }));
+        Replay::Message::Reducable->new( $idkey->hashList ));
 }
 
 sub delayToDoOnce {
@@ -123,7 +130,7 @@ sub fetchTransitionalState {
 
     # drop the checkout if we don't have any items to reduce
     unless (scalar @{ $cubby->{desktop} || [] }) {
-        carp "Reverting because we didn't check out any work to do?\n";
+#        carp "Reverting because we didn't check out any work to do?\n";
         $self->revert($idkey, $uuid);
         return;
     }
@@ -142,7 +149,7 @@ sub fetchTransitionalState {
 
     # notify interested parties
     $self->eventSystem->control->emit(
-        Replay::Message::Reducing->new(Message => { $idkey->hashList }));
+        Replay::Message::Reducing->new( $idkey->hashList ));
 
     # return uuid and list
     return $uuid => {
@@ -167,9 +174,9 @@ sub storeNewCanonicalState {
         $self->absorb($idkey, $atom, {});
     }
     $self->eventSystem->control->emit(
-        Replay::Message::NewCanonical->new(Message => { $idkey->hashList }));
+        Replay::Message::NewCanonical->new( $idkey->hashList ));
     $self->eventSystem->control->emit(
-        Replay::Message::Reducable->new(Message => { $idkey->hashList }))
+        Replay::Message::Reducable->new( $idkey->hashList ))
         if scalar @{ $newstate->{inbox} || [] }
         ;                # renotify reducable if inbox has entries now
     return $newstate;    # release pending messages
@@ -183,14 +190,18 @@ sub fetchCanonicalState {
         carp "canonical corruption $cubby->{canonSignature} vs. " . $e;
     }
     $self->eventSystem->control->emit(
-        Replay::Message::Fetched->new(Message => { $idkey->hashList }));
-    return @{ $cubby->{canonical} || [] };
+        Replay::Message::Fetched->new($idkey->hashList));
+    return {
+        Windows      => $idkey->window,
+        Timeblocks   => $cubby->{Timeblocks} || [],
+        Ruleversions => $cubby->{Ruleversions} || [],
+    } => @{ $cubby->{canonical} || [] };
 }
 
 sub windowAll {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::WindowAll->new(Message => { $idkey->hashList }));
+        Replay::Message::WindowAll->new( $idkey->hashList ));
 }
 
 sub findKeysNeedReduce {
@@ -217,6 +228,11 @@ sub new_document {
         Timeblocks   => [],
         Ruleversions => [],
     };
+}
+
+sub generate_uuid {
+    my ($self) = @_;
+    return $self->uuid->to_string($self->uuid->create);
 }
 
 =head1 NAME
@@ -419,6 +435,10 @@ sometimes redundant events are fired in rapid sequence.  This ensures that
 within a short period of time, only one piece of code (distinguished by name)
 is executed.  It just uses the AnyEvent timer delaying for a second at this 
 point
+
+=head2 generate_uuid
+
+create and return a new uuid
 
 =head1 AUTHOR
 
