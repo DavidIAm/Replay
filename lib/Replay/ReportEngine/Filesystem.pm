@@ -1,5 +1,4 @@
 package Replay::ReportEngine::Filesystem;
-use Data::Dumper;
 
 use Moose;
 use Git::Repository;

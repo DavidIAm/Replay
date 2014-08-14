@@ -2,9 +2,9 @@ package Replay::Message::Locked;
 
 use Moose;
 extends ('Replay::Message');
+with qw(Replay::Message::IdKey);
 
 has '+MessageType' => ( default => 'Locked' );
-has '+Message' => ( isa => 'IdKey', coerce => 1);
 
 =head1 NAME
 

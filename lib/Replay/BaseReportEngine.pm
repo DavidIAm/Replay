@@ -1,6 +1,5 @@
 package Replay::BaseReportEngine;
 
-use Data::Dumper;
 use Moose::Role;
 use Digest::MD5 qw/md5_hex/;
 use Replay::Message::Report::NewDelivery;

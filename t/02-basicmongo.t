@@ -88,22 +88,27 @@ my $replay = Replay->new(
         StorageMode => 'Mongo',
         timeout     => 5,
         stage       => 'testscript-' . $ENV{USER},
+        MongoAuthDB => 'admin',
+        MongoUser   => 'replayuser',
+        MongoPass   => 'replaypass',
+        MongoDb     => 'admin',
+        domain      => 'basicmongotest',
     },
     rules => [ new TESTRULE ]
 );
-$replay->storageEngine->engine->db->drop;
+#$replay->storageEngine->engine->db->drop;
 
 #goto LATTER;
 
 my $ourtestkey = Replay::IdKey->new(
-    { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' });
+    { domain => 'basicmongotest', name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' });
 warn "clearing collection "
     . $ourtestkey->collection
     . " in db "
     . $replay->storageEngine->engine->dbname()
     . " result is "
     . Dumper $replay->storageEngine->engine->collection($ourtestkey)
-    ->remove({});
+    ->drop({});
 
 $replay->worm;
 $replay->reducer;
@@ -115,7 +120,7 @@ $replay->eventSystem->derived->emit($secondMessage);
 {
     my ($meta, @state) = $replay->storageEngine->fetchCanonicalState(
         Replay::IdKey->new(
-            { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' }
+            { domain => 'basicmongotest', name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' }
         )
     );
 
@@ -145,10 +150,9 @@ $replay->eventSystem->control->subscribe(
 
         my $json = new JSON;
         $json->canonical(1);
+        use Data::Dumper;
         warn "This is a control message of type "
-            . $message->{MessageType} . " = "
-            . $message->{Message}{name} . ' - '
-            . $message->{Message}{key} . "\n";
+            . $message->{MessageType} . "\n";
         return unless $message->{MessageType} eq 'NewCanonical';
         $replay->eventSystem->stop unless ++$canoncount;
     }
@@ -157,18 +161,19 @@ $replay->eventSystem->control->subscribe(
 my $time = gettimeofday;
 $replay->eventSystem->run;
 
-is_deeply [
-    $replay->storageEngine->fetchCanonicalState(
+
+use Data::Dumper;
+warn Dumper
+my ($meta, @state) =   $replay->storageEngine->fetchCanonicalState(
         Replay::IdKey->new(
-            { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' }
+            { domain => 'basicmongotest', name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' }
         )
-    )
-    ],
-    [15];
+    );
+is_deeply [ @state ], [ 15 ];
 
 is_deeply $replay->storageEngine->windowAll(
     Replay::IdKey->new(
-        { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' }
+        { domain => 'basicmongotest', name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' }
     )
     ),
     { a => [15], c => [40] }, "windowall returns all";
@@ -176,7 +181,7 @@ is_deeply $replay->storageEngine->windowAll(
 LATTER:
 
 my $idkey = Replay::IdKey->new(
-    { name => 'TESTRULE', version => 1, window => 'alltime', key => 'x' });
+    { domain => 'basicmongotest', name => 'TESTRULE', version => 1, window => 'alltime', key => 'x' });
 
 # Manually set up an expired record
 $replay->storageEngine->engine->collection($idkey)->insert(
@@ -225,4 +230,13 @@ $replay->storageEngine->engine->collection($idkey)->insert(
 
     ok $uuid, "Was able to check it out again";
 }
+
+warn "clearing collection "
+    . $ourtestkey->collection
+    . " in db "
+    . $replay->storageEngine->engine->dbname()
+    . " result is "
+    . Dumper $replay->storageEngine->engine->collection($ourtestkey)
+    ->drop({});
+
 

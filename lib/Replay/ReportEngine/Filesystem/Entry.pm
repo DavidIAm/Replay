@@ -1,6 +1,5 @@
 package Replay::StorageEngine::Filesystem::Entry;
 
-use Data::Dumper;
 use Moose;
 use File::NFSLock;
 use Data::UUID;

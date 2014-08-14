@@ -9,6 +9,11 @@ use Readonly;
 use JSON;
 use Carp qw/croak carp/;
 use Replay::Message::Reducable;
+use Replay::Message::NoLock;
+use Replay::Message::NoLockDuringRevert;
+use Replay::Message::NoLockPostRevert;
+use Replay::Message::NoLockPostRevertRelock;
+use Replay::Message::ClearedState;
 use Replay::Message;
 
 extends 'Replay::BaseStorageEngine';
@@ -168,6 +173,7 @@ override checkout => sub {
 
     if (defined $lockresult) {
         super();
+        warn "LOCKRESULT WITH SIGNATURE $signature";
         return $uuid, $lockresult;
     }
 
@@ -179,13 +185,11 @@ override checkout => sub {
     # If it didn't relock, give up.  Its locked by somebody else.
     unless (defined $expireRelock) {
         carp "Unable to obtain lock because the current one is locked and unexpired ("
-            . $idkey->cubby . ")\n";
+            . $idkey->cubby . ")\n"
+            . scalar(localtime $self->lockreport($idkey)->[0]{lockExpireEpoch})
+            . "\n";
         $self->eventSystem->control->emit(
-            Replay::Message->new(
-                MessageType => 'NoLock',
-                Message     => { $idkey->hashList }
-            )
-        );
+            Replay::Message::NoLock->new($idkey->marshall));
         return;
     }
 
@@ -200,13 +204,8 @@ override checkout => sub {
     my $relockresult
         = $self->relock($idkey, $unlsignature, $newsignature, $timeout);
 
-    $self->eventSystem->emit(
-        'control',
-        Replay::Message->new(
-            MessageType => 'NoLockPostRevert',
-            Message     => { $idkey->hashList }
-        )
-    );
+    $self->eventSystem->emit('control',
+        Replay::Message::NoLockPostRevert->new($idkey->marshall));
     carp "Unable to relock after revert ($unlsignature)? "
         . $idkey->checkstring . "\n"
         unless defined $relockresult;
@@ -220,13 +219,8 @@ override checkout => sub {
         return $newuuid, $lockresult;
     }
 
-    $self->eventSystem->emit(
-        'control',
-        Replay::Message->new(
-            MessageType => 'NoLockPostRevertRelock',
-            Message     => { $idkey->hashList }
-        )
-    );
+    $self->eventSystem->emit('control',
+        Replay::Message::NoLockPostRevertRelock->new($idkey->marshall));
     carp "checkout after revert and relock failed.  Look in COLLECTION ("
         . $idkey->collection
         . ") IDKEY ("
@@ -248,17 +242,16 @@ override revert => sub {
             new    => 1,
         }
     );
-    carp "tried to do a revert but didn't have a lock on it" unless $state;
-    $self->eventSystem->emit(
-        'control',
-        Replay::Message->new(
-            MessageType => 'NoLockDuringRevert',
-            Message     => { $idkey->hashList }
-        )
-    );
-    return unless $state;
+    unless ($state) {
+        carp "tried to do a revert but didn't have a lock on it";
+        $self->eventSystem->emit('control',
+            Replay::Message::NoLockDuringRevert->new($idkey->marshall),
+        );
+        return;
+    }
     $self->revertThisRecord($idkey, $unlsignature, $state);
     my $result = $self->unlock($idkey, $unluuid);
+    super() if defined $result;
     return defined $result;
 };
 
@@ -305,19 +298,16 @@ override checkin => sub {
     my ($self, $idkey, $uuid, $state) = @_;
 
     my $result = $self->updateAndUnlock($idkey, $uuid, $state);
-    $self->eventSystem->control->emit(
-        Replay::Message->new(
-            MessageType => 'ClearedState',
-            Message     => { $idkey->hashList }
-        )
-        )
-        if $self->collection($idkey)->remove(
+    $self->collection($idkey)->remove(
         {   idkey     => $idkey->cubby,
             inbox     => { '$exists' => 0 },
             desktop   => { '$exists' => 0 },
             canonical => { '$exists' => 0 }
         }
-        );
+    );
+    $self->eventSystem->control->emit(
+        Replay::Message::ClearedState->new($idkey->marshall))
+        unless $self->collection($idkey)->find({ idkey => $idkey->cubby })->all();
     return unless defined $result;
 
     super();
@@ -370,15 +360,14 @@ sub findKeysNeedReduce {
 
 sub _build_mongo {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    return MongoDB::MongoClient->new(
-        (   $self->config->{Mongo}
-            ? ( (   $self->config->{Mongo}{host} ? (host => $self->config->{Mongo}{host}) : ()
-                ),
-                ($self->config->{Mongo}{port} ? (host => $self->config->{Mongo}{port}) : ())
-            ),
-            : ()
-        )
+    my $db = MongoDB::MongoClient->new();
+		my $mongo = $self->config->{Mongo};
+    $db->authenticate(
+        $mongo->{authdb},
+        $mongo->{user},
+        $mongo->{pass}
     );
+    return $db;
 }
 
 sub _build_dbname {    ## no critic (ProhibitUnusedPrivateSubroutines)

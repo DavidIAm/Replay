@@ -5,7 +5,6 @@ extends ('Replay::Message');
 with qw(Replay::Message::IdKey);
 
 has '+MessageType' => ( default => 'Reducable' );
-has '+Message' => ( isa => 'IdKey', coerce => 1);
 
 =head1 NAME
 

@@ -2,9 +2,10 @@ package Replay::Message::Reverted;
 
 use Moose;
 extends ('Replay::Message');
+with qw(Replay::Message::IdKey);
 
 has '+MessageType' => ( default => 'Reverted' );
-has '+Message' => ( isa => 'IdKey', coerce => 1);
+
 =head1 NAME
 
 Replay::Message::Reverted - signal that a state is currently being reduced
