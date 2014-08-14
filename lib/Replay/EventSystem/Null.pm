@@ -29,8 +29,12 @@ sub poll {
 
 sub emit {
     my ($self, $message) = @_;
-    return push @{ $self->{events} }, $message->marshall if blessed $message && $message->can('marshall');
+		if (blessed $message) {
+		croak "Cannot emit without type ($message)" unless $message->MessageType;
+    return push @{ $self->{events} }, $message->marshall if $message->can('marshall');
+	}
 #    return push @{ $self->{events} }, $message->pack if blessed $message;
+		croak "Cannot emit without type ($message)" unless $message->{MessageType};
     return push @{ $self->{events} }, $message;
 }
 

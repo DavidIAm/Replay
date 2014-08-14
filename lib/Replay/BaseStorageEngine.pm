@@ -67,8 +67,10 @@ sub checkin {
 
 sub revert {
     my ($self, $idkey) = @_;
-    return $self->eventSystem->control->emit(
+    $self->eventSystem->control->emit(
         Replay::Message::Reverted->new( $idkey->hashList ));
+    return $self->eventSystem->control->emit(
+        Replay::Message::Unlocked->new( $idkey->hashList ));
 }
 
 sub retrieve {

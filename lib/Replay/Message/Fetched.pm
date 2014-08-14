@@ -2,9 +2,9 @@ package Replay::Message::Fetched;
 
 use Moose;
 extends ('Replay::Message');
+with qw(Replay::Message::IdKey);
 
 has '+MessageType' => ( default => 'Fetched' );
-has '+Message' => ( isa => 'IdKey', coerce => 1);
 
 =head1 NAME
 
