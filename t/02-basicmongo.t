@@ -1,5 +1,4 @@
 #!/usr/bin/perl
-
 use lib 'Replay/lib/';
 
 package TESTRULE;
@@ -88,7 +87,13 @@ my $replay = Replay->new(
         StorageMode => 'Mongo',
         timeout     => 5,
         stage       => 'testscript-' . $ENV{USER},
-        Mongo  => { authdb => 'admin', user => 'replayuser', pass => 'replaypass', },
+        Mongo       => {
+            authdb => 'admin',
+            user   => 'replayuser',
+            pass   => 'replaypass',
+            host   => 'merry.cargotel.com',
+            port   => '27017'
+        },
         domain => 'basicmongotest',
     },
     rules => [ new TESTRULE ]

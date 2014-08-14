@@ -360,13 +360,12 @@ sub findKeysNeedReduce {
 
 sub _build_mongo {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    my $db = MongoDB::MongoClient->new();
-		my $mongo = $self->config->{Mongo};
-    $db->authenticate(
-        $mongo->{authdb},
-        $mongo->{user},
-        $mongo->{pass}
+    my $mongo  = $self->config->{Mongo};
+    my $db     = MongoDB::MongoClient->new(
+        ($mongo->{host} ? (host => $mongo->{host}) : ()),
+        ($mongo->{port} ? (port => $mongo->{port}) : ()),
     );
+    $db->authenticate($mongo->{authdb}, $mongo->{user}, $mongo->{pass});
     return $db;
 }
 

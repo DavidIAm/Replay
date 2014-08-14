@@ -91,6 +91,13 @@ my $replay = Replay->new(
         },
         snsService => 'https://sns.us-east-1.amazonaws.com',
         sqsService => 'https://sqs.us-east-1.amazonaws.com',
+        Mongo      => {
+            host   => 'merry.cargotel.com',
+            port   => '27017',
+            authdb => 'admin',
+            user   => 'replayuser',
+            pass   => 'replaypass',
+        },
     },
     rules => [ new TESTRULE ]
 );
