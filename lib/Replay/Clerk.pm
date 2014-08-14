@@ -13,8 +13,8 @@ use Try::Tiny;
 use Time::HiRes qw/gettimeofday/;
 use Replay::Message::Report::NewReportAvailable;
 
-has eventSystem   => (is => 'ro', required => 1,);
-has reportEngine  => (is => 'ro', required => 1,);
+has eventSystem  => (is => 'ro', required => 1,);
+has reportEngine => (is => 'ro', required => 1,);
 
 # dummy implimentation - Log them to a file
 sub BUILD {
@@ -22,12 +22,12 @@ sub BUILD {
     return $self->eventSystem->control->subscribe(
         sub {
             my $message = shift;
-            return unless ($message->{MessageType} eq 'NewCanonical') ||
-            ($message->{MessageType} eq 'NewDelivery') ||
-            ($message->{MessageType} eq 'NewSummary');
+            return
+                   unless ($message->{MessageType} eq 'NewCanonical')
+                || ($message->{MessageType} eq 'NewDelivery')
+                || ($message->{MessageType} eq 'NewSummary');
 
-
-            my $idkey   = Replay::IdKey->new($message->{Message});
+            my $idkey = Replay::IdKey->new($message->{Message});
 
             $self->delivery($idkey)    if ($message->{MessageType} eq 'NewCanonical');
             $self->summarize($idkey)   if ($message->{MessageType} eq 'NewDelivery');
@@ -38,35 +38,35 @@ sub BUILD {
 
 sub delivery {
     my ($self, $idkey) = @_;
-    my $newrevision = $self->reportEngine->delivery($idkey);
-    $self->reportEngine->set_latest($idkey, $newrevision);
-    $idkey->revision($newrevision);
-    $self->eventSystem->control->emit(
-        Replay::Message::Report::NewReportAvailable->new(
-            $idkey->marshall, url => $self->reportEngine->url($idkey)
-        )
-    ) if $newrevision;
+    $self->generate($idkey, 'delivery');
 }
 
 sub summarize {
     my ($self, $idkey) = @_;
-    my $newrevision = $self->reportEngine->summarize($idkey);
-    $self->eventSystem->control->emit(
-        Replay::Message::Report::NewReportAvailable->new(
-            $idkey->marshall,
-            revision => $newrevision,
-            url      => $self->reportEngine->url($idkey)
-        )
-    ) if $newrevision;
+    $self->generate($idkey, 'summarize');
 }
 
 sub globsummarize {
     my ($self, $idkey) = @_;
+    $self->generate($idkey, 'globsummarize');
+}
+
+sub generate {
+    my ($self, $idkey, $method) = @_;
+    my $newrevision = $self->reportEngine->$method($idkey);
+    $self->reportEngine->set_latest($idkey, $newrevision);
+    $idkey->revision($newrevision);
+    return unless $newrevision;
+    my $message
+        = Replay::Message::Report::NewReportAvailable->new($idkey->marshall,
+        url => $self->reportEngine->url($idkey));
+    $self->eventSystem->control->emit($message);
+    $self->eventSystem->derived->emit($message);
 }
 
 =head1 NAME
 
-Replay::WORM - the write once read many module
+Replay::Clerk - the report wrangler
 
 =head1 VERSION
 
@@ -94,6 +94,12 @@ Inserts the report into the Report store.
 Retrieves the reports for every key within the window
 
 Inserts the summary into the report store.
+
+=head2 globsummarize
+
+Retrieves the reports for every window within the rule version
+
+Inserts the globsummary into the report store.
 
 =cut
 

@@ -35,8 +35,7 @@ sub rule {
 
 sub reduceWrapper {
     my ($self, $envelope) = @_;
-    my $type
-        = blessed $envelope ? $envelope->MessageType : $envelope->{MessageType};
+    my $type = $envelope->{MessageType};
     return unless $type eq 'Reducable';
     my $idkey;
     my $message;

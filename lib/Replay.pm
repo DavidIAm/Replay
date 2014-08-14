@@ -4,6 +4,8 @@ use 5.006;
 use strict;
 use warnings FATAL => 'all';
 
+our $VERSION = '0.02';
+
 use Moose;
 use AnyEvent;
 use Replay::EventSystem;
@@ -141,11 +143,7 @@ Replay - A bitemporal finite state machine engine
 
 =head1 VERSION
 
-Version 0.01
-
-=cut
-
-our $VERSION = '0.01';
+Version 0.02
 
 =head1 SYNOPSIS
 

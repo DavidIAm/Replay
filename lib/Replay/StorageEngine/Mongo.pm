@@ -370,7 +370,15 @@ sub findKeysNeedReduce {
 
 sub _build_mongo {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    return MongoDB::MongoClient->new();
+    return MongoDB::MongoClient->new(
+        (   $self->config->{Mongo}
+            ? ( (   $self->config->{Mongo}{host} ? (host => $self->config->{Mongo}{host}) : ()
+                ),
+                ($self->config->{Mongo}{port} ? (host => $self->config->{Mongo}{port}) : ())
+            ),
+            : ()
+        )
+    );
 }
 
 sub _build_dbname {    ## no critic (ProhibitUnusedPrivateSubroutines)
