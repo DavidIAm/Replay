@@ -88,11 +88,8 @@ my $replay = Replay->new(
         StorageMode => 'Mongo',
         timeout     => 5,
         stage       => 'testscript-' . $ENV{USER},
-        MongoAuthDB => 'admin',
-        MongoUser   => 'replayuser',
-        MongoPass   => 'replaypass',
-        MongoDb     => 'admin',
-        domain      => 'basicmongotest',
+        Mongo  => { authdb => 'admin', user => 'replayuser', pass => 'replaypass', },
+        domain => 'basicmongotest',
     },
     rules => [ new TESTRULE ]
 );
