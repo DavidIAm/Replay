@@ -22,6 +22,7 @@ sub startup {
         directory => '/etc/cargotel/conf',
     )->config->{Replay};
 
+    $self->secrets('ReplayRESTSecret' => [$config->{RESTSecret}]);
     push @{ $self->static->paths }, $config->{ReportFileRoot};
     $self->helper(config => sub { return $config });
 

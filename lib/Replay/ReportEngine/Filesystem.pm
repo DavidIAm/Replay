@@ -1,7 +1,6 @@
 package Replay::ReportEngine::Filesystem;
 
 use Moose;
-use Git::Repository;
 use Carp qw/confess carp croak/;
 use Fcntl qw(:DEFAULT :flock);
 use Replay::ReportEngine::Filesystem::Entry;
@@ -63,10 +62,11 @@ sub url {
     my ($self, $idkey) = @_;
     die "configure ReportRESTBaseURL" unless $self->config->{ReportRESTBaseURL};
     my $baseurl = URI->new($self->config->{ReportRESTBaseURL});
-my $entry = $self->existing_entry($idkey, $idkey->revision);
-    my $url = URI->new_abs($entry->subdirectory . '/'. $entry->filename, $baseurl)->as_string;
-warn "URL is $url";
-return $url;
+    my $entry = $self->existing_entry($idkey, $idkey->revision);
+    my $url
+        = URI->new_abs($entry->subdirectory . '/' . $entry->filename, $baseurl)
+        ->as_string;
+    return $url;
 }
 
 # TODO: is this the responsibility of the report engine?

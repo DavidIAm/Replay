@@ -3690,3 +3690,26 @@ Compilation failed in require at (eval 1946) line 1.
 [Thu Aug 14 16:48:26 2014] [debug] Routing to controller "Replay::REST::Controller::Revision" and action "revisionDocument".
 [Thu Aug 14 16:48:26 2014] [debug] 200 OK (0.048083s, 20.797/s).
 [Thu Aug 14 16:51:38 2014] [debug] Helper "config" already exists, replacing.
+[Fri Aug 15 13:02:13 2014] [debug] Your secret passphrase needs to be changed!!!
+[Fri Aug 15 13:02:13 2014] [debug] GET "/reports/dogs/sit/v1/monday/akando/r4".
+[Fri Aug 15 13:02:13 2014] [debug] Routing to controller "Replay::REST::Controller::Revision" and action "revisionDocument".
+[Fri Aug 15 13:02:13 2014] [debug] 200 OK (0.057254s, 17.466/s).
+[Fri Aug 15 13:02:24 2014] [debug] GET "/reports/dogs/sit/1/monday/akando/4".
+[Fri Aug 15 13:02:24 2014] [debug] Template "not_found.development.html.ep" not found.
+[Fri Aug 15 13:02:24 2014] [debug] Template "not_found.html.ep" not found.
+[Fri Aug 15 13:02:24 2014] [debug] Rendering inline template "8122878e3bc1034543706fb58b4de464".
+[Fri Aug 15 13:02:24 2014] [debug] Rendering inline template "4fcf2af99f1803a7a26c2e9b04430f8c".
+[Fri Aug 15 13:02:24 2014] [debug] 404 Not Found (0.022091s, 45.267/s).
+[Fri Aug 15 13:31:15 2014] [debug] Helper "config" already exists, replacing.
+[Fri Aug 15 13:33:36 2014] [debug] Helper "config" already exists, replacing.
+[Fri Aug 15 13:33:37 2014] [debug] Helper "config" already exists, replacing.
+[Fri Aug 15 13:33:45 2014] [debug] GET "/reports/dogs/sit/".
+[Fri Aug 15 13:33:45 2014] [debug] Routing to controller "Replay::REST::Controller::Version" and action "versionIndex".
+[Fri Aug 15 13:33:45 2014] [debug] 200 OK (0.004709s, 212.359/s).
+[Fri Aug 15 13:33:59 2014] [debug] Helper "config" already exists, replacing.
+[Fri Aug 15 18:11:51 2014] [debug] GET "/reports/dogs/sit/1/monday/".
+[Fri Aug 15 18:11:51 2014] [debug] Template "not_found.development.html.ep" not found.
+[Fri Aug 15 18:11:51 2014] [debug] Template "not_found.html.ep" not found.
+[Fri Aug 15 18:11:51 2014] [debug] Rendering inline template "8122878e3bc1034543706fb58b4de464".
+[Fri Aug 15 18:11:51 2014] [debug] Rendering inline template "4fcf2af99f1803a7a26c2e9b04430f8c".
+[Fri Aug 15 18:11:51 2014] [debug] 404 Not Found (0.023064s, 43.358/s).

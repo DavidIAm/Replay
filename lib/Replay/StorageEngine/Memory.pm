@@ -81,6 +81,11 @@ override windowAll => sub {
     };
 };
 
+sub drop {
+	my $self = shift;
+	$store = {};
+}
+
 #}}}}}}}}}}}}}}}}}}}}
 
 =head1 NAME
