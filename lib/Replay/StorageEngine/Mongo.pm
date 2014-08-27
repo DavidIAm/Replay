@@ -338,6 +338,7 @@ sub findKeysNeedReduce {
     my ($self) = @_;
     my @idkeys = ();
     my $rule   = $self->ruleSource->first;
+    return unless defined $rule; # happens when there are no rules
     do {
         my $idkey = Replay::IdKey->new(
             name    => $rule->name,
