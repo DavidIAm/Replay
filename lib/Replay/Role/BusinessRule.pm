@@ -1,70 +1,141 @@
-package Replay::RuleSource;
+package Replay::Role::BusinessRule;
 
-use Moose;
-use Replay::Message::RulesReady;
-use Scalar::Util qw/blessed/;
-use Replay::Types;
+use Moose::Role;
+use Moose::Util::TypeConstraints;
 
-# this is the default implimentation that is simple.  This needs to be
-# different later.  The point of this layer is to instantiate and handle the
-# various execution environments for a particular rule version.
-has rules => (is => 'ro', isa => 'ArrayRef[BusinessRule]',);
+our $VERSION = '0.01';
 
-has index => (is => 'rw', default => 0,);
-has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
+has eventSystem => (is => 'ro', isa => 'Replay::EventSystem',);
 
-sub next { ## no critic (ProhibitBuiltinHomonyms)
-    my ($self) = @_;
-    my $i = $self->index;
-    $self->index($self->index + 1);
-    do { $self->index(0) and return } if $#{ $self->rules } < $i;
-    return $self->rules->[$i];
-}
+# mapper
+# [string]
+has name => (is => 'ro', required => 1,);
 
-sub first {
-    my ($self) = @_;
-    $self->index(0);
-    return $self->rules->[ $self->index ];
-}
+# [string]
+has version => (is => 'ro', isa => 'Str', default => '1',);
 
-sub byIdKey {
-    my ($self, $idkey) = @_;
-    confess("Called byIdKey without an idkey? ($idkey)") unless $idkey && blessed $idkey && $idkey->can('name');
-    return (grep { $_->name eq $idkey->name && $_->version eq $idkey->version }
-            @{ $self->rules })[0];
-}
+requires qw/match keyValueSet window compare reduce/;
 
-=pod
+# [boolean] function match ( message )
+# [timeWindowIdentifier] function window ( message )
+#
+# used by mapper
+# [list of Key=>message pairs] function keyValueSet ( message )
+#
+# used by reducer
+# [arrayRef of messages] function reduce (key, arrayref of messages)
+#
+# used by storage
+# [ compareFlag(-1,0,1) ] function compare ( messageA, messageB )
+#
+# used by bureaucrat
+# [diff report] function fullDiff ( ruleA, Version, ruleB, Version )
+has fullDiff => (is => 'ro', isa => 'CodeRef', required => 0,);
+
+# used by clerk
+# [formatted Report] function delivery ( rule, [ keyA => arrayrefOfMessage, ... ] )
+# [formatted summary] function summary ( rule, [ keyA => arrayrefOfMessage, ... ] )
+has delivery => (is => 'ro', isa => 'CodeRef', required => 0,);
+has summary  => (is => 'ro', isa => 'CodeRef', required => 0,);
 
 =head1 NAME
 
-Replay::RuleSource - Provider of a set of objects of type Replay::BusinesRule
+Replay::BaseBusinessRule
+
+=head1 VERSION
+
+Version 0.01
 
 =head1 SYNOPSIS
 
-my $source = new Replay::RuleSource( rules => [ $RuleInstance, $otherrule  ] );
+Business rule role.
 
-=head1 DESCRIPTION
+package TESTRULE;
 
-The purpose of this abstraction is to allow the dramatic scaling of these rules   Not everything needs to be in memory at the same time.
+use Moose;
+with 'Replay::Role::BusinessRule';
 
-Current iteration takes an array of Business Rules.  Maybe its tied?  What other options do we have here?
+use Replay::IdKey;
+use List::Util qw//;
+
+has '+name' => (default => __PACKAGE__,);
+
+sub window { 'alltime' };
+sub match {
+    my ($self, $message) = @_;
+    return $message->{is_interesting};
+};
+
+sub keyValueSet {
+    my ($self, $message) = @_;
+    my @keyvalues = ();
+    foreach my $key (keys %{$message}) {
+        next unless 'ARRAY' eq ref $message->{$key};
+        foreach (@{ $message->{$key} }) {
+            push @keyvalues, $key, $_;
+        }
+    }
+    return @keyvalues;
+};
+
+sub compare {
+    my ($self, $aa, $bb) = @_;
+    return ($aa || 0) <=> ($bb || 0);
+};
+
+sub reduce {
+    my ($self, $emitter, @state) = @_;
+    my $response = List::Util::reduce { $a + $b } @state;
+};
+
 
 =head1 SUBROUTINES/METHODS
 
-=head2 next 
+=head2 name()
 
-Deliver the next business rule.  Undef means the end of the list, which resets the pointer to the first.
+return the name of this rule
 
-=head2 first 
+=head2 version()
 
-Reset the current rule pointer and deliver the first business rule
+return the version of this rule
 
-=head2 byIdKey 
+=head2 match(message)
 
-The IDKey hash/object is used to identify particular rules.  Given a particular
-IdKey state, this routine should return all of the rules that match it.  This is
-expected to be a list of one or zero.
+returns whether or not this message is interesting to this rule, as efficiently
+as possible
+
+=head2 keyValueSet(message)
+
+return a list of key => atom => key => atom reflecting the keys and atoms that 
+will form the state
+
+=head2 compare( atomA, atomB )
+
+Sort subroutine - return -1, 0, or 1 depending on how these two atoms compare
+
+Use for making particluar atoms adjacent for easy comparison.
+
+=head2 reduce( emitter, atoms... )
+
+Emit any messages using the emitter.
+
+return the new list of atoms for the new canonical atoms for this state.
+
+=head2 window
+
+figure out what the window identifier is for this particular message
+
+=head2 _build_eventSystem
+
+=head2 _build_storageEngine
+
+=head2 _build_reducer
+
+=head2 _build_mapper
+
+=head2 _build_worm
+
+=cut
 
 =head1 AUTHOR
 
@@ -153,5 +224,4 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 1;    # End of Replay
 
-1;
 1;

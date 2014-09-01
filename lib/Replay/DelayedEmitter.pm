@@ -17,6 +17,30 @@ sub defer {
     return;
 }
 
+sub derived {
+    my $self = shift;
+    return Replay::DelayedEmitter::Channeled->new(
+        channel => 'derived',
+        emitter => $self
+    );
+}
+
+sub control {
+    my $self = shift;
+    return Replay::DelayedEmitter::Channeled->new(
+        channel => 'control',
+        emitter => $self
+    );
+}
+
+sub origin {
+    my $self = shift;
+    return Replay::DelayedEmitter::Channeled->new(
+        channel => 'origin',
+        emitter => $self
+    );
+}
+
 sub emit {
     my $self    = shift;
     my $channel = shift;
@@ -87,7 +111,25 @@ until the release method is called.
 
 =head2 defer(atom)
 
-We didn't process this atom.  Give it back to the inbox.
+The reduce didn't process this atom.  Give it back to the inbox for processing
+on the next go around immediately
+
+=head2 emit(channel, message)
+
+=head2 derived
+
+returns a similar object configured to send to the derived channel the message 
+passed to its ->emit method
+
+=head2 control
+
+returns a similar object configured to send to the control channel the message 
+passed to its ->emit method
+
+=head2 origin
+
+returns a similar object configured to send to the origin channel the message 
+passed to its ->emit method
 
 =head2 emit(message)
 =head2 emit(channel, message)

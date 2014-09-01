@@ -12,9 +12,10 @@ use Replay::StorageEngine;
 use Replay::Reducer;
 use Replay::Mapper;
 use Replay::WORM;
+use Replay::Types;
 
 has rules =>
-    (is => 'ro', isa => 'ArrayRef[Replay::BusinessRule]', required => 1,);
+    (is => 'ro', isa => 'ArrayRef[BusinessRule]', required => 1,);
 
 has ruleSource => (
     is      => 'ro',

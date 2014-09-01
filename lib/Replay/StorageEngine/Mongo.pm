@@ -20,8 +20,11 @@ has mongo => (
     lazy    => 1
 );
 
-has db     => (is => 'ro', builder => '_build_db',     lazy => 1);
-has dbname => (is => 'ro', builder => '_build_dbname', lazy => 1);
+has db       => (is => 'ro', builder => '_build_db',       lazy => 1);
+has dbname   => (is => 'ro', builder => '_build_dbname',   lazy => 1);
+has dbauthdb => (is => 'ro', builder => '_build_dbauthdb', lazy => 1);
+has dbuser   => (is => 'ro', builder => '_build_dbuser',   lazy => 1);
+has dbpass   => (is => 'ro', builder => '_build_dbpass',   lazy => 1);
 
 has uuid => (is => 'ro', builder => '_build_uuid', lazy => 1);
 
@@ -338,7 +341,7 @@ sub findKeysNeedReduce {
     my ($self) = @_;
     my @idkeys = ();
     my $rule   = $self->ruleSource->first;
-    return unless defined $rule; # happens when there are no rules
+    return unless defined $rule;    # happens when there are no rules
     do {
         my $idkey = Replay::IdKey->new(
             name    => $rule->name,
@@ -373,22 +376,39 @@ sub findKeysNeedReduce {
 
 sub _build_mongo {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    return MongoDB::MongoClient->new();
+    my $db = MongoDB::MongoClient->new();
+    $db->authenticate($self->dbauthdb, $self->dbuser, $self->dbpass);
+		return $db;
 }
 
-sub _build_dbname {    ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_dbpass {    ## no critic (ProhibitUnusedPrivateSubroutines)
+    my $self = shift;
+    return $self->config->{MongoPass};
+}
+
+sub _build_dbuser {    ## no critic (ProhibitUnusedPrivateSubroutines)
+    my $self = shift;
+    return $self->config->{MongoUser};
+}
+
+sub _build_dbauthdb {    ## no critic (ProhibitUnusedPrivateSubroutines)
+    my $self = shift;
+    return $self->config->{MongoAuthDB} || 'admin';
+}
+
+sub _build_dbname {      ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return $self->config->{stage} . '-replay';
 }
 
-sub _build_db {        ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_db {          ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     my $config = $self->config;
     my $db     = $self->mongo->get_database($self->dbname);
     return $db;
 }
 
-sub _build_uuid {      ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_uuid {        ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     return Data::UUID->new;
 }

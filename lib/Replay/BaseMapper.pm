@@ -45,7 +45,9 @@ sub map {    ## no critic (ProhibitBuiltinHomonyms)
         unless $message->{MessageType} && 'HASH' eq ref $message->{Message};
     croak "I CANNOT MAP UNDEF" unless defined $message;
     while (my $rule = $self->ruleSource->next) {
-        next unless $rule->match($message);
+        do { 
+warn 'no match against rule ' .$rule->name;
+next  } unless $rule->match($message);
         my @all = $rule->keyValueSet($message);
         croak "key value list from key value set must be even" if scalar @all % 2;
         my $window = $rule->window($message);

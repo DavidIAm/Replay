@@ -3,6 +3,7 @@ package Replay::BusinessRule;
 use Replay::BaseBusinessRule;
 use Moose;
 extends 'Replay::BaseBusinessRule';
+with 'Replay::Role::BusinessRule';
 
 our $VERSION = '0.01';
 
@@ -16,7 +17,7 @@ Version 0.01
 
 =head1 SYNOPSIS
 
-Business rule base class.  All Business Rules inherit from here.
+Deprecated.  use role Replay::Role::BusinessRule instead
 
 =head1 AUTHOR
 
