@@ -12,6 +12,12 @@ has Replay => (
     description => { layer => 'envelope' },
 );
 
+has MessageType => (
+    is          => 'ro',
+    isa         => 'Str',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'envelope' },
+);
 has Message => (
     is          => 'ro',
     isa         => 'Str|HashRef',
@@ -57,7 +63,7 @@ has CreatedTime => (
 has ReceivedTime => (
     is          => 'ro',
     isa         => 'Str',
-    predicate   => 'has_recieved_time',
+    predicate   => 'has_received_time',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'envelope' },
     builder     => '_now'
@@ -72,31 +78,53 @@ has UUID => (
 );
 
 sub marshall {
+    my $self       = shift;
+    my $buffer     = '';
+    my $row        = 1;
+    my @attributes = $self->meta->get_attribute_list();
+    my $layers     = {};
+    foreach my $attr (sort { $a cmp $b } @attributes) {
+        my $field = $self->meta->get_attribute($attr);
+
+        my $thislayer = $field->description->{layer} || 'message';
+
+        my $node = $layers->{$thislayer} ||= {};
+
+        my $value = $self->$attr();
+        next unless ($value);
+
+        $node->{$attr} = $value;
+    }
+    $layers->{envelope}{Message} = $layers->{message};
+    return $layers->{envelope};
+}
+
+sub ___marshall {
     my $self     = shift;
     my $envelope = {
-        Messsage    => $self,
+        Message     => $self,
         MessageType => $self->MessageType,
         UUID        => $self->UUID,
-        ($self->has_program        ? (Program        => $self->Program)       : ()),
-        ($self->has_function       ? (Function       => $self->Function)      : ()),
-        ($self->has_line           ? (Line           => $self->Line)          : ()),
-        ($self->has_effective_time ? (Effective_time => $self->EffectiveTime) : ()),
-        ($self->has_created_time   ? (Created_time   => $self->CreatedTime)   : ()),
-        ($self->has_received_time  ? (Received_time  => $self->ReceivedTime)  : ()),
-        ($self->has_timeblocks     ? (Timeblocks     => $self->Timeblocks)    : ()),
-        ($self->has_ruleversions   ? (Ruleversions   => $self->Ruleversions)  : ()),
-        ($self->has_windows        ? (Windows        => $self->Windows)       : ()),
+        ($self->has_program        ? (Program       => $self->Program)       : ()),
+        ($self->has_function       ? (Function      => $self->Function)      : ()),
+        ($self->has_line           ? (Line          => $self->Line)          : ()),
+        ($self->has_effective_time ? (EffectiveTime => $self->EffectiveTime) : ()),
+        ($self->has_created_time   ? (CreatedTime   => $self->CreatedTime)   : ()),
+        ($self->has_received_time  ? (ReceivedTime  => $self->ReceivedTime)  : ()),
+        ($self->has_timeblocks     ? (Timeblocks    => $self->Timeblocks)    : ()),
+        ($self->has_ruleversions   ? (Ruleversions  => $self->Ruleversions)  : ()),
+        ($self->has_windows        ? (Windows       => $self->Windows)       : ()),
     };
     return $envelope;
 
 }
 
-sub _now { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _now {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return +gettimeofday;
 }
 
-sub _build_uuid { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_uuid {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     my $ug   = Data::UUID->new;
     return $ug->to_string($ug->create());

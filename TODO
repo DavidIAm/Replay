@@ -1,0 +1,11 @@
+Make a state inspector for the storage Engine states
+
+Make some base classes for basic things like asynchronous retries and delays
+
+Make a rule for 'at' functionality
+
+Replay::Roles::BusinessRule - make this a role
+Replay::Roles::StorageEngine - make this a role
+Replay::Roles::ReportEngine - make this a role
+
+
