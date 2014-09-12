@@ -1,7 +1,7 @@
 package Replay::WORM;
 
 use Moose;
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 use POSIX qw/strftime/;
 use File::Spec qw//;
@@ -9,6 +9,9 @@ use Scalar::Util qw/blessed/;
 use Try::Tiny;
 use Time::HiRes qw/gettimeofday/;
 use Carp qw/carp croak/;
+use Readonly;
+
+Readonly my $UMASK => 6;
 
 has eventSystem => (is => 'ro', required => 1,);
 has directory   => (is => 'ro', required => 0, default => '/var/log/replay');
@@ -18,42 +21,40 @@ has UUID => (is => 'ro', isa => 'Data::UUID', builder => '_build_uuid');
 # dummy implimentation - Log them to a file
 sub BUILD {
     my $self = shift;
-    mkdir $self->directory unless -d $self->directory;
+    if (not -d $self->directory) {
+        mkdir $self->directory;
+    }
     $self->eventSystem->origin->subscribe(
         sub {
             my $message   = shift;
             my $timeblock = $self->log($message);
-            carp "Not a reference $message" unless ref $message;
+            carp "Not a reference $message" if not ref $message;
             if (blessed $message && $message->isa('Replay::Message')) {
-                push @{ $message->Timeblocks }, $self->timeblock;
-                $message->ReceivedTime(+gettimeofday);
-                $message->UUID($self->newUuid) unless $message->uuid;
+                $message = $message->marshall;
             }
-            else {
-                try {
-                    push @{ $message->{Timeblocks} }, $self->timeblock;
-                    $message->{ReceivedTime} = gettimeofday;
-                    $message->{UUID} ||= $self->newUuid;
-                }
-                catch {
-                    carp "unable to push timeblock on message?" . $message;
-                };
+            try {
+                push @{ $message->{Timeblocks} }, $self->timeblock;
+                $message->{ReceivedTime} = gettimeofday;
+                $message->{UUID} ||= $self->new_uuid;
             }
+            catch {
+                carp q(unable to push timeblock on message?) . $message;
+            };
             $self->eventSystem->derived->emit($message);
         }
     );
     return;
 }
 
-sub newUuid {
+sub new_uuid {
     my $self = shift;
     return $self->UUID->to_string($self->UUID->create());
 }
 
 sub serialize {
     my ($self, $message) = @_;
-    return $message unless ref $message;
-    return JSON->new->encode($message) unless blessed $message;
+    return $message if not ref $message;
+    return JSON->new->encode($message) if not blessed $message;
     return $message->stringify if blessed $message && $message->can('stringify');
     return $message->freeze    if blessed $message && $message->can('freeze');
     return $message->serialize if blessed $message && $message->can('serialize');
@@ -64,13 +65,13 @@ sub serialize {
 sub log {    ## no critic (ProhibitBuiltinHomonyms)
     my $self    = shift;
     my $message = shift;
-    return $self->filehandle->print($self->serialize($message) . "\n");
+    return $self->filehandle->print($self->serialize($message) . qq(\n));
 }
 
 sub path {
     my $self = shift;
     return File::Spec->catfile($self->directory,
-        $self->timeblock . '-' . $self->eventSystem->config->{stage});
+        $self->timeblock . q(-) . $self->eventSystem->config->{stage});
 }
 
 sub filehandle {
@@ -78,9 +79,9 @@ sub filehandle {
     return $self->filehandles->{ $self->timeblock }
         if exists $self->filehandles->{ $self->timeblock }
         && -f $self->filehandles->{ $self->timeblock };
-    umask 6;    # not entirely sure why this works
+    umask $UMASK;    # not entirely sure why this works
     open $self->filehandles->{ $self->timeblock }, '>>', $self->path
-        or confess "Unable to open " . $self->path . " for append";
+        or confess q(Unable to open ) . $self->path . q( for append);
     return $self->filehandles->{ $self->timeblock };
 }
 
@@ -89,10 +90,16 @@ sub timeblock {
     return strftime '%Y-%m-%d-%H', localtime time;
 }
 
-sub _build_uuid { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_uuid {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self;
     return $self->{UUID} ||= Data::UUID->new;
 }
+
+1;
+
+__END__
+
+=pod
 
 =head1 NAME
 
@@ -137,7 +144,7 @@ resolves the current time into a particular timeblock
 
 creates the uuid object for creating uuids with on demand
 
-=head2 newUuid
+=head2 new_uuid
 
 return a brand new uuid
 

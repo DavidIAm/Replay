@@ -4,8 +4,8 @@ use lib 'Replay/lib/';
 
 package TESTRULE;
 
-use Replay::BusinessRule;
-use Replay::IdKey;
+use Replay::BusinessRule 0.02;
+use Replay::IdKey 0.02;
 use Moose;
 extends 'Replay::BusinessRule';
 use List::Util qw//;
@@ -17,7 +17,7 @@ override match => sub {
     return $message->{MessageType} eq 'interesting';
 };
 
-override keyValueSet => sub {
+override key_value_set => sub {
     my ($self, $message) = @_;
     my @keyvalues = ();
     foreach my $key (keys %{ $message->{Message} }) {
@@ -42,7 +42,7 @@ override reduce => sub {
 package main;
 use Data::Dumper;
 
-use Replay;
+use Replay 0.02;
 use Time::HiRes qw/gettimeofday/;
 use Test::Most tests => 17;
 use Config::Locale;
@@ -76,7 +76,7 @@ my $notAfterAll
 my $secondMessage = { MessageType => 'interesting',
     Message => { c => [ 6, 7, 8, 9, 10 ], } };
 
-is_deeply [ $tr->keyValueSet($funMessage) ],
+is_deeply [ $tr->key_value_set($funMessage) ],
     [ a => 5, a => 1, a => 2, a => 3, a => 4 ], 'expands';
 
 my $replay = Replay->new(
@@ -101,7 +101,7 @@ $replay->reducer;
 $replay->mapper;
 
 is_deeply [
-    $replay->storageEngine->fetchCanonicalState(
+    $replay->storageEngine->fetch_canonical_state(
         Replay::IdKey->new(
             { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' }
         )
@@ -158,7 +158,7 @@ my $e = AnyEvent->timer(
 $replay->eventSystem->run;
 
 is_deeply [
-    $replay->storageEngine->fetchCanonicalState(
+    $replay->storageEngine->fetch_canonical_state(
         Replay::IdKey->new(
             { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' }
         )
@@ -166,7 +166,7 @@ is_deeply [
     ],
     [15];
 
-is_deeply $replay->storageEngine->windowAll(
+is_deeply $replay->storageEngine->window_all(
     Replay::IdKey->new(
         { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' }
     )

@@ -41,17 +41,19 @@ package Replay::Rules::At;
 #        };
 
 use Moose;
-use Replay::BusinessRule;
+use Replay::BusinessRule 0.02;
 use Scalar::Util qw/blessed/;
 use List::Util qw/min max/;
 use JSON;
 use Try::Tiny;
 use Time::HiRes qw/gettimeofday/;
-use Replay::Message::At::SentMessageAt;
-use Replay::Message::At::SendMessageWhen;
-use Replay::Message;
+use Replay::Message::At::SentMessageAt 0.02;
+use Replay::Message::At::SendMessageWhen 0.02;
+use Replay::Message 0.02;
 use Readonly;
 extends 'Replay::BusinessRule';
+
+our $VERSION = q(0.02);
 
 Readonly my $MAX_EXCEPTION_COUNT => 3;
 Readonly my $WINDOW_SIZE         => 1000;
@@ -59,7 +61,7 @@ Readonly my $INTERVAL_SIZE       => 60;
 
 has '+name' => (default => 'At');
 
-has '+version' => (default => '1');
+has '+version' => (default => $VERSION);
 
 sub match {
     my ($self, $message) = @_;
@@ -90,13 +92,13 @@ sub compare {
     return $aa->{sendat} cmp $bb->{sendat};
 }
 
-sub keyValueSet {
+sub key_value_set {
     my ($self, $message) = @_;
 
     return $message->{Message}{atdomain} || 'generic' => {
         requested => 0,
-        window => $self->window($message),
-        uuid   => $message->{UUID},
+        window    => $self->window($message),
+        uuid      => $message->{UUID},
         %{ $message->{Message} },
         }
         if $message->{MessageType} eq 'SendMessageAt';
@@ -112,25 +114,24 @@ sub keyValueSet {
 sub reduce {
     my ($self, $emitter, @atoms) = @_;
 
-
     # find the latest SendMessageNow that has arrived
     my $maxtime = max map { $_->{epoch} } grep { defined $_->{epoch} } @atoms,
         { epoch => 0 };
 
     # transmit any that are ready to send
     # (skipping any timing atoms)
-    my @atomsToSend
+    my @atoms_to_send
         = grep { defined $_->{sendat} && $_->{sendat} <= $maxtime } @atoms;
-    my @atomsToKeep
+    my @atoms_to_keep
         = grep { $_->{sendat} > $maxtime } grep { $_->{payload} } @atoms;
-    my @newtimes = map { $_->{sendat} } grep { $_->{sendat} } @atomsToKeep;
+    my @newtimes = map { $_->{sendat} } grep { $_->{sendat} } @atoms_to_keep;
     my $newmin   = min @newtimes;
     my $newmax   = max @newtimes;
-    foreach my $atom (@atomsToSend) {
+    foreach my $atom (@atoms_to_send) {
 
         if ($atom->{sendat} <= $maxtime) {
             my $c = $atom->{class};
-            $emitter->emit($atom->{channel}, my $sent = new $c $atom->{payload});
+            $emitter->emit($atom->{channel}, my $sent = $c->new($atom->{payload}));
             $emitter->emit(
                 'derived',
                 Replay::Message::At::SentMessageAt->new(
@@ -149,7 +150,9 @@ sub reduce {
 
     # we do this after because there's no sense in adding it to the list within
     # the domain if we've already sent it.
-    foreach my $atom (grep { defined $_->{requested} && !$_->{requested} } @atomsToKeep) {
+    foreach my $atom (grep { defined $_->{requested} && !$_->{requested} }
+        @atoms_to_keep)
+    {
         $emitter->emit(
             'derived',
             Replay::Message::At::SendMessageWhen->new(
@@ -161,7 +164,7 @@ sub reduce {
         );
         $_->{requested} = 1;
     }
-    return @atomsToKeep;
+    return @atoms_to_keep;
 }
 
 1;
@@ -170,7 +173,7 @@ sub reduce {
 
 =head1 NAME
 
-Replay::Rule::At - A rule that helps us manage emitting events later
+Replay::Rules::At - A rule that helps us manage emitting events later
 
 =head1 VERSION
 
@@ -195,7 +198,7 @@ Each
 
 returns true if message type is 'SendMessageAt' or 'SendMessageNow'
 
-=head2 list (key, value, key, ...) = keyValueSet(message)
+=head2 list (key, value, key, ...) = key_value_set(message)
 
 in case of SendMessageAt 
 
@@ -237,7 +240,7 @@ to origin
 
 current implimentation just divides the epoch time by 1000, so every 1000
 minutes will have its own state set.  Hopefully this is small enough.
-Used by both 'window' and 'keyValueSet'.
+Used by both 'window' and 'key_value_set'.
 
 =head1 AUTHOR
 

@@ -1,15 +1,21 @@
 package Replay::Message::WindowAll;
 
 use Moose;
-extends ('Replay::Message');
+extends('Replay::Message');
+our $VERSION = '0.02';
 
-has '+MessageType' => ( default => 'WindowAll' );
-has '+Message' => ( isa => 'IdKey', coerce => 1 );
+has '+MessageType' => (default => 'WindowAll');
+has '+Message' => (isa => 'IdKey', coerce => 1);
 
+1;
+
+__END__
+
+=pod 
 
 =head1 NAME
 
-Replay::Message::WindowAll - signal that a windowAll record has been delivered
+Replay::Message::WindowAll - signal that a window_all record has been delivered
 
 =head1 VERSION
 
@@ -115,7 +121,6 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 =cut
 
 1;
-
 
 1;
 1;

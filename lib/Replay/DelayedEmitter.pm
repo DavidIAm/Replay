@@ -2,7 +2,7 @@ package Replay::DelayedEmitter;
 
 use Moose;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 has eventSystem  => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
 has Timeblocks   => (is => 'rw', isa => 'ArrayRef',            required => 1);
@@ -71,9 +71,15 @@ sub emit {
 
 sub release {
     my $self = shift;
-    $_->() foreach (@{ $self->messagesToSend });
+    foreach (@{ $self->messagesToSend }) { $_->(); }
     return;
 }
+
+1;
+
+__END__
+
+=pod
 
 =head1 NAME
 

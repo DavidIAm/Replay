@@ -1,21 +1,18 @@
 package Replay::Types::Messages;
 use Moose::Role;
 use Moose::Util::TypeConstraints;
+
 #use namespace::autoclean;
 use Replay::Message::Clock;
 use Replay::Message::IdKey;
 
-our $VERSION = '0.1';
+our $VERSION = '0.02';
 
 class_type 'Clock', { class => 'Replay::Message::Clock' };
-coerce 'Clock',
-      from 'HashRef',
-      via { Replay::Message::Clock->new(%{ $_ }) };
+coerce 'Clock', from 'HashRef', via { Replay::Message::Clock->new(%{$_}) };
 
 class_type 'IdKey', { class => 'Replay::Message::IdKey' };
-coerce 'IdKey',
-      from 'HashRef',
-      via { Replay::Message::IdKey->new(%{ $_ }) };
+coerce 'IdKey', from 'HashRef', via { Replay::Message::IdKey->new(%{$_}) };
 
 1;
 
@@ -31,7 +28,7 @@ Version 0.01
 
 =head1 SYNOPSIS
 
-provide coersion and short names for some types
+provide coercion and short names for some types
 
 =head1 TYPES
 

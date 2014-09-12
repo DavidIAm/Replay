@@ -4,34 +4,39 @@ use Moose;
 use MooseX::Storage;
 use MooseX::MetaDescription::Meta::Trait;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 with(qw(Replay::Envelope));
 
 has '+MessageType' => (default => 'SendMessageWhen',);
-has 'atdomain'  => (
+has 'atdomain' => (
     is          => 'ro',
     isa         => 'Str',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'message' },
 );
-has 'window'    => (
+has 'window' => (
     is          => 'ro',
     isa         => 'Str',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'message' },
 );
-has 'sendat'    => (
+has 'sendat' => (
     is          => 'ro',
     isa         => 'Num',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'message' },
 );
 
+1;
+
+__END__
+
+=pod
 
 =head1 NAME
 
-Replay::Message::At::SendMessageNow - The message form for the At rule's send message now message
+Replay::Message::At::SendMessageWhen
 
 =head1 VERSION
 
@@ -39,7 +44,7 @@ Version 0.01
 
 =head1 SYNOPSIS
 
-the basic message functionality, providnig the serialization
+the basic message functionality, providing the serialization
 routines and patterns for making a Replay Message
 
 =head1 SUBROUTINES/METHODS

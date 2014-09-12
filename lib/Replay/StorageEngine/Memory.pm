@@ -7,6 +7,8 @@ use Carp qw/croak/;
 
 extends 'Replay::BaseStorageEngine';
 
+our $VERSION = q(0.02);
+
 my $store = {};
 
 override retrieve => sub {
@@ -35,7 +37,7 @@ override absorb => sub {
     # unique list of Ruleversions
     my %ruleversions = ();
     foreach my $m (@{ $state->{Ruleversions} }, $meta->{ruleversion}) {
-        $ruleversions{ join('+', map { $_ . '-' . $m->{$_} } sort keys %{$m}) } = $m;
+        $ruleversions{ join q(+), map { $_ . q(-) . $m->{$_} } sort keys %{$m} } = $m;
     }
     $state->{Ruleversions} = [ values %ruleversions ];
     push @{ $state->{inbox} ||= [] }, $atom;
@@ -57,25 +59,31 @@ override checkout => sub {
 
 override checkin => sub {
     my ($self, $idkey, $uuid, $state) = @_;
-    croak "not checked out" unless exists $self->{checkouts}{$uuid};
+    croak q(not checked out) if not exists $self->{checkouts}{$uuid};
     my $data = delete $self->{checkouts}{$uuid};
     delete $data->{desktop};
     super();
     $store->{ $idkey->collection }{ $idkey->cubby } = $data;
 };
 
-override windowAll => sub {
+override window_all => sub {
     my ($self, $idkey) = @_;
     return {
         map {
             $store->{ $idkey->collection }{$_}{idkey}{key} =>
                 $store->{ $idkey->collection }{$_}{canonical}
-            } grep { 0 == index $_, $idkey->windowPrefix }
+            } grep { 0 == index $_, $idkey->window_prefix }
             keys %{ $store->{ $idkey->collection } }
     };
 };
 
 #}}}}}}}}}}}}}}}}}}}}
+
+1;
+
+__END__
+
+=pod
 
 =head1 NAME
 
@@ -105,7 +113,7 @@ faster.
 
 =head2 checkin - update and unlock document
 
-=head2 windowAll - get documents for a particular window
+=head2 window_all - get documents for a particular window
 
 =head1 AUTHOR
 
@@ -205,7 +213,7 @@ STATE DOCUMENT GENERAL TO STORAGE ENGINE
 
 inbox: [ Array of Atoms ] - freshly arrived atoms are stored here.
 canonical: [ Array of Atoms ] - the current reduced 
-canonSignature: "SIGNATURE" - a sanity check to see if this canonical has been mucked with
+canonSignature: q(SIGNATURE) - a sanity check to see if this canonical has been mucked with
 Timeblocks: [ Array of input timeblock names ]
 Ruleversions: [ Array of objects like { name: <rulename>, version: <ruleversion> } ]
 
@@ -216,7 +224,7 @@ collection is determined by idkey->collection
 idkey is determined by idkey->cubby
 
 desktop: [ Array of Atoms ] - the previously arrived atoms that are currently being processed
-locked: "SIGNATURE" - if this is set, only a worker who knows the signature may update this
+locked: q(SIGNATURE) - if this is set, only a worker who knows the signature may update this
 lockExpireEpoch: TIMEINT - used in case of processing timeout to unlock the record
 
 STATE TRANSITIONS IN THIS IMPLEMENTATION 

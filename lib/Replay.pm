@@ -3,28 +3,28 @@ package Replay;
 use 5.006;
 use strict;
 use warnings FATAL => 'all';
+our $VERSION = '0.02';
 
 use Moose;
 use AnyEvent;
-use Replay::EventSystem;
-use Replay::RuleSource;
-use Replay::StorageEngine;
-use Replay::Reducer;
-use Replay::Mapper;
-use Replay::WORM;
-use Replay::Types;
+use Replay::EventSystem 0.02;
+use Replay::RuleSource 0.02;
+use Replay::StorageEngine 0.02;
+use Replay::Reducer 0.02;
+use Replay::Mapper 0.02;
+use Replay::WORM 0.02;
+use Replay::Types 0.02;
 
-has rules =>
-    (is => 'ro', isa => 'ArrayRef[BusinessRule]', required => 1,);
+has rules => (is => 'ro', isa => 'ArrayRef[BusinessRule]', required => 1,);
 
 has ruleSource => (
     is      => 'ro',
     isa     => 'Replay::RuleSource',
-    builder => '_build_ruleSource',
+    builder => '_build_rule_source',
     lazy    => 1,
 );
 
-sub _build_ruleSource { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_rule_source {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return Replay::RuleSource->new(
         rules       => $self->rules,
@@ -35,11 +35,11 @@ sub _build_ruleSource { ## no critic (ProhibitUnusedPrivateSubroutines)
 has eventSystem => (
     is      => 'ro',
     isa     => 'Replay::EventSystem',
-    builder => '_build_eventSystem',
+    builder => '_build_event_system',
     lazy    => 1,
 );
 
-sub _build_eventSystem { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_event_system {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return Replay::EventSystem->new(config => $self->config);
 }
@@ -47,13 +47,13 @@ sub _build_eventSystem { ## no critic (ProhibitUnusedPrivateSubroutines)
 has storageEngine => (
     is      => 'ro',
     isa     => 'Replay::StorageEngine',
-    builder => '_build_storageEngine',
+    builder => '_build_storage_engine',
     lazy    => 1,
 );
 
 has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
 
-sub _build_storageEngine { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_storage_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return Replay::StorageEngine->new(
         config      => $self->config,
@@ -69,7 +69,7 @@ has reducer => (
     lazy    => 1,
 );
 
-sub _build_reducer { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_reducer {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return Replay::Reducer->new(
         eventSystem   => $self->eventSystem,
@@ -85,7 +85,7 @@ has mapper => (
     lazy    => 1,
 );
 
-sub _build_mapper { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_mapper {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return Replay::Mapper->new(
         eventSystem   => $self->eventSystem,
@@ -97,10 +97,16 @@ sub _build_mapper { ## no critic (ProhibitUnusedPrivateSubroutines)
 has worm =>
     (is => 'ro', isa => 'Replay::WORM', builder => '_build_worm', lazy => 1,);
 
-sub _build_worm { ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_worm {      ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return Replay::WORM->new(eventSystem => $self->eventSystem);
 }
+
+1;
+
+__END__
+
+=pod 
 
 =head1 NAME
 
@@ -109,10 +115,6 @@ Replay - A bitemporal finite state machine engine
 =head1 VERSION
 
 Version 0.01
-
-=cut
-
-our $VERSION = '0.01';
 
 =head1 SYNOPSIS
 
@@ -162,7 +164,7 @@ override match => sub {
     warn "MATCH HIT";
     return 1;
 };
-override keyValueSet => sub {
+override key_value_set => sub {
     return 1 => 1;
 };
 override reduce => sub {
@@ -176,11 +178,11 @@ override reduce => sub {
 
 =head1 SUBROUTINES/METHODS
 
-=head2 _build_ruleSource
+=head2 _build_rule_source
 
-=head2 _build_eventSystem
+=head2 _build_event_system
 
-=head2 _build_storageEngine
+=head2 _build_storage_engine
 
 =head2 _build_reducer
 

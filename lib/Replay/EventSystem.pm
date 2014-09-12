@@ -5,6 +5,7 @@ use Moose;
 use EV;
 use AnyEvent;
 use Readonly;
+use English qw/-no_match_vars/;
 use Carp qw/confess carp cluck/;
 use Time::HiRes;
 use Replay::Message::Timing;
@@ -12,6 +13,11 @@ use Try::Tiny;
 use Carp qw/croak carp/;
 
 use Replay::EventSystem::AWSQueue;
+
+our $VERSION = '0.02';
+
+Readonly my $LTYEAR         => 1900;
+Readonly my $SECS_IN_MINUTE => 60;
 
 my $quitting = 0;
 
@@ -55,8 +61,9 @@ has domain => (is => 'ro');    # placeholder
 
 sub BUILD {
     my ($self) = @_;
-    croak "NO QueueClass CONFIG!?  Make sure its in the locale files"
-        unless $self->config->{QueueClass};
+    if (not $self->config->{QueueClass}) {
+        croak q(NO QueueClass CONFIG!?  Make sure its in the locale files);
+    }
     $self->{stop} = AnyEvent->condvar(cb => sub {exit});
     return;
 }
@@ -73,8 +80,11 @@ sub initialize {
 
 sub heartbeat {
     my ($self) = @_;
-    return $self->{hbtimer}
-        = AnyEvent->timer(after => 1, interval => 1, cb => sub { print "<3"; });
+    return $self->{hbtimer} = AnyEvent->timer(
+        after    => 1,
+        interval => 1,
+        cb       => sub { print q(<3) or croak q(cannot print heartbeat?) }
+    );
 }
 
 sub run {
@@ -82,14 +92,14 @@ sub run {
     $quitting = 0;
 
     $self->clock;
-    carp "SIGQUIT will stop loop";
+    carp q(SIGQUIT will stop loop);
     local $SIG{QUIT} = sub {
         return if $quitting++;
         $self->stop;
         $self->clear;
         carp('shutdownBySIGQUIT');
     };
-    carp "SIGINT will stop loop";
+    carp q(SIGINT will stop loop);
     local $SIG{INT} = sub {
         return if $quitting++;
         $self->stop;
@@ -100,9 +110,9 @@ sub run {
     if ($self->config->{timeout}) {
         $self->{stoptimer} = AnyEvent->timer(
             after => $self->config->{timeout},
-            cb    => sub { carp "Timeout triggered."; $self->stop }
+            cb    => sub { carp q(Timeout triggered.); $self->stop }
         );
-        carp "Setting loop timeout to " . $self->config->{timeout};
+        carp q(Setting loop timeout to ) . $self->config->{timeout};
     }
 
     $self->{polltimer} = AnyEvent->timer(
@@ -112,14 +122,14 @@ sub run {
             $self->poll();
         }
     );
-    carp "Event loop startup now";
+    carp q(Event loop startup now);
     EV::loop;
     return;
 }
 
 sub stop {
     my ($self) = @_;
-    carp "Event loop shutdown by request";
+    carp q(Event loop shutdown by request);
     EV::unloop;
     return;
 }
@@ -144,8 +154,9 @@ sub emit {
 
 sub poll {
     my ($self, @purposes) = @_;
-    @purposes = qw/origin derived control derivedsniffer originsniffer/
-        unless scalar @purposes;
+    if (0 == scalar @purposes) {
+        @purposes = qw/origin derived control derivedsniffer originsniffer/;
+    }
     my $activity = 0;
     foreach my $purpose (@purposes) {
         try {
@@ -159,19 +170,19 @@ sub poll {
 }
 
 sub clock {
-    my $self           = shift;
-    my $lastSeenMinute = time - time % 60;
-    carp "Clock tick started";
+    my $self             = shift;
+    my $last_seen_minute = time - time % $SECS_IN_MINUTE;
+    carp q(Clock tick started);
     $self->{clock} = AnyEvent->timer(
         after    => 0.25,
         interval => 0.25,
         cb       => sub {
-            my $thisMinute = time - time % 60;
-            return if $lastSeenMinute == $thisMinute;
-            carp "Clock tick on minute $thisMinute";
-            $lastSeenMinute = $thisMinute;
+            my $this_minute = time - time % $SECS_IN_MINUTE;
+            return if $last_seen_minute == $this_minute;
+            carp "Clock tick on minute $this_minute";
+            $last_seen_minute = $this_minute;
             my ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst)
-                = localtime(time);
+                = localtime time;
             $self->emit(
                 'origin',
                 Replay::Message::Timing->new(
@@ -181,7 +192,7 @@ sub clock {
                         hour    => $hour,
                         date    => $mday,
                         month   => $mon,
-                        year    => $year + 1900,
+                        year    => $year + $LTYEAR,
                         weekday => $wday,
                         yearday => $yday,
                         isdst   => $isdst
@@ -201,14 +212,18 @@ sub _build_queue {
     try {
         my $classname = $self->config->{QueueClass};
         try {
-            croak $@ unless eval "require $classname";
+            if (eval "require $classname") {
+            }
+            else {
+                croak $EVAL_ERROR;
+            }
         }
         catch {
             croak "error requiring: $_";
         };
     }
     catch {
-        croak "Unable to load queue class "
+        croak q(Unable to load queue class )
             . $self->config->{QueueClass}
             . " --> $_ ";
     };
@@ -240,6 +255,12 @@ sub _build_origin_sniffer {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     return $self->_build_queue('origin', 'fanout');
 }
+
+1;
+
+__END__
+
+=pod
 
 =head1 NAME
 

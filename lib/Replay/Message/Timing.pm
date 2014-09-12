@@ -1,17 +1,22 @@
 package Replay::Message::Timing;
 
 use Moose;
-extends ('Replay::Message');
+extends('Replay::Message');
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 has '+MessageType' => (default => 'Timing');
 has '+Message' => (isa => 'Clock', coerce => 1);
 
+1;
+
+__END__
+
+=pod 
 
 =head1 NAME
 
-Replay::Message::Clock - A timing message
+Replay::Message::Timing
 
 =head1 VERSION
 

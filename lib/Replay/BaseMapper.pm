@@ -1,11 +1,11 @@
 package Replay::BaseMapper;
 
 use Moose;
-use Replay::IdKey;
+use Replay::IdKey 0.02;
 use Carp qw/croak carp/;
 use Data::Dumper;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 has ruleSource => (is => 'ro', isa => 'Replay::RuleSource',);
 
@@ -16,20 +16,20 @@ has storageClass => (is => 'ro',);
 has storageEngine => (
     is      => 'ro',
     isa     => 'Replay::StorageEngine',
-    builder => 'buildStorageSink',
+    builder => 'build_storage_sink',
     lazy    => 1,
 );
 
-sub buildStorageSink {
+sub build_storage_sink {
     my $self = shift;
-    croak "no storage class?" unless $self->storageClass;
+    croak q(no storage class?) if not $self->storageClass;
     return $self->storageClass->new(ruleSource => $self->ruleSource);
 }
 
 sub BUILD {
     my $self = shift;
-    croak "need either storageEngine or storageClass"
-        unless $self->storageEngine || $self->storageClass;
+    croak q(need either storageEngine or storageClass)
+        if !$self->storageEngine && !$self->storageClass;
     return $self->eventSystem->derived->subscribe(
         sub {
             $self->map(@_);
@@ -40,27 +40,25 @@ sub BUILD {
 sub map {    ## no critic (ProhibitBuiltinHomonyms)
     my $self    = shift;
     my $message = shift;
-    carp "Got a message that isn't a hashref" unless 'HASH' eq ref $message;
-    carp "Got a message that doesn't have type and a hashref for a message"
-        unless $message->{MessageType} && 'HASH' eq ref $message->{Message};
-    croak "I CANNOT MAP UNDEF" unless defined $message;
+    carp q(Got a message that isn't a hashref) if 'HASH' ne ref $message;
+    carp q(Got a message that doesn't have type and a hashref for a message)
+        if !$message->{MessageType} || 'HASH' ne ref $message->{Message};
+    croak q(I CANNOT MAP UNDEF) if not defined $message;
     while (my $rule = $self->ruleSource->next) {
-        do { 
-warn 'no match against rule ' .$rule->name;
-next  } unless $rule->match($message);
-        my @all = $rule->keyValueSet($message);
-        croak "key value list from key value set must be even" if scalar @all % 2;
+        next if not $rule->match($message);
+        my @all = $rule->key_value_set($message);
+        croak q(key value list from key value set must be even) if scalar @all % 2;
         my $window = $rule->window($message);
         while (scalar @all) {
             my $key  = shift @all;
             my $atom = shift @all;
             croak "I WAS GIVEN AN UNDEF KEY WHILE LOOKING AT $rule ATOM "
                 . Dumper($atom)
-                . " OUT OF MESSAGE "
+                . q( OUT OF MESSAGE )
                 . Dumper $message
-                unless defined $key;
-            croak "unable to store"
-                unless $self->storageEngine->absorb(
+                if not defined $key;
+            croak q(unable to store)
+                if not $self->storageEngine->absorb(
                 Replay::IdKey->new(
                     {   name    => $rule->name,
                         version => $rule->version,
@@ -81,6 +79,12 @@ next  } unless $rule->match($message);
     }
     return;
 }
+
+1;
+
+__END__
+
+=pod
 
 =head1 NAME
 
@@ -104,7 +108,7 @@ step through each rule available in the rule source.
 
 ignore the rule if negative response to the ->match(message) subrule 
 
-map the message to a set of key => value pairs by calling the ->keyValueSet(message) subrule
+map the message to a set of key => value pairs by calling the ->key_value_set(message) subrule
 
 get the window by calling the ->window(message) subrule
 
@@ -122,7 +126,7 @@ adds to the set of Ruleversions as relevant
 
 subscribes to the derived channel
 
-=head2 buildStorageSink
+=head2 build_storage_sink
 
 builder for getting the storage engine using the rule source
 

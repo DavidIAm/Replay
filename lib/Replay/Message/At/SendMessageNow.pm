@@ -28,6 +28,12 @@ has 'window' => (
     description => { layer => 'message' },
 );
 
+1;
+
+__END__
+
+=pod
+
 =head1 NAME
 
 Replay::Message::At::SendMessageNow - The message form for the At rule's send message now message
@@ -38,7 +44,7 @@ Version 0.01
 
 =head1 SYNOPSIS
 
-the basic message functionality, providnig the serialization
+the basic message functionality, providing the serialization
 routines and patterns for making a Replay Message
 
 =head1 SUBROUTINES/METHODS

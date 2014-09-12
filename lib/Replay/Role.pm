@@ -1,7 +1,9 @@
 package Replay::Role;
 
 # enumerate all the roles we want to make available
+use Moose;
 use Replay::Role::BusinessRule;
+our $VERSION = q(0.02);
 
 1;
 

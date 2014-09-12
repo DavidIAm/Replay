@@ -2,7 +2,7 @@ package Replay::Clerk;
 
 use Moose;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 use POSIX qw/strftime/;
 use File::Spec qw//;
@@ -20,24 +20,28 @@ has ruleSource    => (is => 'ro', required => 1,);
 # dummy implimentation - Log them to a file
 sub BUILD {
     my $self = shift;
-    mkdir $self->directory unless -d $self->directory;
+    if (not -d $self->directory) {
+        mkdir $self->directory;
+    }
     return $self->eventSystem->control->subscribe(
         sub {
             my $message = shift;
 
-            $self->deliver(Replay::IdKey->new($message->{Message}))
-                if ($message->{MessageType} eq 'NewCanonical');
-            $self->summarize(Replay::IdKey->new($message->{Message}))
-                if ($message->{MessageType} eq 'NewCanonical');
+            if ($message->{MessageType} eq 'NewCanonical') {
+                $self->deliver(Replay::IdKey->new($message->{Message}));
+            }
+            if ($message->{MessageType} eq 'NewCanonical') {
+                $self->summarize(Replay::IdKey->new($message->{Message}));
+            }
         }
     );
 }
 
 sub deliver {
-    my ($self, $idKey) = @_;
-    my $state = $self->storageEngine->retrieve($idKey);
+    my ($self, $idkey) = @_;
+    my $state = $self->storageEngine->retrieve($idkey);
     return $self->reportEngine->newReportVersion(
-        report => $self->ruleSource->byIdKey($idKey)->delivery($state->{canonical}),
+        report => $self->ruleSource->by_idkey($idkey)->delivery($state->{canonical}),
         Ruleversions => $state->Ruleversions,
         Timeblocks   => $state->Timeblocks,
         Windows      => $state->Windows,
@@ -45,10 +49,10 @@ sub deliver {
 }
 
 sub summarize {
-    my ($self, $idKey) = @_;
-    my $reports = $self->reportEngine->windowAll($idKey);
+    my ($self, $idkey) = @_;
+    my $reports = $self->reportEngine->window_all($idkey);
     return $self->reportEngine->newSummary(
-        $self->ruleSource->byIdKey($idKey)->summary(
+        $self->ruleSource->by_idkey($idkey)->summary(
             reports => $reports,
             Ruleversions =>
                 Replay::Meta::union(map { $_->Ruleversions } values %{$reports}),
@@ -58,9 +62,15 @@ sub summarize {
     );
 }
 
+1;
+
+__END__
+
+=pod
+
 =head1 NAME
 
-Replay::WORM - the write once read many module
+Replay::Clerk
 
 =head1 VERSION
 

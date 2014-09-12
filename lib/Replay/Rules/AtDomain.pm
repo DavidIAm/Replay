@@ -67,15 +67,17 @@ package Replay::Rules::AtDomain;
 #        };
 
 use Moose;
-use Replay::BusinessRule;
+use Replay::BusinessRule 0.2;
 use Scalar::Util qw/blessed/;
 use List::Util qw/min max/;
 use JSON;
 use Try::Tiny;
-use Replay::Message;
-use Replay::Message::At::SendMessageNow;
+use Replay::Message 0.2;
+use Replay::Message::At::SendMessageNow 0.2;
 use Readonly;
 extends 'Replay::BusinessRule';
+
+our $VERSION = q(1);
 
 Readonly my $MAX_EXCEPTION_COUNT => 3;
 Readonly my $WINDOW_SIZE         => 1000;
@@ -83,7 +85,7 @@ Readonly my $INTERAL_SIZE        => 60;
 
 has '+name' => (default => 'AtDomain');
 
-has '+version' => (default => '1');
+has '+version' => (default => $VERSION);
 
 # SendMesssageAt for adding to our state
 # SentMesssageAt for removing from our state
@@ -110,10 +112,10 @@ sub compare {
 
 # effectively we're dropping the actual message that is sent in
 # because we don't want to store that here, its in the At rule
-sub keyValueSet {
+sub key_value_set {
     my ($self, $message) = @_;
 
-    return '-' => {
+    return q(-) => {
         __TYPE__ => 'request',
         domain   => $message->{Message}{atdomain},
         window   => $message->{Message}{window},
@@ -122,7 +124,7 @@ sub keyValueSet {
         max      => $message->{Message}{newmax},
         }
         if $message->{MessageType} eq 'SendMessageWhen';
-    return '-' => {
+    return q(-) => {
         __TYPE__ => 'confirmation',
         domain   => $message->{Message}{atdomain},
         window   => $message->{Message}{window},
@@ -131,13 +133,13 @@ sub keyValueSet {
         max      => $message->{Message}{newmax},
         }
         if $message->{MessageType} eq 'SentMessageAt';
-    return '-' => {
+    return q(-) => {
         __TYPE__ => 'sendnow',
         domain   => $message->{Message}{atdomain},
         window   => $message->{Message}{window},
         }
         if $message->{MessageType} eq 'SendMessageNow';
-    return '-' => {
+    return q(-) => {
         __TYPE__ => 'trigger',
         sendnow  => 1,
         epoch    => $message->{Message}{epoch}
@@ -148,7 +150,6 @@ sub keyValueSet {
 
 sub reduce {
     my ($self, $emitter, @atoms) = @_;
-    my @out;
 
     # find the latest timing message that has arrived
 
@@ -159,7 +160,8 @@ sub reduce {
 
     # transmit an event to
     foreach my $atom (sort { $a->{domain} cmp $b->{domain} }
-        grep { $_->{__TYPE__} =~ /^(request|confirmation)$/ix } @atoms)
+        grep { $_->{__TYPE__} eq 'request' || $_->{__TYPE__} eq 'confirmation' }
+        @atoms)
     {
 
         my $d = $atom->{domain};
@@ -179,18 +181,22 @@ sub reduce {
     # housekeeping - clean up the domains that are no longer have a count
     foreach my $domain (keys %{ $domains->{D} }) {
         foreach my $window (keys %{ $domains->{D}{$domain} }) {
-            delete $domains->{D}{$domain}{$window}
-                unless $domains->{D}{$domain}{$window}{cnt} > 0;
-            delete $domains->{D}{$domain} unless keys %{ $domains->{D}{$domain} };
+            if ($domains->{D}{$domain}{$window}{cnt} <= 0) {
+                delete $domains->{D}{$domain}{$window};
+            }
+            if (0 == scalar keys %{ $domains->{D}{$domain} }) {
+                delete $domains->{D}{$domain};
+            }
         }
     }
 
     # housekeeping - make a note of events we already requested to send
-    foreach my $sendNow (grep { $_->{__TYPE__} eq 'sendnow' } @atoms) {
+    foreach my $send_now (grep { $_->{__TYPE__} eq 'sendnow' } @atoms) {
         next
-            if !exists $domains->{D}->{$sendNow->{domain}}
-            || !exists $domains->{D}->{$sendNow->{domain}}->{$sendNow->{window}};
-        my $dw = $domains->{D}->{$sendNow->{domain}}->{$sendNow->{window}};
+            if !exists $domains->{D}->{ $send_now->{domain} }
+            || !
+            exists $domains->{D}->{ $send_now->{domain} }->{ $send_now->{window} };
+        my $dw = $domains->{D}->{ $send_now->{domain} }->{ $send_now->{window} };
         $dw->{sent} = 1;
     }
 
@@ -202,7 +208,10 @@ sub reduce {
         foreach my $domain (keys %{ $domains->{D} }) {
             foreach my $window (keys %{ $domains->{D}{$domain} }) {
                 my $dw = $domains->{D}->{$domain}->{$window};
-                foreach my $time ((max grep { $_ && $_ <= $dw->{max} && $_ >= $dw->{min} } @times)||()) {
+                foreach
+                    my $time ((max grep { $_ && $_ <= $dw->{max} && $_ >= $dw->{min} } @times)
+                    || ())
+                {
                     $emitter->emit(
                         'derived',
                         Replay::Message::At::SendMessageNow->new(
@@ -216,7 +225,7 @@ sub reduce {
         }
     }
 
-    return unless scalar keys %{ $domains->{D} };
+    return if 0 == scalar keys %{ $domains->{D} };
     return $domains;
 }
 
@@ -226,7 +235,7 @@ sub reduce {
 
 =head1 NAME
 
-Replay::Rule::AtDomain - A rule that helps us manage emitting events later
+Replay::Rules::AtDomain - A rule that helps us manage emitting events later
 
 =head1 VERSION
 
@@ -257,7 +266,7 @@ which min is less than and max is more than the time value supplied
 returns true if message type is 'SendMessageWhen' or 'SentMessageAt' or
 'Timing'
 
-=head2 list (key, value, key, ...) = keyValueSet(message)
+=head2 list (key, value, key, ...) = key_value_set(message)
 
 in case of SendMessageWhen , type is request
 
@@ -313,7 +322,7 @@ in the At rule.
 
 current implimentation just divides the epoch time by 1000, so every 1000
 minutes will have its own state set.  Hopefully this is small enough.
-Used by both 'window' and 'keyValueSet'.
+Used by both 'window' and 'key_value_set'.
 
 =head1 AUTHOR
 

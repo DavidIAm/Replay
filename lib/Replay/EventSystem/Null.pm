@@ -10,8 +10,7 @@ use Moose;
 use Carp qw/croak/;
 with 'Replay::EventSystem::Base';
 
-our $VERSION = '0.01';
-
+our $VERSION = '0.02';
 
 has subscribers => (is => 'ro', isa => 'ArrayRef', default => sub { [] },);
 
@@ -20,7 +19,9 @@ sub poll {
     my $c    = 0;
     while (my $message = shift @{ $self->{events} }) {
         $c++;
-        $_->($message) foreach (@{ $self->subscribers });
+        foreach (@{ $self->subscribers }) {
+            $_->($message);
+        }
     }
     return $c;
 }
@@ -33,9 +34,15 @@ sub emit {
 
 sub subscribe {
     my ($self, $callback) = @_;
-    croak 'callback must be code' unless 'CODE' eq ref $callback;
+    croak 'callback must be code' if 'CODE' ne ref $callback;
     return push @{ $self->subscribers }, $callback;
 }
+
+1;
+
+__END__
+
+=pod
 
 =head1 NAME
 

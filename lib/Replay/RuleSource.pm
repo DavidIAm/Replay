@@ -5,6 +5,8 @@ use Replay::Message::RulesReady;
 use Scalar::Util qw/blessed/;
 use Replay::Types;
 
+our $VERSION = q(0.02);
+
 # this is the default implimentation that is simple.  This needs to be
 # different later.  The point of this layer is to instantiate and handle the
 # various execution environments for a particular rule version.
@@ -13,11 +15,11 @@ has rules => (is => 'ro', isa => 'ArrayRef[BusinessRule]',);
 has index => (is => 'rw', default => 0,);
 has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
 
-sub next { ## no critic (ProhibitBuiltinHomonyms)
+sub next {    ## no critic (ProhibitBuiltinHomonyms)
     my ($self) = @_;
     my $i = $self->index;
     $self->index($self->index + 1);
-    do { $self->index(0) and return } if $#{ $self->rules } < $i;
+    if ($#{ $self->rules } < $i) { $self->index(0) and return }
     return $self->rules->[$i];
 }
 
@@ -27,12 +29,18 @@ sub first {
     return $self->rules->[ $self->index ];
 }
 
-sub byIdKey {
+sub by_idkey {
     my ($self, $idkey) = @_;
-    confess("Called byIdKey without an idkey? ($idkey)") unless $idkey && blessed $idkey && $idkey->can('name');
-    return (grep { $_->name eq $idkey->name && $_->version eq $idkey->version }
-            @{ $self->rules })[0];
+    if ($idkey && blessed $idkey && $idkey->can('name')) {
+        return (grep { $_->name eq $idkey->name && $_->version eq $idkey->version }
+                @{ $self->rules })[0];
+    }
+    confess("Called by_idkey without an idkey? ($idkey)");
 }
+
+1;
+
+__END__
 
 =pod
 
@@ -60,7 +68,7 @@ Deliver the next business rule.  Undef means the end of the list, which resets t
 
 Reset the current rule pointer and deliver the first business rule
 
-=head2 byIdKey 
+=head2 by_idkey 
 
 The IDKey hash/object is used to identify particular rules.  Given a particular
 IdKey state, this routine should return all of the rules that match it.  This is

@@ -1,10 +1,18 @@
 package Replay::Message::NewCanonical;
 
 use Moose;
-extends ('Replay::Message');
+extends('Replay::Message');
+our $VERSION = '0.02';
 
-has '+MessageType' => ( default => 'NewCanonical' );
-has '+Message' => ( isa => 'IdKey', coerce => 1);
+has '+MessageType' => (default => 'NewCanonical');
+has '+Message' => (isa => 'IdKey', coerce => 1);
+
+1;
+
+__END__
+
+=pod
+
 =head1 NAME
 
 Replay::Message::NewCanonical - signal that a new canonical state is available
@@ -113,7 +121,6 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 =cut
 
 1;
-
 
 1;
 1;

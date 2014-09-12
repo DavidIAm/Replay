@@ -7,8 +7,9 @@ use Replay::IdKey;
 use Replay::Message;
 use Scalar::Util qw/blessed/;
 use Carp qw/carp/;
-
 use Try::Tiny;
+
+our $VERSION = '0.02';
 
 has ruleSource => (is => 'ro', isa => 'Replay::RuleSource', required => 1);
 
@@ -21,23 +22,23 @@ sub BUILD {
     my $self = shift;
     $self->eventSystem->control->subscribe(
         sub {
-            $self->reduceWrapper(@_);
+            $self->reduce_wrapper(@_);
         }
     );
-		return;
+    return;
 }
 
 # accessor - how to get the rule for an idkey
 sub rule {
     my ($self, $idkey) = @_;
-    return $self->ruleSource->byIdKey($idkey);
+    return $self->ruleSource->by_idkey($idkey);
 }
 
-sub reduceWrapper {
+sub reduce_wrapper {
     my ($self, $envelope) = @_;
     my $type
         = blessed $envelope ? $envelope->MessageType : $envelope->{MessageType};
-    return unless $type eq 'Reducable';
+    return if $type ne 'Reducable';
     my $idkey;
     my $message;
     if (blessed $envelope) {
@@ -58,14 +59,20 @@ sub reduceWrapper {
     }
     my ($uuid, $meta, @state);
     try {
-        ($uuid, $meta, @state) = $self->storageEngine->fetchTransitionalState($idkey);
-        return unless ($uuid && $meta);    # there was nothing to do, apparently
+        ($uuid, $meta, @state)
+            = $self->storageEngine->fetch_transitional_state($idkey);
+        if (!$uuid || !$meta) {return}    # there was nothing to do, apparently
         my $emitter = Replay::DelayedEmitter->new(eventSystem => $self->eventSystem,
             %{$meta});
 
-        $self->storageEngine->storeNewCanonicalState($idkey, $uuid, $emitter,
+        $self->storageEngine->store_new_canonical_state($idkey, $uuid, $emitter,
             $self->rule($idkey)->reduce($emitter, @state));
-        $self->eventSystem->control->emit(Replay::Message->new(MessageType => 'Reduced', Message => { $idkey->hashList}));
+        $self->eventSystem->control->emit(
+            Replay::Message->new(
+                MessageType => 'Reduced',
+                Message     => { $idkey->hash_list }
+            )
+        );
     }
     catch {
         carp "REDUCING EXCEPTION: $_";
@@ -83,14 +90,18 @@ sub reduceWrapper {
             )
         );
     };
-		return;
+    return;
 }
+
+1;
+
+__END__
 
 =pod
 
-=head1 NAME 
+=head1 NAME
 
-Reducer
+Replay::Reducer
 
 =head1 NAME
 
@@ -99,10 +110,6 @@ Replay::Reducer - the reducer component of the system
 =head1 VERSION
 
 Version 0.01
-
-=cut
-
-our $VERSION = '0.01';
 
 =head1 SYNOPSIS
 
@@ -230,7 +237,7 @@ override reduce => sub {
                         url      => $key,
                         window   => $idKey->window,
                     },
-                    effectiveTime => $atom->{effectiveTime} || $atom->{recievedTime}
+                    effectiveTime => $atom->{effectiveTime} || $atom->{receivedTime}
                 );
             );
             $atom->{requested} => JSON::true;
@@ -256,7 +263,7 @@ event channel so it will know when to act.
 
 accessor for finding a rule by key
 
-=head2 reduceWrapper
+=head2 reduce_wrapper
 
 this wraps around the individual business rule's reduce function, taking
 care of the business logic of retrieving the state, calling the reduce

@@ -3,7 +3,7 @@ package Replay::BaseBusinessRule;
 use Moose;
 use Carp qw/croak/;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 has eventSystem => (is => 'ro', isa => 'Replay::EventSystem',);
 
@@ -16,20 +16,20 @@ has version => (is => 'ro', isa => 'Str', default => '1',);
 
 # [boolean] function match ( message )
 sub match {
-    croak "stub, implement match";
+    croak 'stub, implement match';
 }
 
 # [timeWindowIdentifier] function window ( message )
 sub window {
     my ($self, $message) = @_;
 
-    # probably going to do soemthing with ->effectiveTime or ->recievedTime
+    # probably going to do soemthing with ->effectiveTime or ->receivedTime
     return 'alltime';
 }
 
-# [list of Key=>message pairs] function keyValueSet ( message )
-sub keyValueSet {
-    croak "stub, implement keyValueSet";
+# [list of Key=>message pairs] function key_value_set ( message )
+sub key_value_set {
+    croak 'stub, implement key_value_set';
 }
 
 # storage
@@ -41,7 +41,7 @@ sub compare {
 # reducer
 # [arrayRef of messages] function reduce (key, arrayref of messages)
 sub reduce {
-    croak "stub, implement reduce";
+    croak 'stub, implement reduce';
 }
 
 # bureaucrat
@@ -52,11 +52,17 @@ has fullDiff => (is => 'ro', isa => 'CodeRef', required => 0,);
 # [formatted Report] function delivery ( rule, [ keyA => arrayrefOfMessage, ... ] )
 # [formatted summary] function summary ( rule, [ keyA => arrayrefOfMessage, ... ] )
 has delivery => (is => 'ro', isa => 'CodeRef', required => 0,);
-has summary => (is => 'ro', isa => 'CodeRef', required => 0,);
+has summary  => (is => 'ro', isa => 'CodeRef', required => 0,);
+
+1;
+
+__END__
+
+=pod
 
 =head1 NAME
 
-Replay::BusinessRule
+Replay::BaseBusinessRule
 
 =head1 VERSION
 
@@ -68,8 +74,8 @@ Business rule base class.  Inherit business rules from this.
 
 package TESTRULE;
 
-use Replay::BusinessRule;
-use Replay::IdKey;
+use Replay::BusinessRule 0.02;
+use Replay::IdKey 0.02;
 use Moose;
 extends 'Replay::BusinessRule';
 use List::Util qw//;
@@ -81,7 +87,7 @@ override match => sub {
     return $message->{is_interesting};
 };
 
-override keyValueSet => sub {
+override key_value_set => sub {
     my ($self, $message) = @_;
     my @keyvalues = ();
     foreach my $key (keys %{$message}) {
@@ -119,7 +125,7 @@ return the version of this rule
 returns whether or not this message is interesting to this rule, as efficiently
 as possible
 
-=head2 keyValueSet(message)
+=head2 key_value_set(message)
 
 return a list of key => atom => key => atom reflecting the keys and atoms that 
 will form the state

@@ -4,17 +4,21 @@ use Replay::BaseMapper;
 use Moose;
 extends 'Replay::BaseMapper';
 
+our $VERSION = '0.02';
+
+1;
+
+__END__
+
+=pod
+
 =head1 NAME
 
-Replay - A bitemporal finite state machine engine
+Replay::Mapper
 
 =head1 VERSION
 
 Version 0.01
-
-=cut
-
-our $VERSION = '0.01';
 
 =head1 SYNOPSIS
 

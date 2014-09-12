@@ -1,8 +1,8 @@
 package Replay::Message::Clock;
 
 use Moose;
-extends ('Replay::Message');
-our $VERSION = '0.01';
+extends('Replay::Message');
+our $VERSION = '0.02';
 
 has epoch   => (is => 'ro', isa => 'Int', required => 1);
 has minute  => (is => 'ro', isa => 'Int', required => 1);
@@ -13,6 +13,12 @@ has year    => (is => 'ro', isa => 'Int', required => 1);
 has weekday => (is => 'ro', isa => 'Int', required => 1);
 has yearday => (is => 'ro', isa => 'Int', required => 1);
 has isdst   => (is => 'ro', isa => 'Int', required => 1);
+
+1;
+
+__END__
+
+=pod
 
 =head1 NAME
 

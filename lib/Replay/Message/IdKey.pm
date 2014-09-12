@@ -2,7 +2,8 @@ package Replay::Message::IdKey;
 
 use Moose;
 use MooseX::Storage;
-with Storage (format => 'JSON');
+with Storage(format => 'JSON');
+our $VERSION = '0.02';
 
 has domain => (is => 'ro', isa => 'Str', default => 'global');
 
@@ -13,6 +14,12 @@ has version => (is => 'ro', isa => 'Str',);
 has window => (is => 'ro', isa => 'Str',);
 
 has key => (is => 'ro', isa => 'Str',);
+
+1;
+
+__END__
+
+=pod
 
 =head1 NAME
 

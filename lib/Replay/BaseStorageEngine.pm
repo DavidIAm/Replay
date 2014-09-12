@@ -16,7 +16,7 @@ use Readonly;
 use Replay::IdKey;
 use Carp qw/croak carp/;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 Readonly my $REDUCE_TIMEOUT => 60;
 
@@ -33,8 +33,10 @@ has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
 # accessor - how to get the rule for an idkey
 sub rule {
     my ($self, $idkey) = @_;
-    my $rule = $self->ruleSource->byIdKey($idkey);
-    croak "No such rule $idkey->ruleSpec" unless $rule;
+    my $rule = $self->ruleSource->by_idkey($idkey);
+    if (not defined $rule) {
+        croak "No such rule $idkey->rule_spec";
+    }
     return $rule;
 }
 
@@ -49,34 +51,34 @@ sub merge {
 sub checkout {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Locked->new(Message => { $idkey->hashList }));
+        Replay::Message::Locked->new(Message => { $idkey->hash_list }));
 }
 
 sub checkin {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Unlocked->new(Message => { $idkey->hashList }));
+        Replay::Message::Unlocked->new(Message => { $idkey->hash_list }));
 }
 
 sub revert {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Reverted->new(Message => { $idkey->hashList }));
+        Replay::Message::Reverted->new(Message => { $idkey->hash_list }));
 }
 
 sub retrieve {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Fetched->new(Message => { $idkey->hashList }));
+        Replay::Message::Fetched->new(Message => { $idkey->hash_list }));
 }
 
 sub absorb {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Reducable->new(Message => { $idkey->hashList }));
+        Replay::Message::Reducable->new(Message => { $idkey->hash_list }));
 }
 
-sub delayToDoOnce {
+sub delay_to_do_once {
     my ($self, $name, $code) = @_;
     use AnyEvent;
     return $self->{timers}{$name} = AnyEvent->timer(
@@ -89,41 +91,53 @@ sub delayToDoOnce {
 }
 
 # accessor - given a state, generate a signature
-sub stateSignature {
+sub state_signature {
     my ($self, $idkey, $list) = @_;
-    return undef unless defined $list;  ## no critic (ProhibitExplicitReturnUndef)
+    return undef if not defined $list;  ## no critic (ProhibitExplicitReturnUndef)
     $self->stringtouch($list);
     return md5_hex($idkey->hash . freeze($list));
 }
 
 sub stringtouch {
     my ($self, $struct) = @_;
-    $struct .= '' unless ref $struct;
+    if (not ref $struct) {
+        $struct .= q();
+    }
     if ('ARRAY' eq ref $struct) {
         foreach (0 .. $#{$struct}) {
-            stringtouch($struct->[$_]) if ref $struct->[$_];
-            $struct->[$_] .= '' unless ref $struct->[$_];
+            if (ref $struct->[$_]) {
+                stringtouch($struct->[$_]);
+            }
+            else {
+                $struct->[$_] .= q();
+            }
         }
     }
     if ('HASH' eq ref $struct) {
         foreach (keys %{$struct}) {
-            stringtouch($struct->{$_}) if ref $struct->{$_};
-            $struct->{$_} .= '' unless ref $struct->{$_};
+            if (ref $struct->{$_}) {
+                stringtouch($struct->{$_});
+            }
+            else {
+                $struct->{$_} .= q();
+            }
         }
     }
     return;
 }
 
-sub fetchTransitionalState {
+sub fetch_transitional_state {
     my ($self, $idkey) = @_;
 
     my ($uuid, $cubby) = $self->checkout($idkey, $REDUCE_TIMEOUT);
 
-    return unless defined $cubby;
+    if (not defined $cubby) {
+        return;
+    }
 
     # drop the checkout if we don't have any items to reduce
-    unless (scalar @{ $cubby->{desktop} || [] }) {
-        carp "Reverting because we didn't check out any work to do?\n";
+    if (0 == scalar @{ $cubby->{desktop} || [] }) {
+        carp q(Reverting because we didn't check out any work to do?) . qq(\n);
         $self->revert($idkey, $uuid);
         return;
     }
@@ -142,7 +156,7 @@ sub fetchTransitionalState {
 
     # notify interested parties
     $self->eventSystem->control->emit(
-        Replay::Message::Reducing->new(Message => { $idkey->hashList }));
+        Replay::Message::Reducing->new(Message => { $idkey->hash_list }));
 
     # return uuid and list
     return $uuid => {
@@ -153,12 +167,13 @@ sub fetchTransitionalState {
 
 }
 
-sub storeNewCanonicalState {
+sub store_new_canonical_state {
     my ($self, $idkey, $uuid, $emitter, @atoms) = @_;
     my $cubby = $self->retrieve($idkey);
     $cubby->{canonVersion}++;
     $cubby->{canonical} = [@atoms];
-    $cubby->{canonSignature} = $self->stateSignature($idkey, $cubby->{canonical});
+    $cubby->{canonSignature}
+        = $self->state_signature($idkey, $cubby->{canonical});
     delete $cubby->{desktop};
     my $newstate = $self->checkin($idkey, $uuid, $cubby);
     $emitter->release;
@@ -167,57 +182,64 @@ sub storeNewCanonicalState {
         $self->absorb($idkey, $atom, {});
     }
     $self->eventSystem->control->emit(
-        Replay::Message::NewCanonical->new(Message => { $idkey->hashList }));
-    $self->eventSystem->control->emit(
-        Replay::Message::Reducable->new(Message => { $idkey->hashList }))
-        if scalar @{ $newstate->{inbox} || [] }
-        ;                # renotify reducable if inbox has entries now
+        Replay::Message::NewCanonical->new(Message => { $idkey->hash_list }));
+    if (scalar @{ $newstate->{inbox} || [] })
+    {    # renotify reducable if inbox has entries now
+        $self->eventSystem->control->emit(
+            Replay::Message::Reducable->new(Message => { $idkey->hash_list }));
+    }
     return $newstate;    # release pending messages
 }
 
-sub fetchCanonicalState {
+sub fetch_canonical_state {
     my ($self, $idkey) = @_;
     my $cubby = $self->retrieve($idkey);
-    my $e = $self->stateSignature($idkey, $cubby->{canonical}) || '';
-    if (($cubby->{canonSignature} || '') ne ($e || '')) {
+    my $e = $self->state_signature($idkey, $cubby->{canonical}) || q();
+    if (($cubby->{canonSignature} || q()) ne ($e || q())) {
         carp "canonical corruption $cubby->{canonSignature} vs. " . $e;
     }
     $self->eventSystem->control->emit(
-        Replay::Message::Fetched->new(Message => { $idkey->hashList }));
+        Replay::Message::Fetched->new(Message => { $idkey->hash_list }));
     return @{ $cubby->{canonical} || [] };
 }
 
-sub windowAll {
+sub window_all {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::WindowAll->new(Message => { $idkey->hashList }));
+        Replay::Message::WindowAll->new(Message => { $idkey->hash_list }));
 }
 
-sub findKeysNeedReduce {
+sub find_keys_need_reduce {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message->new(MessageType => "FoundKeysForReduce", Message => {}));
+        Replay::Message->new(MessageType => q(FoundKeysForReduce), Message => {}));
 }
 
-sub enumerateWindows {
+sub enumerate_windows {
     my ($self, $idkey) = @_;
-    croak "unimplemented";
+    croak q(unimplemented);
 }
 
-sub enumerateKeys {
+sub enumerate_keys {
     my ($self, $idkey) = @_;
-    croak "unimplemented";
+    croak q(unimplemented);
 }
 
 sub new_document {
     my ($self, $idkey) = @_;
     return {
-        idkey        => { $idkey->hashList },
+        idkey        => { $idkey->hash_list },
         Windows      => [],
         Timeblocks   => [],
         Ruleversions => [],
     };
 }
+
+1;
+
+__END__
+
+=pod
 
 =head1 NAME
 
@@ -245,17 +267,17 @@ These methods are used by consumers of the storage class
 
 accept a new atom at a location idkey with metadata attached.  no locking
 
-=head2 statelist = fetchCanonicalState(idkey)
+=head2 statelist = fetch_canonical_state(idkey)
 
 get the canonical state.  no locking
 
-=head2 uuid, statelist = fetchTransitionalState(idkey)
+=head2 uuid, statelist = fetch_transitional_state(idkey)
 
 check out a state for transition.  locks record
 
 automatically reverts previous checkout if lock is expired
 
-=head2 success = storeNewCanonicalState(idkey, uuid, emitter, @atoms)
+=head2 success = store_new_canonical_state(idkey, uuid, emitter, @atoms)
 
 check in a state for transition if uuid matches.  unlocks record if success.
 
@@ -277,9 +299,9 @@ check in a state for transition if uuid matches.  unlocks record if success.
 
  interface:
   - boolean absorb(idkey, atom): accept a new atom into a state
-  - state fetchTransitionalState(idkey): returns a new key-state for reduce processing
-  - boolean storeNewCanonicalState(idkey, uuid, emitter, atoms): accept a new canonical state
-  - state fetchCanonicalState(idkey): returns the current collective state
+  - state fetch_transitional_state(idkey): returns a new key-state for reduce processing
+  - boolean store_new_canonical_state(idkey, uuid, emitter, atoms): accept a new canonical state
+  - state fetch_canonical_state(idkey): returns the current collective state
 
  events emitted:
   - Replay::Message::Fetched - when a canonical state is retrieved
@@ -367,12 +389,12 @@ else
   return nothing, we aren't allowed to do this
 
 
-=head2 hash = windowAll(idkey)
+=head2 hash = window_all(idkey)
 
 select and return all of the documents representing states within the
 specified window, in a hash keyed by the key within the window
 
-=head2 objectlist = findKeysNeedReduce(idkey)
+=head2 objectlist = find_keys_need_reduce(idkey)
 
 returns a list of idkey objects which represent all of the keys in the replay
 system that appear to be locked, in progress, or have outstanding absorbtions
@@ -380,13 +402,13 @@ that need reduced.
 
 =head1 INTERNAL METHODS
 
-=head2 enumerateKeys
+=head2 enumerate_keys
 
 not yet implimented
 
 A possible interface that lets a consumer get a list of keys within a window
 
-=head2 enumerateWindows
+=head2 enumerate_windows
 
 not yet implimented
 
@@ -404,16 +426,16 @@ The default new document template filled in
 
 accessor to grab the rule object for a particular idkey
 
-=head2 stateSignature
+=head2 state_signature
 
 logic that creates a signature from a state - probably used for canonicalSignature field
 
 =head2 stringtouch(structure)
 
-Attempts to concatenate '' with any non-references to make them strings so that
+Attempts to concatenate q() with any non-references to make them strings so that
 the signature will be more canonical.
 
-=head2 delayToDoOnce(name, code)
+=head2 delay_to_do_once(name, code)
 
 sometimes redundant events are fired in rapid sequence.  This ensures that 
 within a short period of time, only one piece of code (distinguished by name)

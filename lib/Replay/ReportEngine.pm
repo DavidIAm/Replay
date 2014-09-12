@@ -4,6 +4,9 @@ use Replay::BaseReportEngine;
 use Moose;
 use Try::Tiny;
 use Carp qw/croak/;
+use English qw/-no_match_vars/;
+
+our $VERSION = '0.02';
 
 has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
 has engine => (
@@ -17,11 +20,11 @@ has mode => (
     isa      => 'Str',
     required => 1,
     builder  => '_build_mode',
-    lazy     => 1
+    lazy     => 1,
 );
-has ruleSource  => (is => 'ro', isa => 'Replay::RuleSource',  required => 1);
-has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
-has storage => (is => 'ro', isa => 'Replay::StorageEngine', required => 1);
+has ruleSource  => (is => 'ro', isa => 'Replay::RuleSource',  required => 1,);
+has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1,);
+has storage => (is => 'ro', isa => 'Replay::StorageEngine', required => 1,);
 
 # Delegate the api points
 sub delivery {
@@ -54,16 +57,18 @@ sub _build_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
     );
 }
 
-sub _build_mode {    ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_mode {      ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    croak "No ReportMode?" unless $self->config->{ReportMode};
+    if (not $self->config->{ReportMode}) {
+        croak q(No ReportMode?);
+    }
     my $class = 'Replay::ReportEngine::' . $self->config->{ReportMode};
     try {
-        eval "require $class"; ## no critic (ProhibitStringyEval RequireCheckingReturnValueOfEval)
-        croak $@ if $@;
+        eval "require $class"
+            or croak qq(error requiring class $class : ) . $EVAL_ERROR;
     }
     catch {
-        confess "No such report mode available "
+        confess q(No such report mode available )
             . $self->config->{ReportMode}
             . " --> $_";
     };
@@ -72,6 +77,10 @@ sub _build_mode {    ## no critic (ProhibitUnusedPrivateSubroutines)
 
 1;
 
+__END__
+
+=pod
+
 =head1 NAME
 
 Replay::ReportEngine - abstracted interface to the report portion of the Replay system
@@ -79,10 +88,6 @@ Replay::ReportEngine - abstracted interface to the report portion of the Replay 
 =head1 VERSION
 
 Version 0.01
-
-=cut
-
-our $VERSION = '0.01';
 
 =head1 SYNOPSIS
 
@@ -126,8 +131,8 @@ GET /reports/DOMAIN/REPORTNAME/VERSION/WINDOW/KEY/latest
 
 GET /reports/DOMAIN/REPORTNAME/VERSION/WINDOW/KEY/revisionlist
 200 Content-type: application/json
-[ 'v20140728': { meta: { ruleversionwindows:[],timeblocks:[] }, frozenAtTime: 12345 }
-, 'v20140728': { meta: { ruleversionwindows:[],timeblocks:[] }, updatedTime: 23456 }
+[ 'v20140728': { meta: { ruleversionwindows:[],timeblocks:[] }, frozen_at_time: 12345 }
+, 'v20140728': { meta: { ruleversionwindows:[],timeblocks:[] }, updated_time 23456 }
 ]
 
 GET /reports/DOMAIN/REPORTNAME/VERSION/WINDOW/KEY/REVISION
@@ -149,8 +154,8 @@ POST /reports/DOMAIN/REPORTNAME/VERSION/WINDOW/freeze
 
 GET /reports/DOMAIN/REPORTNAME/VERSION/WINDOW/revisionlist
 200 Content-type: application/json
-[ 'v20140728': { meta: { ruleversionwindows:[],timeblocks:[] }, frozenAtTime: 12345 }
-, 'v20140728': { meta: { ruleversionwindows:[],timeblocks:[] }, updatedTime: 23456 }
+[ 'v20140728': { meta: { ruleversionwindows:[],timeblocks:[] }, frozen_at_time: 12345 }
+, 'v20140728': { meta: { ruleversionwindows:[],timeblocks:[] }, updated_time 23456 }
 
 =head2 Resources for a report - glob summary:
 
@@ -165,8 +170,8 @@ POST /reports/DOMAIN/REPORTNAME/VERSION/freeze
 
 GET /reports/DOMAIN/REPORTNAME/VERSION/revisionlist
 200 Content-type: application/json
-[ 'v20140728': { meta: { ruleversionwindows:[],timeblocks:[] }, frozenAtTime: 12345 }
-, 'v20140728': { meta: { ruleversionwindows:[],timeblocks:[] }, updatedTime: 23456 }
+[ 'v20140728': { meta: { ruleversionwindows:[],timeblocks:[] }, frozen_at_time: 12345 }
+, 'v20140728': { meta: { ruleversionwindows:[],timeblocks:[] }, updated_time 23456 }
 
 =head1 SUBROUTINES/METHODS
 
@@ -204,9 +209,9 @@ create the appropriate engine
 
 figure out what mode they're wanting
 
-=head2 windowAll(idkey)
+=head2 window_all(idkey)
 
-see BaseReportEngine windowAll
+see BaseReportEngine window_all
 
 =cut
 
@@ -308,7 +313,7 @@ STATE DOCUMENT GENERAL TO STORAGE ENGINE
 
 inbox: [ Array of Atoms ] - freshly arrived atoms are stored here.
 canonical: [ Array of Atoms ] - the current reduced 
-canonSignature: "SIGNATURE" - a sanity check to see if this canonical has been mucked with
+canonSignature: q(SIGNATURE) - a sanity check to see if this canonical has been mucked with
 Timeblocks: [ Array of input timeblock names ]
 Ruleversions: [ Array of objects like { name: <rulename>, version: <ruleversion> } ]
 
@@ -319,7 +324,7 @@ collection is determined by idkey->collection
 idkey is determined by idkey->cubby
 
 desktop: [ Array of Atoms ] - the previously arrived atoms that are currently being processed
-locked: "SIGNATURE" - if this is set, only a worker who knows the signature may update this
+locked: q(SIGNATURE) - if this is set, only a worker who knows the signature may update this
 lockExpireEpoch: TIMEINT - used in case of processing timeout to unlock the record
 
 STATE TRANSITIONS IN THIS IMPLEMENTATION 

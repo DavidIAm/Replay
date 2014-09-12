@@ -6,7 +6,7 @@ use MooseX::Storage;
 use MongoDB::OID;
 use Digest::MD5 qw/md5_hex/;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 has name    => (is => 'rw', isa => 'Str', required => 1,);
 has version => (is => 'rw', isa => 'Str', required => 1,);
@@ -20,38 +20,38 @@ sub collection {
     return 'replay-' . $self->name . $self->version;
 }
 
-sub parseCubby {
+sub parse_cubby {
     my ($class,  $cubby) = @_;
-    my ($window, $key)   = $cubby =~ /^wind-(.+)-key-(.+)$/ix;
+    my ($window, $key)   = $cubby =~ /^wind-(.+)-key-(.+)$/smix;
     return window => $window, key => $key;
 }
 
-sub windowPrefix {
+sub window_prefix {
     my ($self) = @_;
     return 'wind-' . $self->window . '-key-';
 }
 
 sub cubby {
     my ($self) = @_;
-    return $self->windowPrefix . $self->key;
+    return $self->window_prefix . $self->key;
 }
 
-sub ruleSpec {
+sub rule_spec {
     my ($self) = @_;
     return 'rule-' . $self->name . '-version-' . $self->version;
 }
 
-sub hashList {
+sub hash_list {
     my ($self) = @_;
     return $self->marshall;
 }
 
 sub checkstring {
     my ($self) = @_;
-    $self->name($self->name . '');
-    $self->version($self->version . '');
-    $self->window($self->window . '');
-    $self->key($self->key . '');
+    $self->name($self->name . q());
+    $self->version($self->version . q());
+    $self->window($self->window . q());
+    $self->key($self->key . q());
     return;
 }
 
@@ -70,6 +70,12 @@ sub marshall {
         key     => $self->key
     );
 }
+
+1;
+
+__END__
+
+=pod
 
 =head1 NAME
 
@@ -94,11 +100,11 @@ key
 
 used to name the collection in which this part of the hierarchy will be found
 
-=head2 windowPrefix
+=head2 window_prefix
 
 The window based prefix for the cubby key
 
-=head2 parseCubby
+=head2 parse_cubby
 
 static
 
@@ -108,11 +114,11 @@ translate a cubby name to a window => $window, key => $key sequence
 
 The window-and-key part - where the document reflecting the state is found
 
-=head2 ruleSpec
+=head2 rule_spec
 
 the rule-and-version part - the particular business rule this state will be useing
 
-=head2 hashList
+=head2 hash_list
 
 alias for marshall
 

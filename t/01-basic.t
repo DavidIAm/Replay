@@ -21,7 +21,7 @@ sub window {
     return 'alltime';
 }
 
-sub keyValueSet {
+sub key_value_set {
     my ($self, $message) = @_;
     my @keyvalues = ();
     foreach my $key (keys %{$message->{Message}}) {
@@ -80,10 +80,10 @@ my $notAfterAll
 my $secondMessage = { MessageType => 'interesting',
     Message => { c => [ 6, 7, 8, 9, 10 ], } };
 
-is_deeply [ $tr->keyValueSet($funMessage) ],
+is_deeply [ $tr->key_value_set($funMessage) ],
     [ a => 5, a => 1, a => 2, a => 3, a => 4 ], 'expands';
 
-is_deeply [ $tr->keyValueSet({ Message => { b => [ 1, 2, 3, 4 ] } }) ],
+is_deeply [ $tr->key_value_set({ Message => { b => [ 1, 2, 3, 4 ] } }) ],
     [ b => 1, b => 2, b => 3, b => 4 ];
 
 my $replay = Replay->new(
@@ -101,7 +101,7 @@ $replay->reducer;
 $replay->mapper;
 
 is_deeply [
-    $replay->storageEngine->fetchCanonicalState(
+    $replay->storageEngine->fetch_canonical_state(
         Replay::IdKey->new(
             { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' }
         )
@@ -158,7 +158,7 @@ my $e = AnyEvent->timer(
 $replay->eventSystem->run;
 
 is_deeply [
-    $replay->storageEngine->fetchCanonicalState(
+    $replay->storageEngine->fetch_canonical_state(
         Replay::IdKey->new(
             { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' }
         )
@@ -166,7 +166,7 @@ is_deeply [
     ],
     [15];
 
-is_deeply $replay->storageEngine->windowAll(
+is_deeply $replay->storageEngine->window_all(
     Replay::IdKey->new(
         { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' }
     )

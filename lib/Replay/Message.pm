@@ -4,11 +4,14 @@ use Moose;
 use MooseX::Storage;
 use MooseX::MetaDescription::Meta::Trait;
 
+our $VERSION = '0.02';
 
-our $VERSION = '0.01';
+with Storage(format => 'JSON');
+with(qw(Replay::Types::Messages Replay::Envelope));
 
-with Storage (format => 'JSON');
-with (qw(Replay::Types::Messages Replay::Envelope));
+1;
+
+__END__
 
 =pod 
 
@@ -33,7 +36,7 @@ Version 0.01
 
 =head1 SYNOPSIS
 
-the basic message functionality, providnig the serialization
+the basic message functionality, providing the serialization
 routines and patterns for making a Replay Message
 
 =head1 SUBROUTINES/METHODS

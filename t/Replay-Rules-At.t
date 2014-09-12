@@ -103,7 +103,7 @@ is $r->window(
     { MessageType => 'SendMessageNow', Message => { window => 52345 } }), 52345,
     'window is whatever noted';
 is_deeply [
-    $r->keyValueSet(
+    $r->key_value_set(
         {   MessageType => 'SendMessageAt',
             Message =>
                 { atdomain => 'adomain', sendat => 5, payload => { cat => 'doll' } },
@@ -123,7 +123,7 @@ is_deeply [
     ],
     'SendMessageAt mutates state';
 is_deeply [
-    $r->keyValueSet(
+    $r->key_value_set(
         {   MessageType => 'SendMessageNow',
             Message =>
                 { atdomain => 'bdomain', window => 'somewindow', sendtime => 17171717 }
@@ -162,7 +162,7 @@ $e->mock('emit');
 # timing when there is nothing to do
 {
     my ($key, $value)
-        = $r->keyValueSet({ MessageType => 'Timing', Message => { epoch => 5 } });
+        = $r->key_value_set({ MessageType => 'Timing', Message => { epoch => 5 } });
     my @results = $r->reduce($e, $value);
     is_deeply [@results], [], 'timing does not change state';
     my ($name, $args) = $e->next_call;
@@ -171,7 +171,7 @@ $e->mock('emit');
 
 # sendmessageat when there is nothing yet
 {
-    my ($key, $value) = $r->keyValueSet(
+    my ($key, $value) = $r->key_value_set(
         {   MessageType => 'SendMessageAt',
             Message     => {
                 atdomain => 'adomain',
@@ -215,7 +215,7 @@ $e->mock('emit');
 
 # sendmessagenow causes removal and emit
 {
-    my ($key, $value) = $r->keyValueSet(
+    my ($key, $value) = $r->key_value_set(
         {   MessageType => 'SendMessageAt',
             Message     => {
                 atdomain => 'adomain',
@@ -227,7 +227,7 @@ $e->mock('emit');
             UUID => 'notreally',
         }
     );
-    my ($key2, $value2) = $r->keyValueSet(
+    my ($key2, $value2) = $r->key_value_set(
         {   MessageType => 'SendMessageAt',
             Message     => {
                 atdomain => 'adomain',
@@ -239,7 +239,7 @@ $e->mock('emit');
             UUID => 'notreallya',
         }
     );
-    my ($key3, $value3) = $r->keyValueSet(
+    my ($key3, $value3) = $r->key_value_set(
         {   MessageType => 'SendMessageNow',
             Message     => { atdomain => 'bdomain', sendtime => 1006, }
         }

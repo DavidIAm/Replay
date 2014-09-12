@@ -4,6 +4,8 @@ use Moose::Role;
 use Time::HiRes qw/gettimeofday/;
 use Data::UUID;
 
+our $VERSION = '0.02';
+
 has Replay => (
     is          => 'ro',
     isa         => 'Str',
@@ -58,7 +60,7 @@ has CreatedTime => (
     predicate   => 'has_created_time',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'envelope' },
-    builder     => '_now'
+    builder     => '_now',
 );
 has ReceivedTime => (
     is          => 'ro',
@@ -66,7 +68,7 @@ has ReceivedTime => (
     predicate   => 'has_received_time',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'envelope' },
-    builder     => '_now'
+    builder     => '_now',
 );
 
 has UUID => (
@@ -79,7 +81,7 @@ has UUID => (
 
 sub marshall {
     my $self       = shift;
-    my $buffer     = '';
+    my $buffer     = q();
     my $row        = 1;
     my @attributes = $self->meta->get_attribute_list();
     my $layers     = {};
@@ -91,32 +93,12 @@ sub marshall {
         my $node = $layers->{$thislayer} ||= {};
 
         my $value = $self->$attr();
-        next unless ($value);
+        next if not $value;
 
         $node->{$attr} = $value;
     }
     $layers->{envelope}{Message} = $layers->{message};
     return $layers->{envelope};
-}
-
-sub ___marshall {
-    my $self     = shift;
-    my $envelope = {
-        Message     => $self,
-        MessageType => $self->MessageType,
-        UUID        => $self->UUID,
-        ($self->has_program        ? (Program       => $self->Program)       : ()),
-        ($self->has_function       ? (Function      => $self->Function)      : ()),
-        ($self->has_line           ? (Line          => $self->Line)          : ()),
-        ($self->has_effective_time ? (EffectiveTime => $self->EffectiveTime) : ()),
-        ($self->has_created_time   ? (CreatedTime   => $self->CreatedTime)   : ()),
-        ($self->has_received_time  ? (ReceivedTime  => $self->ReceivedTime)  : ()),
-        ($self->has_timeblocks     ? (Timeblocks    => $self->Timeblocks)    : ()),
-        ($self->has_ruleversions   ? (Ruleversions  => $self->Ruleversions)  : ()),
-        ($self->has_windows        ? (Windows       => $self->Windows)       : ()),
-    };
-    return $envelope;
-
 }
 
 sub _now {    ## no critic (ProhibitUnusedPrivateSubroutines)
@@ -154,9 +136,15 @@ has Windows => (
 
 =pod
 
+1;
+
+__END__
+
+=pod
+
 =head1 NAME
 
-Replay::Message::Envelope - General replay message envelope 
+Replay::Envelope - General replay message envelope 
 
 =head1 VERSION
 
@@ -184,7 +172,7 @@ Windows - an array of window identifiers related to this message state
 =head2 Line => What line of the application created this message
 =head2 EffectiveTime => The time this message is relevant to
 =head2 CreatedTime => The time at which this message was created
-=head2 ReceivedTime => The time at which this message was recieved (probably by WORM)
+=head2 ReceivedTime => The time at which this message was received (probably by WORM)
 =head2 UUID => The unique identifier for this message
 =head2 Timeblocks => The time blocks from which this message is derived
 =head2 Ruleversions => The rules (and their versions) from which this message is derived

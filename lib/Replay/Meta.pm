@@ -1,7 +1,7 @@
 package Replay::Meta;
 
 use Moose;
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 use POSIX qw/strftime/;
 use File::Spec qw//;
@@ -11,11 +11,11 @@ use Time::HiRes qw/gettimeofday/;
 use Digest::MD5 qw/md5_hex/;
 
 use Storable qw/freeze/;
-$Storable::canonical = 1;  ## no critic (ProhibitPackageVars)
+$Storable::canonical = 1;    ## no critic (ProhibitPackageVars)
 
-has Windows => (is => 'ro', isa => 'ArrayRef', required => 1,);
+has Windows      => (is => 'ro', isa => 'ArrayRef',          required => 1,);
 has Ruleversions => (is => 'ro', isa => 'ArrayRef[HashRef]', required => 1,);
-has Timeblocks => (is => 'ro', isa => 'ArrayRef', required => 1,);
+has Timeblocks   => (is => 'ro', isa => 'ArrayRef',          required => 1,);
 
 # static method
 sub union {
@@ -23,6 +23,12 @@ sub union {
     my %hash = map { md5_hex(freeze([$_])) => $_ } map { @{$_} } @sets;    #}{
     return values %hash;
 }
+
+1;
+
+__END__
+
+=pod 
 
 =head1 NAME
 

@@ -3,7 +3,7 @@ package Replay::Role::BusinessRule;
 use Moose::Role;
 use Moose::Util::TypeConstraints;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 has eventSystem => (is => 'ro', isa => 'Replay::EventSystem',);
 
@@ -14,13 +14,13 @@ has name => (is => 'ro', required => 1,);
 # [string]
 has version => (is => 'ro', isa => 'Str', default => '1',);
 
-requires qw/match keyValueSet window compare reduce/;
+requires qw/match key_value_set window compare reduce/;
 
 # [boolean] function match ( message )
 # [timeWindowIdentifier] function window ( message )
 #
 # used by mapper
-# [list of Key=>message pairs] function keyValueSet ( message )
+# [list of Key=>message pairs] function key_value_set ( message )
 #
 # used by reducer
 # [arrayRef of messages] function reduce (key, arrayref of messages)
@@ -38,9 +38,15 @@ has fullDiff => (is => 'ro', isa => 'CodeRef', required => 0,);
 has delivery => (is => 'ro', isa => 'CodeRef', required => 0,);
 has summary  => (is => 'ro', isa => 'CodeRef', required => 0,);
 
+1;
+
+__END__
+
+=pod
+
 =head1 NAME
 
-Replay::BaseBusinessRule
+Replay::Role::BusinessRule
 
 =head1 VERSION
 
@@ -66,7 +72,7 @@ sub match {
     return $message->{is_interesting};
 };
 
-sub keyValueSet {
+sub key_value_set {
     my ($self, $message) = @_;
     my @keyvalues = ();
     foreach my $key (keys %{$message}) {
@@ -104,7 +110,7 @@ return the version of this rule
 returns whether or not this message is interesting to this rule, as efficiently
 as possible
 
-=head2 keyValueSet(message)
+=head2 key_value_set(message)
 
 return a list of key => atom => key => atom reflecting the keys and atoms that 
 will form the state

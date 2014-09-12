@@ -3,13 +3,17 @@ package Replay::Types;
 use Moose;
 use Moose::Util::TypeConstraints;
 
-use Replay::Role; # include our roles
-use Replay::IdKey; # one of our central types
+use Replay::Role;     # include our roles
+use Replay::IdKey;    # one of our central types
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 subtype 'BusinessRule' =>
     (as 'Object' => where sub { $_->does('Replay::Role::BusinessRule') });
+
+1;
+
+__END__
 
 =pod
 

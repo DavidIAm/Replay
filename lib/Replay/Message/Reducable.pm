@@ -1,10 +1,17 @@
 package Replay::Message::Reducable;
 
 use Moose;
-extends ('Replay::Message');
+extends('Replay::Message');
+our $VERSION = '0.02';
 
-has '+MessageType' => ( default => 'Reducable' );
-has '+Message' => ( isa => 'IdKey', coerce => 1);
+has '+MessageType' => (default => 'Reducable');
+has '+Message' => (isa => 'IdKey', coerce => 1);
+
+1;
+
+__END__
+
+=pod 
 
 =head1 NAME
 
@@ -115,7 +122,6 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 =cut
 
 1;
-
 
 1;
 1;
