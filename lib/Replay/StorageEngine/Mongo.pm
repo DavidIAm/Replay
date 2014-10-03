@@ -378,22 +378,22 @@ sub _build_mongo {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     my $db = MongoDB::MongoClient->new();
     $db->authenticate($self->dbauthdb, $self->dbuser, $self->dbpass);
-		return $db;
+    return $db;
 }
 
 sub _build_dbpass {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return $self->config->{MongoPass};
+    return $self->config->{Mongo}->{pass};
 }
 
 sub _build_dbuser {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return $self->config->{MongoUser};
+    return $self->config->{Mongo}->{user};
 }
 
 sub _build_dbauthdb {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return $self->config->{MongoAuthDB} || 'admin';
+    return $self->config->{Mongo}->{authdb} || 'admin';
 }
 
 sub _build_dbname {      ## no critic (ProhibitUnusedPrivateSubroutines)
