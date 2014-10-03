@@ -83,11 +83,10 @@ my $replay = Replay->new(
     config => {
         QueueClass  => 'Replay::EventSystem::Null',
         StorageMode => 'Mongo',
-        MongoUser => 'replayuser',
-        MongoPass => 'replaypass',
-        timeout     => 5,
-        stage       => 'testscript-02-' . $ENV{USER},
-    },
+        Mongo   => { user => 'replayuser', pass => 'replaypass', authdb => 'admin', },
+        timeout => 5,
+        stage   => 'testscript-02-' . $ENV{USER},
+        },
     rules => [ new TESTRULE ]
 );
 my $ourtestkey = Replay::IdKey->new(

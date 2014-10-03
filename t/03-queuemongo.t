@@ -91,8 +91,7 @@ my $replay = Replay->new(
         },
         snsService => 'https://sns.us-east-1.amazonaws.com',
         sqsService => 'https://sqs.us-east-1.amazonaws.com',
-        MongoUser => 'replayuser',
-        MongoPass => 'replaypass',
+        Mongo => { user => 'replayuser', pass => 'replaypass', authdb => 'admin', },
     },
     rules => [ new TESTRULE ]
 );
