@@ -178,11 +178,12 @@ sub _build_queue {    ## no critic (ProhibitUnusedPrivateSubroutines)
 
 sub DEMOLISH {
     my ($self) = @_;
-    $self->sns->dispatch(
-        { Action => 'Unsubscribe', SubscriptionArn => $self->{subscriptionARN} })
-        if $self->{subscriptionARN};
-    $self->queue->Delete
-        if $self->has_queue && $self->queue && $self->mode eq 'fanout';
+    if ($self->has_queue && $self->queue && $self->mode eq 'fanout') {
+        $self->queue->Delete;
+        $self->sns->dispatch(
+            { Action => 'Unsubscribe', SubscriptionArn => $self->{subscriptionARN} })
+            if $self->{subscriptionARN};
+    }
     return;
 }
 
