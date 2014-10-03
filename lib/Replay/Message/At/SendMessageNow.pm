@@ -4,7 +4,7 @@ use Moose;
 use MooseX::Storage;
 use MooseX::MetaDescription::Meta::Trait;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 with(qw(Replay::Envelope));
 

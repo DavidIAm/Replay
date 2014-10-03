@@ -1,6 +1,4 @@
-bin/controlmonitor
 Changes
-cpanm
 ignore.txt
 images/Replay_Report_System.png
 lib/Replay/BaseBusinessRule.pm

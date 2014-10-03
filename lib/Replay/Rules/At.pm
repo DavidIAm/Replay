@@ -53,7 +53,7 @@ use Replay::Message 0.02;
 use Readonly;
 extends 'Replay::BusinessRule';
 
-our $VERSION = q(0.02);
+our $VERSION = q(2);
 
 Readonly my $MAX_EXCEPTION_COUNT => 3;
 Readonly my $WINDOW_SIZE         => 1000;

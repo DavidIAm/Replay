@@ -90,7 +90,7 @@ use Test::MockObject;
 use Replay::Rules::At;
 my $r = new Replay::Rules::At;
 is $r->name,    'At', 'rule name defined';
-is $r->version, 1,    'rule version defined';
+is $r->version, 2,    'rule version defined';
 ok $r->match({ MessageType => 'SendMessageAt' }),  'matches SendMessageAt';
 ok $r->match({ MessageType => 'SendMessageNow' }), 'matches SendMessageNow';
 ok !$r->match({ MessageType => 'Timing' }), 'does not match Timing';

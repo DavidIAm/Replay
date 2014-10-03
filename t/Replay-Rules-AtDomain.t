@@ -74,7 +74,7 @@ use Test::MockObject;
 use Replay::Rules::AtDomain;
 my $r = new Replay::Rules::AtDomain;
 is $r->name,    'AtDomain', 'rule name defined';
-is $r->version, 1,          'rule version defined';
+is $r->version, 2,          'rule version defined';
 ok $r->match({ MessageType => 'SendMessageWhen' }), 'matches SendMessageWhen';
 ok $r->match({ MessageType => 'SentMessageAt' }), 'matches SentMessageAt';
 ok $r->match({ MessageType => 'Timing' }),        'matches Timing';

@@ -67,17 +67,17 @@ package Replay::Rules::AtDomain;
 #        };
 
 use Moose;
-use Replay::BusinessRule 0.2;
+use Replay::BusinessRule 0.02;
 use Scalar::Util qw/blessed/;
 use List::Util qw/min max/;
 use JSON;
 use Try::Tiny;
-use Replay::Message 0.2;
-use Replay::Message::At::SendMessageNow 0.2;
+use Replay::Message 0.02;
+use Replay::Message::At::SendMessageNow 0.02;
 use Readonly;
 extends 'Replay::BusinessRule';
 
-our $VERSION = q(1);
+our $VERSION = q(2);
 
 Readonly my $MAX_EXCEPTION_COUNT => 3;
 Readonly my $WINDOW_SIZE         => 1000;

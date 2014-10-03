@@ -7,7 +7,7 @@ package TESTRULE;
 use Moose;
 use Replay::Types;
 use List::Util qw//;
-with 'Replay::Role::BusinessRule';
+with 'Replay::Role::BusinessRule' => {  -version => 0.02 };
 
 has '+name' => (default => __PACKAGE__,);
 
@@ -46,7 +46,7 @@ sub reduce {
 package main;
 use Data::Dumper;
 
-use Replay;
+use Replay 0.02;
 use Time::HiRes qw/gettimeofday/;
 use Test::Most tests => 10;
 use Config::Locale;
