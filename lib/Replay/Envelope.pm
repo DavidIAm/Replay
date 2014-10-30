@@ -17,6 +17,7 @@ has Replay => (
 has MessageType => (
     is          => 'ro',
     isa         => 'Str',
+		required    => 1,
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'envelope' },
 );
@@ -53,6 +54,7 @@ has EffectiveTime => (
     predicate   => 'has_effective_time',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'envelope' },
+    builder     => 'assume_effective_time',
 );
 has CreatedTime => (
     is          => 'ro',
@@ -79,21 +81,53 @@ has UUID => (
     description => { layer => 'envelope' },
 );
 
+around BUILDARGS => sub {
+    my $orig       = shift;
+    my $class      = shift;
+    my %args       = 'HASH' eq ref $_[0] ? %{ $_[0] } : @_;
+		use Data::Dumper;
+    my %attributes = %{
+        {   map { $_ => 1 } map { $_->get_attribute_list } $class->meta,
+            $class->meta->calculate_all_roles_with_inheritance
+        }
+    };
+    foreach (keys %args) {
+			warn "inspecting $_";
+        unless (exists $attributes{$_}) {
+					warn "ADding attribute $_ to the Message because its not in the Envelope";
+            $args{Message}{$_} = $args{$_};
+        }
+    }
+    return $class->$orig(%args);
+};
+
 sub marshall {
     my $self       = shift;
     my $buffer     = q();
     my $row        = 1;
-    my @attributes = $self->meta->get_attribute_list();
-    my $layers     = {};
-    foreach my $attr (sort { $a cmp $b } @attributes) {
-        my $field = $self->meta->get_attribute($attr);
-
-        my $thislayer = $field->description->{layer} || 'message';
+    my %attributes = map {
+        my $c = $_;
+        map { $_ => $c->get_attribute($_) } $_->get_attribute_list
+    } $self->meta, $self->meta->calculate_all_roles_with_inheritance;
+    my $layers = {};
+    foreach my $attr (sort { $a cmp $b } keys %attributes) {
+        my $field = $attr;# $self->meta->get_attribute($attr);
+        use Data::Dumper;
+        do {
+            warn "NO SUCH ATTRBUTE $attr IN META OF "
+                . ref($self) . " - "
+                . Dumper ref $attributes{$attr}
+                and next;
+        } unless defined $field;
+        my $thislayer
+            = ($field->can('description') ? $field->description->{layer} : '')
+            || 'message';
 
         my $node = $layers->{$thislayer} ||= {};
 
-        my $value = $self->$attr();
-        next if not $value;
+        my $value = $self->$attr
+            ; #$field->can('associated_role') ? $field->associated_role->get_value($self) : $field->get_value($self);
+        next if not defined $value;
 
         $node->{$attr} = $value;
     }
@@ -133,6 +167,11 @@ has Windows => (
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'envelope' },
 );
+
+sub assume_effective_time {
+    my $self = shift;
+    return $self->ReceivedTime;
+}
 
 =pod
 

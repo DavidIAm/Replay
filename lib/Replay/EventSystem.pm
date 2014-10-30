@@ -146,7 +146,7 @@ sub clear {
 
 sub emit {
     my ($self, $channel, $message) = @_;
-    return $self->$channel->emit($message) if $self->can($channel);
+    return $self->$channel->emit(Replay::Message->new($message)->marshall) if $self->can($channel);
     use Carp qw/confess/;
     confess "Unknown channel $channel";
 

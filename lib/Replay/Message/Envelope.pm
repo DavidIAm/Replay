@@ -1,63 +1,33 @@
-package Replay::Message;
+package Replay::Message::Envelope;
 
 use Moose;
-use MooseX::Storage;
-use MooseX::MetaDescription::Meta::Trait;
-
+extends('Replay::Message');
 our $VERSION = '0.02';
-
-with Storage(format => 'JSON');
-with(qw(Replay::Types::Messages Replay::Envelope));
-
-has name => (is => 'ro', isa => 'Str',);
-
-has version => (is => 'ro', isa => 'Str',);
 
 1;
 
 __END__
 
-=pod 
-
-Documentation
- 
-=cut
-
-has MessageType => (
-    is          => 'ro',
-    isa         => 'Str',
-    traits      => ['MooseX::MetaDescription::Meta::Trait'],
-    description => { layer => 'envelope' },
-);
+=pod
 
 =head1 NAME
 
-Replay::Message - The default message form for the Replay system
+Replay::Message::Envelope - A generic enveloped message type for incoming 
+validation
 
 =head1 VERSION
 
-Version 0.01
+Version 0.02
+
+=cut
 
 =head1 SYNOPSIS
 
-the basic message functionality, providing the serialization
-routines and patterns for making a Replay Message
+This is a message data type used within Replay Mapper section at least initially.
 
-=head1 SUBROUTINES/METHODS
+It provides validation for incoming messages to conform to the Message type
 
-=head2 marshall ($message)
-
-use the state information provided by the construction to create a structure suitable for serializing
-
-=head2 _now
-
-the current fractional second epoch time
-
-=head2 _build_uuid
-
-builder for getting the object with which uuids are created
-
-=cut
+...
 
 =head1 AUTHOR
 
@@ -74,8 +44,9 @@ You can find documentation for this module with the perldoc command.
 
     perldoc Replay
 
-
 You can also look for information at:
+
+https://github.com/DavidIAm/Replay
 
 =over 4
 
@@ -145,3 +116,4 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 =cut
 
 1;
+

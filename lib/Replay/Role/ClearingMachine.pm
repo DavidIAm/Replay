@@ -1,4 +1,4 @@
-package Replay::Rules::ClearingMachine;
+package Replay::Role::ClearingMachine;
 
 # This is the general logic that will be used by the traditional clearing
 # pattern:
@@ -45,38 +45,39 @@ use Replay::Message::At::SentMessageAt 0.02;
 use Replay::Message::At::SendMessageWhen 0.02;
 use Replay::Message 0.02;
 use Readonly;
-extends 'Replay::BusinessRule';
-requires qw/initial_match on_start on_error on_exception on_success/;
+
+with qw/Replay::Role::BusinessRule/;
+requires qw/initial_match attempt on_error on_exception on_success value_set/;
 
 our $VERSION = q(2);
 
-Readonly my $DEFAULT_RETRY_COUNT => 3;
-Readonly my $DEFAULT_WINDOW_SIZE         => 600;
-Readonly my $DEFAULT_RETRY_INTERVAL       => 60;
-Readonly my $INTERVAL_SIZE       => 60;
-Readonly my $PURPOSE_MAP       => {
-	'retry' => 1,
-	'new_input' => 2,
-};
+Readonly my $DEFAULT_RETRY_COUNT    => 3;
+Readonly my $DEFAULT_WINDOW_SIZE    => 600;
+Readonly my $DEFAULT_RETRY_INTERVAL => 60;
+Readonly my $INTERVAL_SIZE          => 60;
+Readonly my $PURPOSE_MAP            => { 'retry' => 1, 'new_input' => 2, };
 
 # given an error, when to retry this next
 sub retry_next_at {
-	my ($self, @atoms) = @_;
-	return $original->
+    my ($self, @atoms) = @_;
 }
+
 sub window_size_seconds {
-	return 600;
+    return 600;
 }
 
 sub compare {
-	my ($self, $aa, $bb) = @_;
-	return -1 if $aa->{MessageType} eq 'ClearingMachine';
-	return 1 if $bb->{MessageType} eq 'ClearingMachine';
-	return $PURPOSE_MAP->{$aa->{Message}{purpose}} <=> $PURPOSE_MAP->{$bb->{Message}{purpose}}
+    my ($self, $aa, $bb) = @_;
+    return -1 if $aa->{MessageType} eq 'ClearingMachine';
+    return 1  if $bb->{MessageType} eq 'ClearingMachine';
+    return $PURPOSE_MAP->{ $aa->{Message}{purpose} }
+        <=> $PURPOSE_MAP->{ $bb->{Message}{purpose} };
 }
 
 sub match {
     my ($self, $message) = @_;
+		use Data::Dumper;
+		warn "The message type is " . Dumper $message->{MessageType};
     return 1 if $message->{MessageType} eq 'ClearingMachine';
     return 1 if $self->initial_match($message);
     return 0;
@@ -96,6 +97,8 @@ sub window {
 
 sub key_value_set {
     my ($self, $message) = @_;
+		use Data::Dumper;
+		warn "KEY VALUE SET MESSAGE IS " . Dumper $message;
 
     return $message->{Message}{key} => {
         requested => 0,
@@ -110,7 +113,12 @@ sub key_value_set {
         epoch    => $message->{Message}->{sendtime}
         }
         if $message->{MessageType} eq 'SendMessageNow';
-    return;
+
+    # the only other type we should see is our initial type
+    my $counter = 1;
+    return
+        map { $message->{UUID} . '-' . ($counter++) => { payload => $_ } }
+        $self->value_set($message);
 }
 
 sub reduce {
@@ -129,42 +137,46 @@ sub reduce {
     my @newtimes = map { $_->{sendat} } grep { $_->{sendat} } @atoms_to_keep;
     my $newmin   = min @newtimes;
     my $newmax   = max @newtimes;
-    foreach my $atom (@atoms_to_send) {
+    {
+        foreach my $atom (@atoms_to_send) {
 
-        if ($atom->{sendat} <= $maxtime) {
-            my $c = $atom->{class};
-            $emitter->emit($atom->{channel}, my $sent = $c->new($atom->{payload}));
-            $emitter->emit(
-                'derived',
-                Replay::Message::At::SentMessageAt->new(
-                    requested => $atom->{sendat},
-                    actual    => scalar(gettimeofday),
-                    atdomain  => $atom->{atdomain},
-                    sentuuid  => $sent->marshall->{UUID},
-                    foruuid   => $atom->{uuid},
-                    window    => $atom->{window},
-                    newmin    => $newmin,
-                    newmax    => $newmax,
-                )
-            );
+            if ($atom->{sendat} <= $maxtime) {
+                my $c = $atom->{class};
+                $emitter->emit($atom->{channel}, my $sent = $c->new($atom->{payload}));
+                $emitter->emit(
+                    'derived',
+                    Replay::Message::At::SentMessageAt->new(
+                        requested => $atom->{sendat},
+                        actual    => scalar(gettimeofday),
+                        atdomain  => $atom->{atdomain},
+                        sentuuid  => $sent->marshall->{UUID},
+                        foruuid   => $atom->{uuid},
+                        window    => $atom->{window},
+                        newmin    => $newmin,
+                        newmax    => $newmax,
+                    )
+                );
+            }
         }
     }
 
     # we do this after because there's no sense in adding it to the list within
     # the domain if we've already sent it.
-    foreach my $atom (grep { defined $_->{requested} && !$_->{requested} }
-        @atoms_to_keep)
     {
-        $emitter->emit(
-            'derived',
-            Replay::Message::At::SendMessageWhen->new(
-                newmin   => $newmin,
-                newmax   => $newmax,
-                atdomain => $atom->{atdomain},
-                window   => $atom->{window},
-            )
-        );
-        $_->{requested} = 1;
+        foreach my $atom (grep { defined $_->{requested} && !$_->{requested} }
+            @atoms_to_keep)
+        {
+            $emitter->emit(
+                'derived',
+                Replay::Message::At::SendMessageWhen->new(
+                    newmin   => $newmin,
+                    newmax   => $newmax,
+                    atdomain => $atom->{atdomain},
+                    window   => $atom->{window},
+                )
+            );
+            $_->{requested} = 1;
+        }
     }
     return @atoms_to_keep;
 }
