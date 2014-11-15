@@ -1,4 +1,4 @@
-package Replay::Role::Async;
+package Replay::Role::ClearingMachine;
 
 # This is the general logic that will be used by the traditional clearing
 # pattern:
@@ -9,12 +9,12 @@ package Replay::Role::Async;
 # 4. if the intervals expire there is an exception message and the state ends
 # 5. if it resolves there is a success message and the state ends
 #
-# Async role for business rules
+# ClearingMachine role for business rules
 #
 #
 # $VAR1 = {
 #          'Replay' => '20140727',
-#          'MessageType' => 'Async',
+#          'MessageType' => 'ClearingMachine',
 #          'Message' => {
 #                         'window': 'dawindow',
 #                         'key': 'dakey',
@@ -24,7 +24,7 @@ package Replay::Role::Async;
 #        }
 # $VAR2 = {
 #          'Replay' => '20140727',
-#          'MessageType' => 'Async',
+#          'MessageType' => 'ClearingMachine',
 #          'Message' => {
 #                         'window': 'dawindow',
 #                         'key': 'dakey',
@@ -68,8 +68,8 @@ sub window_size_seconds {
 
 sub compare {
     my ($self, $aa, $bb) = @_;
-    return -1 if $aa->{MessageType} eq 'Async';
-    return 1  if $bb->{MessageType} eq 'Async';
+    return -1 if $aa->{MessageType} eq 'ClearingMachine';
+    return 1  if $bb->{MessageType} eq 'ClearingMachine';
     return $PURPOSE_MAP->{ $aa->{Message}{purpose} }
         <=> $PURPOSE_MAP->{ $bb->{Message}{purpose} };
 }
@@ -78,7 +78,7 @@ sub match {
     my ($self, $message) = @_;
 		use Data::Dumper;
 		warn "The message type is " . Dumper $message->{MessageType};
-    return 1 if $message->{MessageType} eq 'Async';
+    return 1 if $message->{MessageType} eq 'ClearingMachine';
     return 1 if $self->message_in_set($message);
     return 0;
 }
@@ -91,13 +91,13 @@ sub window {
 
     # we send this along to rejoin the proper window
     return $message->{Message}{window}
-        if $message->{MessageType} eq 'Async';
+        if $message->{MessageType} eq 'ClearingMachine';
     return $message->{UUID};
 }
 
 sub attempt_is_success {
 	my ($self, $key, $message) = @_;
-	$self->emit('origin', Replay::Message::Async->new( key => $key, );
+	$self->emit('origin', Replay::Message::ClearingMachine->new( key => $key, );
 	$self->on_success($message);
 }
 sub attempt_is_error {
@@ -112,7 +112,7 @@ sub attempt_is_exception {
 sub key_value_set {
     my ($self, $message) = @_;
 
-		return $self->set_key($message)
+		return $message->{UUID} => {
     } if $self->message_in_set($message);
 		return $message->{Message}{key} => {
         requested => 0,
@@ -120,8 +120,8 @@ sub key_value_set {
         uuid      => $message->{UUID},
         } if $self->initial_match($message);
 
-        if $message->{MessageType} eq 'Async';
-        if $message->{MessageType} eq 'Async';
+        if $message->{MessageType} eq 'ClearingMachine';
+        if $message->{MessageType} eq 'ClearingMachineResult';
 
     # the only other type we should see is our initial type
     my $counter = 1;

@@ -79,7 +79,7 @@ sub match {
 		use Data::Dumper;
 		warn "The message type is " . Dumper $message->{MessageType};
     return 1 if $message->{MessageType} eq 'Async';
-    return 1 if $self->message_in_set($message);
+    return 1 if $self->initial_match($message);
     return 0;
 }
 
@@ -112,8 +112,8 @@ sub attempt_is_exception {
 sub key_value_set {
     my ($self, $message) = @_;
 
-		return $self->set_key($message)
-    } if $self->message_in_set($message);
+		return map { $message->{UUID} => { element => 'original', value => $_ } } $self->value_set if $self->initial_match($message);
+
 		return $message->{Message}{key} => {
         requested => 0,
         window    => $self->window($message),

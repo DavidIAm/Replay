@@ -140,8 +140,12 @@ package main;
 
 use Test::Most tests => 10;
 use Time::HiRes qw/gettimeofday/;
+use Data::Dumper;
 
 my $tr = new TESTRULE->new;
+
+use Replay::Message::Timing;
+
 die unless $tr->version;
 is $tr->version, 1, 'version returns';
 
@@ -162,9 +166,13 @@ my $secondMessage = { MessageType => 'interesting',
     Message => { c => [ 6, 7, 8, 9, 10 ], } };
 
 use Replay::Message::Envelope;
-is_deeply +Replay::Message::Envelope->new($funMessage)->marshall,
-    { UUID => 'fakeUUID', Message => { b => [ 1, 2, 3, 4, 5, 6 ] } }, 'defaults';
-exit;
+my $d = +Replay::Message::Envelope->new($funMessage)->marshall;
+is $d->{UUID}, 'fakeUUID';
+ok exists $d->{CreatedTime}, 'Created exists';
+is $d->{Replay}, '20140727';
+is $d->{MessageType}, 'Primera';
+ok exists $d->{EffectiveTime}, 'EffectiveTime exists';
+ok exists $d->{ReceievedTime}, 'ReceievedTime exists';
 
 is_deeply [ $tr->key_value_set( Replay::Message::Envelope->new($funMessage)->marshall) ],
     [ 'fakeUUID-1' => { payload => { b => [ 1, 2, 3, 4, 5, 6 ] } } ], 'copies';
@@ -176,7 +184,7 @@ my $replay = Replay->new(
     config => {
         QueueClass  => 'Replay::EventSystem::Null',
         StorageMode => 'Memory',
-        timeout     => 50,
+        timeout     => 5,
         stage       => 'testscript-04-' . $ENV{USER},
     },
     rules => [ new TESTRULE ]

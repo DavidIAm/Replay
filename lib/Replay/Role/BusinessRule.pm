@@ -66,7 +66,7 @@ use List::Util qw//;
 
 has '+name' => (default => __PACKAGE__,);
 
-sub window { 'alltime' };
+#sub window { 'alltime' };
 sub match {
     my ($self, $message) = @_;
     return $message->{is_interesting};

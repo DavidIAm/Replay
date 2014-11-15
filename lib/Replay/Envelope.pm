@@ -1,7 +1,9 @@
 package Replay::Envelope;
 
+use Data::Dumper;
 use Moose::Role;
 use Time::HiRes qw/gettimeofday/;
+use Moose::Util qw(apply_all_roles);
 use Data::UUID;
 
 our $VERSION = '0.02';
@@ -17,7 +19,7 @@ has Replay => (
 has MessageType => (
     is          => 'ro',
     isa         => 'Str',
-		required    => 1,
+    required    => 1,
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'envelope' },
 );
@@ -82,22 +84,27 @@ has UUID => (
 );
 
 around BUILDARGS => sub {
-    my $orig       = shift;
-    my $class      = shift;
-    my %args       = 'HASH' eq ref $_[0] ? %{ $_[0] } : @_;
-		use Data::Dumper;
-    my %attributes = %{
-        {   map { $_ => 1 } map { $_->get_attribute_list } $class->meta,
-            $class->meta->calculate_all_roles_with_inheritance
-        }
-    };
+    my $orig  = shift;
+    my $class = shift;
+    my %args  = 'HASH' eq ref $_[0] ? %{ $_[0] } : @_;
+    $class->meta->make_mutable;
+    my %attributes = map { $_->{name} => $_ } $class->meta->get_all_attributes;
+
     foreach (keys %args) {
-			warn "inspecting $_";
-        unless (exists $attributes{$_}) {
-					warn "ADding attribute $_ to the Message because its not in the Envelope";
-            $args{Message}{$_} = $args{$_};
-        }
+        next if exists $attributes{$_};
+
+        my $newattr = $class->meta->add_attribute(
+            $_ => (
+                is          => 'ro',
+                isa         => 'Item',
+                traits      => ['MooseX::MetaDescription::Meta::Trait'],
+                description => { layer => 'message' }
+            )
+        );
+        apply_all_roles($newattr, 'MooseX::MetaDescription::Meta::Trait');
+        $args{EXTRA}{$_} = $args{$_};
     }
+    $class->meta->make_immutable;
     return $class->$orig(%args);
 };
 
@@ -105,14 +112,12 @@ sub marshall {
     my $self       = shift;
     my $buffer     = q();
     my $row        = 1;
-    my %attributes = map {
-        my $c = $_;
-        map { $_ => $c->get_attribute($_) } $_->get_attribute_list
-    } $self->meta, $self->meta->calculate_all_roles_with_inheritance;
-    my $layers = {};
+    my $layers     = {};
+    my %attributes = map { $_->{name} => $_ } $self->meta->get_all_attributes;
     foreach my $attr (sort { $a cmp $b } keys %attributes) {
-        my $field = $attr;# $self->meta->get_attribute($attr);
-        use Data::Dumper;
+
+        my $field = $attributes{$attr};
+
         do {
             warn "NO SUCH ATTRBUTE $attr IN META OF "
                 . ref($self) . " - "
@@ -121,7 +126,7 @@ sub marshall {
         } unless defined $field;
         my $thislayer
             = ($field->can('description') ? $field->description->{layer} : '')
-            || 'message';
+            || 'sloppy';
 
         my $node = $layers->{$thislayer} ||= {};
 
@@ -131,7 +136,8 @@ sub marshall {
 
         $node->{$attr} = $value;
     }
-    $layers->{envelope}{Message} = $layers->{message};
+    my $curmessage = $layers->{envelope}{Message} ||= {};
+    %{$curmessage} = (%{$curmessage}, %{ $layers->{message} || {} });
     return $layers->{envelope};
 }
 
@@ -170,7 +176,7 @@ has Windows => (
 
 sub assume_effective_time {
     my $self = shift;
-    return $self->ReceivedTime;
+    return $self->ReceivedTime || $self->_now;
 }
 
 =pod

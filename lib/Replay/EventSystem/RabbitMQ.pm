@@ -1,91 +1,74 @@
-package Replay::Message::Timing;
-
-use Moose;
-extends('Replay::Message');
-
-our $VERSION = '0.02';
-
-has '+MessageType' => (default => 'Timing');
-has '+Message' => (isa => 'Clock', coerce => 1);
-
-has 'epoch' => (
-    is          => 'ro',
-    isa         => 'Int',
-    traits      => ['MooseX::MetaDescription::Meta::Trait'],
-    description => { layer => 'message' },
-);
-has 'minute' => (
-    is          => 'ro',
-    isa         => 'Int',
-    traits      => ['MooseX::MetaDescription::Meta::Trait'],
-    description => { layer => 'message' },
-);
-has 'hour' => (
-    is          => 'ro',
-    isa         => 'Int',
-    traits      => ['MooseX::MetaDescription::Meta::Trait'],
-    description => { layer => 'message' },
-);
-has 'date' => (
-    is          => 'ro',
-    isa         => 'Int',
-    traits      => ['MooseX::MetaDescription::Meta::Trait'],
-    description => { layer => 'message' },
-);
-has 'month' => (
-    is          => 'ro',
-    isa         => 'Int',
-    traits      => ['MooseX::MetaDescription::Meta::Trait'],
-    description => { layer => 'message' },
-);
-has 'year' => (
-    is          => 'ro',
-    isa         => 'Int',
-    traits      => ['MooseX::MetaDescription::Meta::Trait'],
-    description => { layer => 'message' },
-);
-has 'weekday' => (
-    is          => 'ro',
-    isa         => 'Int',
-    traits      => ['MooseX::MetaDescription::Meta::Trait'],
-    description => { layer => 'message' },
-);
-has 'yearday' => (
-    is          => 'ro',
-    isa         => 'Int',
-    traits      => ['MooseX::MetaDescription::Meta::Trait'],
-    description => { layer => 'message' },
-);
-has 'isdst' => (
-    is          => 'ro',
-    isa         => 'Int',
-    traits      => ['MooseX::MetaDescription::Meta::Trait'],
-    description => { layer => 'message' },
-);
-
-1;
+package Replay::EventSystem::RabbitMQ;
 
 __END__
 
-=pod 
+=pod
 
 =head1 NAME
 
-Replay::Message::Timing
+Replay::EventSystem::RabbitMQ - RabbitMQ Exchange/Queue implimentation
 
 =head1 VERSION
 
 Version 0.01
 
-=cut
+head1 SYNOPSIS
 
-=head1 SYNOPSIS
+This is an Event System implimentation module targeting the RabbitMQ service
+If you were to instantiate it independently, it might 
+look like this.
 
-This is a message data type used within Replay on the origin channel
+my $cv = AnyEvent->condvar;
 
-This identifies a particular time.  Rules can use it to trigger cron-like effects of periodically changing the state of pieces of the system based on the clock.
+Replay::EventSystem::AWSQueue->new(
+    purpose => $purpose,
+    config  => {
+        stage    => 'test',
+        RabbitMQ => {
+            host    => 'localhost',
+            port    => '5672',
+            user    => 'replay',
+            pass    => 'replaypass',
+            vhost   => 'replay',
+            timeout => 5,
+            tls     => 1,
+            tune    => { heartbeat => 5, channel_max => 100, frame_max => 1000 },
+        },
+    }
+);
 
-...
+$cv->recv;
+
+
+Utilizers should expect the object instance to be a singleton per each $purpose.
+
+The account provided is expected to have the permissions to create exchanges and queues on the indicated virtualhost.
+
+It will create SNS topic for the indicated purpose named <stage>-replay-<purpose>
+
+It will create distinct SQS queues for the instance, named <stage>-replay-<purpose>-<uuid>
+
+It will also subscribe the queue to the topic.
+
+=head1 SUBROUTINES/METHODS
+
+=head2 subscribe( sub { my $message = shift; ... } )
+
+each code reference supplied is called with each message received, each time
+the message is received.  This is how applications insert their hooks into 
+the channel to get notified of the arrival of messages.
+
+=head2 emit( $message )
+
+Send the specified message on the topic for this channel
+
+=head2 poll()
+
+Gets new messages and calls the subscribed hooks with them
+
+=head2 DEMOLISH
+
+Makes sure to properly clean up and disconnect from queues
 
 =head1 AUTHOR
 
@@ -94,7 +77,9 @@ David Ihnen, C<< <davidihnen at gmail.com> >>
 =head1 BUGS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
-the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .
+the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'
+
+        ll automatically be notified of progress on your bug as I make changes .
 
 =head1 SUPPORT
 
@@ -102,9 +87,8 @@ You can find documentation for this module with the perldoc command.
 
     perldoc Replay
 
-You can also look for information at:
 
-https://github.com/DavidIAm/Replay
+You can also look for information at:
 
 =over 4
 
@@ -174,4 +158,3 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 =cut
 
 1;
-

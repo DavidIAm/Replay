@@ -186,17 +186,15 @@ sub clock {
             $self->emit(
                 'origin',
                 Replay::Message::Timing->new(
-                    Message => {
-                        epoch   => time,
-                        minute  => $min,
-                        hour    => $hour,
-                        date    => $mday,
-                        month   => $mon,
-                        year    => $year + $LTYEAR,
-                        weekday => $wday,
-                        yearday => $yday,
-                        isdst   => $isdst
-                    },
+                    epoch   => time,
+                    minute  => $min,
+                    hour    => $hour,
+                    date    => $mday,
+                    month   => $mon,
+                    year    => $year + $LTYEAR,
+                    weekday => $wday,
+                    yearday => $yday,
+                    isdst   => $isdst,
                     program  => __FILE__,
                     function => 'clock',
                     line     => __LINE__,

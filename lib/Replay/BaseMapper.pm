@@ -41,8 +41,6 @@ sub BUILD {
 sub map {    ## no critic (ProhibitBuiltinHomonyms)
     my $self    = shift;
     my $message = shift;
-		warn "message is ".Dumper $message;
-		warn "marshall is: ".Dumper(Replay::Message::Envelope->new($message)->marshall);
     carp q(Got a message that isn't a hashref) if 'HASH' ne ref $message;
     carp q(Got a message that doesn't have type and a hashref for a message)
         if !$message->{MessageType} || 'HASH' ne ref $message->{Message};
@@ -52,7 +50,7 @@ sub map {    ## no critic (ProhibitBuiltinHomonyms)
         my @all = $rule->key_value_set($message);
         croak q(key value list from key value set must be even) if scalar @all % 2;
         my $window = $rule->window($message);
-        carp q(didn't get a window return for message ).Dumper($message);
+        carp q(didn't get a window return for message ).Dumper($message).q( on rule ) . $rule->name unless defined $window;
         while (scalar @all) {
             my $key  = shift @all;
             my $atom = shift @all;
