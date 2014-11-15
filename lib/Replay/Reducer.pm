@@ -51,6 +51,16 @@ sub reduce_wrapper {
             }
         );
     }
+    elsif (blessed $envelope->{Message}) {
+        $message = $envelope->{Message};
+        $idkey   = Replay::IdKey->new(
+            {   name    => $message->name,
+                version => $message->version,
+                window  => $message->window,
+                key     => $message->key,
+            }
+        );
+    }
     else {
 
         $message = $envelope->{Message};

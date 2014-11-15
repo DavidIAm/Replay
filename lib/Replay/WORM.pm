@@ -71,7 +71,7 @@ sub log {    ## no critic (ProhibitBuiltinHomonyms)
 sub path {
     my $self = shift;
     return File::Spec->catfile($self->directory,
-        $self->timeblock . q(-) . $self->eventSystem->config->{stage});
+        $self->timeblock . q(-) . $self->eventSystem->config->{stage} || 'nostage');
 }
 
 sub filehandle {
