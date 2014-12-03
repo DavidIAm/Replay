@@ -1,16 +1,11 @@
-package Replay::EventSystem::RabbitMQ;
+package Replay::EventSystem::RabbitMQ::Queue;
 
 use Moose;
 
 our $VERSION = '0.02';
 
-use Replay::EventSystem::Base;
-with 'Replay::EventSystem::Base';
-
-use Replay::EventSystem::RabbitMQ::Connection;
-use Replay::EventSystem::RabbitMQ::Queue;
-use Replay::EventSystem::RabbitMQ::Topic;
 use Replay::Message;
+use Replay::EventSystem::RabbitMQ::Message;
 
 #use Replay::Message::Clock;
 use Carp qw/carp croak/;
@@ -19,119 +14,138 @@ use Perl::Version;
 use Net::RabbitMQ;
 use Try::Tiny;
 use Data::UUID;
-use JSON;
 use Scalar::Util qw/blessed/;
-use Carp qw/confess/;
-
-has purpose => (is => 'ro', isa => 'Str', required => 1,);
-has subscribers => (is => 'ro', isa => 'ArrayRef', default => sub { [] },);
-
-has config => (is => 'ro', isa => 'HashRef[Item]', required => 1);
+use Carp qw/confess carp/;
 
 has rabbit => (
-  is => 'ro',
-  isa => 'Replay::EventSystem::RabbitMQ::Connection',
-  builder => '_build_rabbit',
-  handles => [ qw( channel_close channel_open exchange_declare queue_declare queue_bind publish get ack reject ) ],
-  lazy => 1,
+    is       => 'ro',
+    isa      => 'Replay::EventSystem::RabbitMQ',
+    handles  => [qw( get queue_bind )],
+    required => 1,
 );
 
 has queue => (
-    is        => 'ro',
+    is      => 'ro',
     isa     => 'Replay::EventSystem::RabbitMQ::Queue',
-    builder   => '_build_queue',
-    predicate => 'has_queue',
-    handles => [ qw( _receive ) ],
-    lazy      => 1,
+    builder => '_build_queue',
+    lazy    => 1
 );
+
+has bound_queue => (
+    is      => 'ro',
+    isa     => 'Replay::EventSystem::RabbitMQ::Queue',
+    builder => '_build_bound_queue',
+    lazy    => 1
+);
+
+has channel => (
+    is        => 'ro',
+    isa       => 'Num',
+    builder   => '_new_channel',
+    lazy      => 1,
+    predicate => 'has_channel',
+);
+
+has purpose => (is => 'ro', isa => 'Str', required => 1,);
 
 has topic => (
-    is      => 'ro',
-    isa     => 'Replay::EventSystem::RabbitMQ::Topic',
-    builder => '_build_topic',
-    # Why won't this match the require of base?
-    #  handles => [ qw( emit ) ],
-    lazy    => 1,
+    is       => 'ro',
+    isa      => 'Replay::EventSystem::RabbitMQ::Topic',
+    required => 1,
 );
 
-sub _build_rabbit {
+has passive => (is => 'ro', isa => 'Bool', default => 1,);
+
+has durable => (is => 'ro', isa => 'Bool', default => 1,);
+
+has exclusive => (is => 'ro', isa => 'Bool', default => 0,);
+
+has auto_delete => (is => 'ro', isa => 'Bool', default => 0,);
+
+has queue_name =>
+    (is => 'ro', isa => 'Str', lazy => 1, builder => '_build_queue_name',);
+
+#has consumer_tag =>
+#    (is => 'ro', isa => 'Str', lazy => 1, builder => '_build_consumer',);
+
+has no_local => (is => 'ro', isa => 'Bool', lazy => 1, default => 0,);
+
+has no_ack => (is => 'ro', isa => 'Bool', default => 0,);
+
+sub _new_channel {
+    my $self = shift;
+    return $self->rabbit->channel_open();
+}
+
+sub _receive {
+    my ($self, $message) = @_;
+
+    my $frame = $self->bound_queue->get($self->channel, $self->queue_name, { no_ack => $self->no_ack } );
+    return unless defined $frame;
+    use Data::Dumper;
+    my $rmes = Replay::EventSystem::RabbitMQ::Message->new(
+        rabbit  => $self->rabbit,
+        channel => $self->channel,
+        %{$frame}
+    );
+
+    # frames look like this
+    #     {
+    #       body => 'Magic Transient Payload', # the reconstructed body
+    #       routing_key => 'nr_test_q',        # route the message took
+    #       exchange => 'nr_test_x',           # exchange used
+    #       delivery_tag => 1,                 # (used for acks)
+    #       consumer_tag => 'c_tag',           # tag from consume()
+    #       props => $props,                   # hashref sent in
+    #     }
+    return $rmes;
+}
+
+sub _build_bound_queue {
     my ($self) = @_;
-    try {
-        return Replay::EventSystem::RabbitMQ::Connection->instance;
-    }
-    catch {
-        Replay::EventSystem::RabbitMQ::Connection->initialize(
-            config => $self->config->{RabbitMQ});
-        return Replay::EventSystem::RabbitMQ::Connection->instance;
-    };
-}
-
-sub emit {
-  my ($self, @args) = @_;
-  return $self->topic->emit(@args);
-}
-
-sub poll {
-    my ($self) = @_;
-    my $handled = 0;
-
-    # only check the channels if we have been shown an interest in
-    foreach my $message ($self->_receive()) {
-        next if not scalar(@{ $self->subscribers });
-        $handled++;
-            try {
-        foreach my $subscriber (@{ $self->subscribers }) {
-                $subscriber->($message->body);
-        }
-                $message->ack;
-            }
-            catch {
-                $message->nack;
-                carp q(There was an exception while processing message through subscriber )
-                    . $_;
-            };
-    }
-    return $handled;
-}
-
-sub subscribe {
-    my ($self, $callback) = @_;
-    croak 'callback must be code' if 'CODE' ne ref $callback;
-    push @{ $self->subscribers }, $callback;
-    return;
+    $self->queue->queue_bind($self->channel, $self->queue_name,
+        $self->topic->topic_name, '*');
+    return $self;
 }
 
 sub DEMOLISH {
     my ($self) = @_;
-    if ($self->has_queue && $self->queue && $self->mode eq 'fanout') {
+    if ($self->has_channel) {
+        $self->rabbit->channel_close($self->channel);
     }
-
     return;
 }
 
-sub _build_topic {         ## no critic (ProhibitUnusedPrivateSubroutines)
-    my ($self) = @_;
-    return Replay::EventSystem::RabbitMQ::Topic->new(
-      rabbit => $self,
-      purpose => $self->purpose,
-      exchange_type => $self->mode,
-    );
-
+sub _build_queue_name {    ## no critic (ProhibitUnusedPrivateSubroutines)
+    my $self = shift;
+    my $ug   = Data::UUID->new;
+    return join q(_), 'replay', $self->rabbit->config->{stage}, $self->purpose;
 }
 
 sub _build_queue {         ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    return Replay::EventSystem::RabbitMQ::Queue->new(
-      rabbit => $self,
-      purpose => $self->purpose,
-      topic => $self->topic,
-      exchange_type => $self->mode,
-    );
-
+    my $opt = {
+        passive     => $self->passive,
+        durable     => $self->durable,
+        exclusive   => $self->exclusive,
+        auto_delete => $self->auto_delete,
+    };
+    $self->rabbit->queue_declare($self->channel, $self->queue_name, $opt,);
+    return $self;
 }
 
-
-__PACKAGE__->meta->make_immutable;
+sub _build_consumer_tag {    ## no critic (ProhibitUnusedPrivateSubroutines)
+    my $self = shift;
+    my $tag  = $self->queue->consume(
+        $self->channel,
+        $self->queue_name,
+        {   no_local  => $self->no_local,
+            no_ack    => $self->no_ack,
+            exclusive => $self->exclusive,
+        }
+    );
+    return $tag;
+}
 
 1;
 

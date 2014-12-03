@@ -1,137 +1,91 @@
-package Replay::EventSystem::RabbitMQ;
+package Replay::EventSystem::RabbitMQ::Message;
 
 use Moose;
 
 our $VERSION = '0.02';
 
-use Replay::EventSystem::Base;
-with 'Replay::EventSystem::Base';
-
-use Replay::EventSystem::RabbitMQ::Connection;
-use Replay::EventSystem::RabbitMQ::Queue;
-use Replay::EventSystem::RabbitMQ::Topic;
 use Replay::Message;
 
 #use Replay::Message::Clock;
 use Carp qw/carp croak/;
 
-use Perl::Version;
-use Net::RabbitMQ;
 use Try::Tiny;
 use Data::UUID;
 use JSON;
 use Scalar::Util qw/blessed/;
+use JSON qw/from_json to_json/;
 use Carp qw/confess/;
 
-has purpose => (is => 'ro', isa => 'Str', required => 1,);
-has subscribers => (is => 'ro', isa => 'ArrayRef', default => sub { [] },);
+has rabbit =>
+    (is => 'ro', isa => 'Replay::EventSystem::RabbitMQ', required => 1,);
 
-has config => (is => 'ro', isa => 'HashRef[Item]', required => 1);
-
-has rabbit => (
-  is => 'ro',
-  isa => 'Replay::EventSystem::RabbitMQ::Connection',
-  builder => '_build_rabbit',
-  handles => [ qw( channel_close channel_open exchange_declare queue_declare queue_bind publish get ack reject ) ],
-  lazy => 1,
-);
-
-has queue => (
+has channel => (
     is        => 'ro',
-    isa     => 'Replay::EventSystem::RabbitMQ::Queue',
-    builder   => '_build_queue',
-    predicate => 'has_queue',
-    handles => [ qw( _receive ) ],
+    isa       => 'Num',
+    builder   => '_new_channel',
     lazy      => 1,
+    predicate => 'has_channel',
 );
 
-has topic => (
-    is      => 'ro',
-    isa     => 'Replay::EventSystem::RabbitMQ::Topic',
-    builder => '_build_topic',
-    # Why won't this match the require of base?
-    #  handles => [ qw( emit ) ],
-    lazy    => 1,
-);
+has body => (is => 'ro', isa => 'Str|HashRef', required => 1,);
 
-sub _build_rabbit {
-    my ($self) = @_;
-    try {
-        return Replay::EventSystem::RabbitMQ::Connection->instance;
-    }
-    catch {
-        Replay::EventSystem::RabbitMQ::Connection->initialize(
-            config => $self->config->{RabbitMQ});
-        return Replay::EventSystem::RabbitMQ::Connection->instance;
-    };
-}
+has routing_key => (is => 'ro', isa => 'Str', required => 1,);
 
-sub emit {
-  my ($self, @args) = @_;
-  return $self->topic->emit(@args);
-}
+has exchange => (is => 'ro', isa => 'Str', required => 1,);
 
-sub poll {
-    my ($self) = @_;
-    my $handled = 0;
+has acknowledge_multiple => (is => 'ro', isa => 'Str', default => 0, );
 
-    # only check the channels if we have been shown an interest in
-    foreach my $message ($self->_receive()) {
-        next if not scalar(@{ $self->subscribers });
-        $handled++;
-            try {
-        foreach my $subscriber (@{ $self->subscribers }) {
-                $subscriber->($message->body);
+has props => (is => 'ro', isa => 'HashRef',);
+
+#has consumer_tag => (
+#  is => 'ro',
+#  isa => 'Str',
+#  required => 1,
+#);
+
+has delivery_tag => (is => 'ro', isa => 'Str', required => 1,);
+
+has nacked => (is => 'rw', isa => 'Bool', default => 0,);
+
+has acked => (is => 'rw', isa => 'Bool', default => 0,);
+
+sub BUILDARGS {
+    my ($self, %frame) = @_;
+    if ($frame{body}) {
+        try {
+            $frame{body} = from_json($frame{body});
         }
-                $message->ack;
-            }
-            catch {
-                $message->nack;
-                carp q(There was an exception while processing message through subscriber )
-                    . $_;
-            };
+        catch {
+            warn "Unable to parse json $frame{body}";
+        };
     }
-    return $handled;
+    return {%frame};
 }
 
-sub subscribe {
-    my ($self, $callback) = @_;
-    croak 'callback must be code' if 'CODE' ne ref $callback;
-    push @{ $self->subscribers }, $callback;
-    return;
+sub ack {
+    my ($self) = @_;
+    return if $self->acked or $self->nacked;
+    return unless $self->delivery_tag;
+    $self->rabbit->ack($self->channel, $self->delivery_tag, $self->acknowledge_multiple);
+    $self->acked(1);
+}
+
+sub nack {
+    my ($self, $requeue) = @_;
+    return if $self->acked or $self->nacked;
+    $self->rabbit->reject($self->channel, $self->delivery_tag, $requeue || 0);
+    $self->nacked(1);
 }
 
 sub DEMOLISH {
     my ($self) = @_;
-    if ($self->has_queue && $self->queue && $self->mode eq 'fanout') {
+    if ($self->has_channel) {
+        if ($self->rabbit) {
+#            $self->rabbit->channel_close($self->channel);
+        }
     }
-
     return;
 }
-
-sub _build_topic {         ## no critic (ProhibitUnusedPrivateSubroutines)
-    my ($self) = @_;
-    return Replay::EventSystem::RabbitMQ::Topic->new(
-      rabbit => $self,
-      purpose => $self->purpose,
-      exchange_type => $self->mode,
-    );
-
-}
-
-sub _build_queue {         ## no critic (ProhibitUnusedPrivateSubroutines)
-    my ($self) = @_;
-    return Replay::EventSystem::RabbitMQ::Queue->new(
-      rabbit => $self,
-      purpose => $self->purpose,
-      topic => $self->topic,
-      exchange_type => $self->mode,
-    );
-
-}
-
-
-__PACKAGE__->meta->make_immutable;
 
 1;
 

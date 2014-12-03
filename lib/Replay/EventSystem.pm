@@ -72,9 +72,9 @@ sub initialize {
     my $self = shift;
 
     # initialize our channels
-    $self->control->queue;
-    $self->origin->queue;
-    $self->derived->queue;
+    $self->control->bound_queue;
+    $self->origin->bound_queue;
+    $self->derived->bound_queue;
     return;
 }
 
@@ -145,12 +145,15 @@ sub clear {
 }
 
 sub emit {
-    my ($self, $channel, $message) = @_;
-    return $self->$channel->emit(Replay::Message->new($message)->marshall) if $self->can($channel);
+    my ($self, $channel, $message, @rest) = @_;
+    return $self->$channel->emit(Replay::Message->new(ref $message ? $message : $message => @rest )->marshall)
+        if $self->can($channel);
     use Carp qw/confess/;
     confess "Unknown channel $channel";
 
 }
+
+use EV;
 
 sub poll {
     my ($self, @purposes) = @_;
@@ -163,7 +166,8 @@ sub poll {
             $activity += $self->$purpose->poll();
         }
         catch {
-            carp "Unable to do poll for purpose $purpose: $_";
+            confess "Unable to do poll for purpose $purpose: $_";
+            EV::unloop;
         };
     }
     return;
@@ -186,15 +190,15 @@ sub clock {
             $self->emit(
                 'origin',
                 Replay::Message::Timing->new(
-                    epoch   => time,
-                    minute  => $min,
-                    hour    => $hour,
-                    date    => $mday,
-                    month   => $mon,
-                    year    => $year + $LTYEAR,
-                    weekday => $wday,
-                    yearday => $yday,
-                    isdst   => $isdst,
+                    epoch    => time,
+                    minute   => $min,
+                    hour     => $hour,
+                    date     => $mday,
+                    month    => $mon,
+                    year     => $year + $LTYEAR,
+                    weekday  => $wday,
+                    yearday  => $yday,
+                    isdst    => $isdst,
                     program  => __FILE__,
                     function => 'clock',
                     line     => __LINE__,
@@ -225,8 +229,9 @@ sub _build_queue {
             . $self->config->{QueueClass}
             . " --> $_ ";
     };
-    return $self->config->{QueueClass}
+    my $queue = $self->config->{QueueClass}
         ->new(purpose => $purpose, config => $self->config, mode => $mode);
+    return $queue;
 }
 
 sub _build_control {    ## no critic (ProhibitUnusedPrivateSubroutines)
@@ -241,12 +246,12 @@ sub _build_derived_sniffer {   ## no critic (ProhibitUnusedPrivateSubroutines)
 
 sub _build_derived {           ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    return $self->_build_queue('derived', 'distribute');
+    return $self->_build_queue('derived', 'topic');
 }
 
 sub _build_origin {            ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    return $self->_build_queue('origin', 'distribute');
+    return $self->_build_queue('origin', 'topic');
 }
 
 sub _build_origin_sniffer {    ## no critic (ProhibitUnusedPrivateSubroutines)

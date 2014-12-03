@@ -44,7 +44,7 @@ use Data::Dumper;
 
 use Replay 0.02;
 use Time::HiRes qw/gettimeofday/;
-use Test::Most tests => 17;
+use Test::Most tests => 15;
 use Config::Locale;
 use JSON;
 
@@ -81,26 +81,32 @@ is_deeply [ $tr->key_value_set($funMessage) ],
 
 my $replay = Replay->new(
     config => {
+        stage => 'tests',
         QueueClass  => 'Replay::EventSystem::RabbitMQ',
         StorageMode => 'Memory',
-        RabbitMQ => {
+        RabbitMQ    => {
             host    => 'localhost',
-            port    => '5672',
-            user    => 'replay',
-            pass    => 'replaypass',
-            vhost   => 'replay',
-            timeout => 5,
-            tls     => 1,
-            tune    => { heartbeat => 5, channel_max => 100, frame_max => 1000 },
+            options => {
+                port => '5672',
+                user => 'testuser',
+                password => 'testpass',
+
+                #            user    => 'replay',
+                #            pass    => 'replaypass',
+                #vhost   => 'replay',
+                vhost   => '/testing',
+                timeout => 30,
+                tls     => 1,
+                heartbeat => 1, 
+                channel_max => 0, 
+                frame_max => 131072 
+            },
         },
     },
     rules => [ new TESTRULE ]
 );
 my $ourtestkey = Replay::IdKey->new(
     { name => 'TESTRULE', version => 1, window => 'alltime', key => 'a' });
-warn "REMOVE RESULT"
-    . Dumper $replay->storageEngine->engine->collection($ourtestkey)
-    ->remove({});
 
 $replay->worm;
 $replay->reducer;
@@ -152,8 +158,15 @@ $replay->eventSystem->control->subscribe(
 
 my $time = gettimeofday;
 use AnyEvent;
+my $z = AnyEvent->timer(
+    after => 20,
+    cb    => sub {
+        warn "SHUTDOWN TIMEOUT";
+        $replay->eventSystem->stop;
+      },
+);
 my $e = AnyEvent->timer(
-    after => 5,
+    after => 1,
     cb    => sub {
         warn "EMITTING MESSAGES NOW";
 
@@ -183,23 +196,24 @@ my $idkey = Replay::IdKey->new(
     { name => 'TESTRULE', version => 1, window => 'alltime', key => 'x' });
 
 # Manually set up an expired record
-$replay->storageEngine->engine->collection($idkey)->insert(
-    { idkey => $idkey->cubby },
-    {   '$set' => { locked => 'notreallylocked', lockExpireEpoch => time - 50000 }
-    },
-    { upsert => 0, multiple => 0 },
-);
+my $signature = $replay->storageEngine->engine->state_signature($idkey, ['notreallylocked']);
+$replay->storageEngine->engine->collection($idkey)->{ idkey => $idkey->cubby }{locked} = $signature;
+$replay->storageEngine->engine->collection($idkey)->{ idkey => $idkey->cubby }{lockExpireEpoch} = time - 50000;
 
 {
     my ($uuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
     ok $uuid, "able to check out block";
 
-    ok $replay->storageEngine->engine->revert($idkey, $uuid), "Able to revert";
+    ok ! scalar(%{$replay->storageEngine->engine->collection($idkey)} = ()), "removed entry ";
 }
 
 {
+    $replay->storageEngine->engine->{debug} = 1;
+    $Replay::StorageEngine::Memory::store = {};
     my ($buuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
     ok $buuid, 'checkout good';
+    use Data::Dumper;
+    warn "CHeked out ".$dog;
 
     {
         my ($cuuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
@@ -207,6 +221,7 @@ $replay->storageEngine->engine->collection($idkey)->insert(
     }
 
     ok $replay->storageEngine->engine->revert($idkey, $buuid), "revert clean";
+    $replay->storageEngine->engine->{debug} = 0;
 }
 
 {
@@ -214,23 +229,6 @@ $replay->storageEngine->engine->collection($idkey)->insert(
     ok $uuid, "checked out for error cause";
 }
 
-{
-    my $r = $replay->storageEngine->engine->collection($idkey)->update(
-        { idkey    => $idkey->cubby },
-        { '$unset' => { lockExpireEpoch => 1 }, },
-        { upsert   => 0, multiple => 0 },
-    );
-
-    ok $r->{n}, "The update was successful";
-}
-
-{
-    my ($uuid, $dog) = $replay->storageEngine->engine->checkout($idkey, 5);
-
-    ok $uuid, "Was able to check it out again";
-}
-
 # cleanup
-$replay->storageEngine->engine->db->drop;
 $replay->eventSystem->clear;
 

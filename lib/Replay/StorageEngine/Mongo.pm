@@ -3,7 +3,6 @@ package Replay::StorageEngine::Mongo;
 use Moose;
 use MongoDB;
 use MongoDB::OID;
-use Data::UUID;
 use Replay::IdKey;
 use Readonly;
 use JSON;
@@ -27,10 +26,6 @@ has dbname   => (is => 'ro', builder => '_build_dbname',   lazy => 1,);
 has dbauthdb => (is => 'ro', builder => '_build_dbauthdb', lazy => 1,);
 has dbuser   => (is => 'ro', builder => '_build_dbuser',   lazy => 1,);
 has dbpass   => (is => 'ro', builder => '_build_dbpass',   lazy => 1,);
-
-has uuid => (is => 'ro', builder => '_build_uuid', lazy => 1);
-
-has timeout => (is => 'ro', default => 20,);
 
 my $store = {};
 
@@ -161,6 +156,7 @@ sub relock {
     return $unlockresult;
 }
 
+=pod
 # Locking states
 # 1. unlocked ( lock does not exist )
 # 2. locked unexpired ( lock set to a signature, lockExpired epoch in future )
@@ -188,7 +184,7 @@ override checkout => sub {
     # if it failed, check to see if we can relock an expired record
     my $unluuid       = $self->generate_uuid;
     my $unlsignature  = $self->state_signature($idkey, [$unluuid]);
-    my $expire_relock = $self->relock_expired($idkey, $unlsignature, $timeout);
+    my $expire_relock = $self->tttttttttttttt($idkey, $unlsignature, $timeout);
 
     # If it didn't relock, give up.  Its locked by somebody else.
     if (not defined $expire_relock) {
@@ -249,10 +245,10 @@ override checkout => sub {
         . q(\) IDKEY \()
         . $idkey->cubby . q(\));
 };
+=cut
 
-override revert => sub {
-    my ($self, $idkey, $uuid) = @_;
-    my $signature    = $self->state_signature($idkey, [$uuid]);
+sub relock_i_match_with {
+    my ($self, $idkey, $oldsignature, $newsignature) = @_;
     my $unluuid      = $self->generate_uuid;
     my $unlsignature = $self->state_signature($idkey, [$unluuid]);
     my $state        = $self->collection($idkey)->find_and_modify(
@@ -276,7 +272,7 @@ override revert => sub {
     );
     return if not $state;
     $self->revert_this_record($idkey, $unlsignature, $state);
-    my $result = $self->unlock($idkey, $unluuid);
+    my $result = $self->unlock($idkey, $unluuid, $state);
     return defined $result;
 };
 
@@ -286,11 +282,6 @@ sub lockreport {
         $self->collection($idkey)->find({ idkey => $idkey->cubby },
             { locked => JSON::true, lockExpireEpoch => JSON::true })->all
     ];
-}
-
-sub unlock {
-    my ($self, $idkey, $uuid) = @_;
-    return $self->update_and_unlock($idkey, $uuid);
 }
 
 sub update_and_unlock {
@@ -425,11 +416,6 @@ sub _build_db {          ## no critic (ProhibitUnusedPrivateSubroutines)
     my $config = $self->config;
     my $db     = $self->mongo->get_database($self->dbname);
     return $db;
-}
-
-sub _build_uuid {        ## no critic (ProhibitUnusedPrivateSubroutines)
-    my ($self) = @_;
-    return Data::UUID->new;
 }
 
 sub collection {

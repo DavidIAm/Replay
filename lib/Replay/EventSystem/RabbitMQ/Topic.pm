@@ -1,15 +1,9 @@
-package Replay::EventSystem::RabbitMQ;
+package Replay::EventSystem::RabbitMQ::Topic;
 
 use Moose;
 
 our $VERSION = '0.02';
 
-use Replay::EventSystem::Base;
-with 'Replay::EventSystem::Base';
-
-use Replay::EventSystem::RabbitMQ::Connection;
-use Replay::EventSystem::RabbitMQ::Queue;
-use Replay::EventSystem::RabbitMQ::Topic;
 use Replay::Message;
 
 #use Replay::Message::Clock;
@@ -23,115 +17,115 @@ use JSON;
 use Scalar::Util qw/blessed/;
 use Carp qw/confess/;
 
-has purpose => (is => 'ro', isa => 'Str', required => 1,);
-has subscribers => (is => 'ro', isa => 'ArrayRef', default => sub { [] },);
-
-has config => (is => 'ro', isa => 'HashRef[Item]', required => 1);
-
 has rabbit => (
-  is => 'ro',
-  isa => 'Replay::EventSystem::RabbitMQ::Connection',
-  builder => '_build_rabbit',
-  handles => [ qw( channel_close channel_open exchange_declare queue_declare queue_bind publish get ack reject ) ],
-  lazy => 1,
+    is       => 'ro',
+    isa      => 'Replay::EventSystem::RabbitMQ',
+    required => 1,
+    handles  => [qw( publish )],
 );
 
-has queue => (
+has channel => (
     is        => 'ro',
-    isa     => 'Replay::EventSystem::RabbitMQ::Queue',
-    builder   => '_build_queue',
-    predicate => 'has_queue',
-    handles => [ qw( _receive ) ],
+    isa       => 'Num',
+    builder   => '_new_channel',
     lazy      => 1,
+    predicate => 'has_channel',
 );
+
+has purpose => (is => 'ro', isa => 'Str', required => 1,);
+
+has topic => ( is => 'ro', isa => 'Replay::EventSystem::RabbitMQ::Topic', );
+
+has exchange_type => (is => 'ro', isa => 'Str', default => 'topic',);
+
+has passive => (is => 'ro', isa => 'Bool', default => 1,);
+
+has durable => (is => 'ro', isa => 'Bool', default => 1,);
+
+has auto_delete => (is => 'ro', isa => 'Bool', default => 0,);
+
+has routing_key =>
+    (is => 'ro', isa => 'Str', builder => '_build_routing_key', lazy => 1);
+
+has topic_name =>
+    (is => 'ro', isa => 'Str', builder => '_build_topic_name', lazy => 1);
 
 has topic => (
     is      => 'ro',
     isa     => 'Replay::EventSystem::RabbitMQ::Topic',
     builder => '_build_topic',
-    # Why won't this match the require of base?
-    #  handles => [ qw( emit ) ],
-    lazy    => 1,
+    lazy    => 1
 );
 
-sub _build_rabbit {
-    my ($self) = @_;
-    try {
-        return Replay::EventSystem::RabbitMQ::Connection->instance;
-    }
-    catch {
-        Replay::EventSystem::RabbitMQ::Connection->initialize(
-            config => $self->config->{RabbitMQ});
-        return Replay::EventSystem::RabbitMQ::Connection->instance;
-    };
+sub _new_channel {
+    my $self = shift;
+    return $self->rabbit->channel_open;
 }
 
 sub emit {
-  my ($self, @args) = @_;
-  return $self->topic->emit(@args);
-}
-
-sub poll {
-    my ($self) = @_;
-    my $handled = 0;
-
-    # only check the channels if we have been shown an interest in
-    foreach my $message ($self->_receive()) {
-        next if not scalar(@{ $self->subscribers });
-        $handled++;
-            try {
-        foreach my $subscriber (@{ $self->subscribers }) {
-                $subscriber->($message->body);
+    my ($self, $message) = @_;
+    use Data::Dumper;
+#    warn "EMITTING ON " . $self->topic_name . " : " . $message->{MessageType};
+    if (blessed $message) {
+        if ($message->can('stringify')) {
+            $message = $message->stringify;
         }
-                $message->ack;
-            }
-            catch {
-                $message->nack;
-                carp q(There was an exception while processing message through subscriber )
-                    . $_;
-            };
+        elsif ($message->can('freeze')) {
+            $message = $message->freeze;
+        }
     }
-    return $handled;
-}
+    try {
+        if (ref $message) {
+            $message = to_json($message);
+        }
+    }
+    catch {
+        croak q(WE WERE TRYING TO EMIT A )
+            . ref($message)
+            . " BUT GOT EXCEPTIOIN $_ - NO STRINGIFY OR FREEZE??"
+            . to_json [$message];
+    };
 
-sub subscribe {
-    my ($self, $callback) = @_;
-    croak 'callback must be code' if 'CODE' ne ref $callback;
-    push @{ $self->subscribers }, $callback;
-    return;
+    return $self->rabbit->rabbit->publish($self->channel, $self->topic_name, $message, { exchange => $self->topic_name } );
 }
 
 sub DEMOLISH {
     my ($self) = @_;
-    if ($self->has_queue && $self->queue && $self->mode eq 'fanout') {
+    if ($self->has_channel) {
+        $self->rabbit->channel_close($self->channel);
     }
-
     return;
 }
 
-sub _build_topic {         ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_routing_key {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    return Replay::EventSystem::RabbitMQ::Topic->new(
-      rabbit => $self,
-      purpose => $self->purpose,
-      exchange_type => $self->mode,
-    );
-
+    confess q(No purpose) if not $self->purpose;
+    return join q(.), 'replay', $self->rabbit->config->{stage}, $self->purpose;
 }
 
-sub _build_queue {         ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_topic_name {     ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    return Replay::EventSystem::RabbitMQ::Queue->new(
-      rabbit => $self,
-      purpose => $self->purpose,
-      topic => $self->topic,
-      exchange_type => $self->mode,
-    );
-
+    confess q(No purpose) if not $self->purpose;
+    return join q(_), $self->rabbit->config->{stage}, 'replay', $self->purpose;
 }
 
-
-__PACKAGE__->meta->make_immutable;
+sub _build_topic {          ## no critic (ProhibitUnusedPrivateSubroutines)
+    my ($self) = @_;
+    warn " TYPE " . $self->exchange_type;
+    warn " PASSIVE " . $self->passive;
+    warn " DURABLE " . $self->durable;
+    warn " AUTO_DELETE " . $self->auto_delete;
+    $self->rabbit->exchange_declare(
+        $self->channel,
+        $self->topic_name,
+        {   exchange_type => $self->exchange_type,
+            passive       => $self->passive,
+            durable       => $self->durable,
+            auto_delete   => $self->auto_delete
+        }
+    );
+    return $self;
+}
 
 1;
 
@@ -141,7 +135,7 @@ __END__
 
 =head1 NAME
 
-Replay::EventSystem::RabbitMQ - RabbitMQ Exchange/Queue implimentation
+Replay::EventSystem::RabbitMQ::Topic - RabbitMQ Exchange implimentation
 
 =head1 VERSION
 
@@ -155,7 +149,7 @@ look like this.
 
 my $cv = AnyEvent->condvar;
 
-Replay::EventSystem::AWSQueue->new(
+Replay::EventSystem::RabbitMQ::Topic->new(
     purpose => $purpose,
     config  => {
         stage    => 'test',
