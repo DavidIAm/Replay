@@ -46,6 +46,12 @@ sub _build_rabbit {
     return $rabbit;
 }
 
+sub DEMOLISH {
+  my ($self) = @_;
+  my $number = $self->last_allocated_channel;
+  $self->rabbit->channel_close($number--) while $number > 0;
+}
+
 1;
 
 __END__

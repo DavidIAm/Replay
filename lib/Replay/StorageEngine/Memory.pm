@@ -113,10 +113,8 @@ override checkin => sub {
     $self->purge;
 
         $self->eventSystem->control->emit(
-            Replay::Message->new(
                 MessageType => 'ClearedState',
-                Message     => { $idkey->hash_list }
-            )
+                $idkey->hash_list,
         );
 
     super();
@@ -144,7 +142,7 @@ override revert => sub {
     if (exists $state->{locked} && $state->{locked} ne $signature) {
         carp q(tried to do a revert but didn't have a lock on it);
         $self->eventSystem->emit('control',
-            Replay::Message->new(MessageType => 'NoLockDuringRevert', $idkey->hash_list,)
+            MessageType => 'NoLockDuringRevert', $idkey->hash_list,
         );
     }
 
@@ -177,8 +175,6 @@ sub revert_this_record {
 sub update_and_unlock {
     my ($self, $idkey, $uuid, $state) = @_;
     my $signature = $self->state_signature($idkey, [$uuid]);
-    warn "SIGNATURE" .$signature;
-    cluck "STATE $state" if $self->{debug};
     return unless exists $state->{locked};
     warn "LOCKED" .$state->{locked};
     return unless $state->{locked} eq $signature;

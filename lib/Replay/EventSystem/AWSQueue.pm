@@ -183,6 +183,10 @@ sub _build_queue {    ## no critic (ProhibitUnusedPrivateSubroutines)
     return $queue;
 }
 
+sub done {
+  my $self = shift;
+}
+
 sub DEMOLISH {
     my ($self) = @_;
     if ($self->has_queue && $self->queue && $self->mode eq 'fanout') {

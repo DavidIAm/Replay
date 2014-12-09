@@ -1,4 +1,4 @@
-package Replay::Role::Async;
+package Replay::Role::ClearingMachine;
 
 # This is the general logic that will be used by the traditional clearing
 # pattern:
@@ -97,7 +97,7 @@ sub window {
 
 sub attempt_is_success {
 	my ($self, $key, $message) = @_;
-	$self->emit('origin', Replay::Message::Async->new( key => $key, );
+	$self->emit('origin', Replay::Message::Async->new( key => $key, ));
 	$self->on_success($message);
 }
 sub attempt_is_error {
@@ -112,8 +112,12 @@ sub attempt_is_exception {
 sub key_value_set {
     my ($self, $message) = @_;
 
-		return $self->set_key($message)
-    } if $self->message_in_set($message);
+		return $self->set_key($message);
+} 
+    
+=pod
+
+    if $self->message_in_set($message);
 		return $message->{Message}{key} => {
         requested => 0,
         window    => $self->window($message),
@@ -148,6 +152,7 @@ elsif ($_->{MessageType} eq 'ClearingMachineAttempt' {
 
     return @atoms_to_keep;
 }
+=cut
 
 1;
 

@@ -34,6 +34,7 @@ has rabbit => (
   builder => '_build_rabbit',
   handles => [ qw( channel_close channel_open exchange_declare queue_declare queue_bind publish get ack reject ) ],
   lazy => 1,
+  clearer => 'done_with_object',
 );
 
 has queue => (
@@ -101,14 +102,6 @@ sub subscribe {
     return;
 }
 
-sub DEMOLISH {
-    my ($self) = @_;
-    if ($self->has_queue && $self->queue && $self->mode eq 'fanout') {
-    }
-
-    return;
-}
-
 sub _build_topic {         ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     return Replay::EventSystem::RabbitMQ::Topic->new(
@@ -130,6 +123,10 @@ sub _build_queue {         ## no critic (ProhibitUnusedPrivateSubroutines)
 
 }
 
+sub done {
+  my ($self) = @_;
+#  $self->rabbit->_clear_instance;
+}
 
 __PACKAGE__->meta->make_immutable;
 

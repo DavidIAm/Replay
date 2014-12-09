@@ -73,6 +73,10 @@ sub emit {
         elsif ($message->can('freeze')) {
             $message = $message->freeze;
         }
+    } elsif ('HASH' eq ref $message) {
+    } else {
+      use Carp qw/confess/;
+     confess "why am I trying to emit $message?";
     }
     try {
         if (ref $message) {
@@ -91,7 +95,7 @@ sub emit {
 
 sub DEMOLISH {
     my ($self) = @_;
-    if ($self->has_channel) {
+    if ($self->has_channel && defined $self->rabbit) {
         $self->rabbit->channel_close($self->channel);
     }
     return;

@@ -89,11 +89,9 @@ sub checkout {
             q(Unable to obtain lock because the current one is locked and unexpired ())
             . $idkey->cubby
             . qq(\)\n);
-        $self->eventSystem->control->emit(
-            Replay::Message->new(
+        $self->eventSystem->emit('control',
                 MessageType => 'NoLock',
-                Message     => { $idkey->hash_list }
-            )
+                $idkey->hash_list,
         );
         return;
     }
@@ -111,10 +109,8 @@ sub checkout {
 
     $self->eventSystem->emit(
         'control',
-        Replay::Message->new(
             MessageType => 'NoLockPostRevert',
-            Message     => { $idkey->hash_list }
-        )
+            $idkey->hash_list,
     );
     if (not defined $relockresult) {
         carp "Unable to relock after revert ($unlsignature)? "
@@ -132,10 +128,8 @@ sub checkout {
 
     $self->eventSystem->emit(
         'control',
-        Replay::Message->new(
             MessageType => 'NoLockPostRevertRelock',
-            Message     => { $idkey->hash_list }
-        )
+            $idkey->hash_list,
     );
 
     carp q(checkout after revert and relock failed.  Look in COLLECTION \()
@@ -163,12 +157,9 @@ sub revert {
     carp q(tried to do a revert but didn't have a lock on it) if not $state;
     $self->eventSystem->emit(
         'control',
-        Replay::Message->new(
             MessageType => 'NoLockDuringRevert',
-            Message     => { $idkey->hash_list }
-        )
+            $idkey->hash_list,
     );
-    warn "STATE IS ".Dumper $state;
     return if not $state;
     $self->revert_this_record($idkey, $unlsignature, $state);
     my $result = $self->unlock($idkey, $unluuid, $state);
@@ -322,8 +313,7 @@ sub window_all {
 
 sub find_keys_need_reduce {
     my ($self, $idkey) = @_;
-    return $self->eventSystem->control->emit(
-        Replay::Message->new(MessageType => q(FoundKeysForReduce), Message => {}));
+    return $self->eventSystem->control->emit( MessageType => q(FoundKeysForReduce));
 }
 
 sub enumerate_windows {

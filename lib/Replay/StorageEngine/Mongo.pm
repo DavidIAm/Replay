@@ -193,10 +193,8 @@ override checkout => sub {
             . $idkey->cubby
             . qq(\)\n);
         $self->eventSystem->control->emit(
-            Replay::Message->new(
                 MessageType => 'NoLock',
-                Message     => { $idkey->hash_list }
-            )
+                $idkey->hash_list
         );
         return;
     }
@@ -214,10 +212,8 @@ override checkout => sub {
 
     $self->eventSystem->emit(
         'control',
-        Replay::Message->new(
             MessageType => 'NoLockPostRevert',
-            Message     => { $idkey->hash_list }
-        )
+            $idkey->hash_list,
     );
     if (not defined $relockresult) {
         carp "Unable to relock after revert ($unlsignature)? "
@@ -235,10 +231,8 @@ override checkout => sub {
 
     $self->eventSystem->emit(
         'control',
-        Replay::Message->new(
             MessageType => 'NoLockPostRevertRelock',
-            Message     => { $idkey->hash_list }
-        )
+            $idkey->hash_list,
     );
     carp q(checkout after revert and relock failed.  Look in COLLECTION \()
         . $idkey->collection
@@ -252,7 +246,7 @@ sub relock_i_match_with {
     my $unluuid      = $self->generate_uuid;
     my $unlsignature = $self->state_signature($idkey, [$unluuid]);
     my $state        = $self->collection($idkey)->find_and_modify(
-        {   query  => { idkey => $idkey->cubby, locked => $signature, },
+        {   query  => { idkey => $idkey->cubby, locked => $oldsignature, },
             update => {
                       q^$^
                     . 'set' =>
@@ -265,10 +259,8 @@ sub relock_i_match_with {
     carp q(tried to do a revert but didn't have a lock on it) if not $state;
     $self->eventSystem->emit(
         'control',
-        Replay::Message->new(
             MessageType => 'NoLockDuringRevert',
-            Message     => { $idkey->hash_list }
-        )
+            $idkey->hash_list,
     );
     return if not $state;
     $self->revert_this_record($idkey, $unlsignature, $state);
@@ -289,6 +281,7 @@ sub update_and_unlock {
     my $signature = $self->state_signature($idkey, [$uuid]);
     my @unsetcanon = ();
     if ($state) {
+        delete $state->{_id};               # cannot set _id!
         delete $state->{inbox};             # we must not affect the inbox on updates!
         delete $state->{desktop};           # there is no more desktop on checkin
         delete $state->{lockExpireEpoch};   # there is no more expire time on checkin
@@ -326,10 +319,8 @@ override checkin => sub {
         )
     {
         $self->eventSystem->control->emit(
-            Replay::Message->new(
                 MessageType => 'ClearedState',
-                Message     => { $idkey->hash_list }
-            )
+                $idkey->hash_list
         );
     }
     return if not defined $result;

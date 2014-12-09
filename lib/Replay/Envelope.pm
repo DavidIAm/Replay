@@ -86,6 +86,7 @@ has UUID => (
 around BUILDARGS => sub {
     my $orig  = shift;
     my $class = shift;
+    use Data::Dumper;
     my %args  = 'HASH' eq ref $_[0] ? %{ $_[0] } : @_;
     $class->meta->make_mutable;
     my %attributes = map { $_->{name} => $_ } $class->meta->get_all_attributes;

@@ -110,7 +110,7 @@ sub _build_bound_queue {
 
 sub DEMOLISH {
     my ($self) = @_;
-    if ($self->has_channel) {
+    if ($self->has_channel && defined $self->rabbit) {
         $self->rabbit->channel_close($self->channel);
     }
     return;

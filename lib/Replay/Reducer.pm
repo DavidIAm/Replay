@@ -35,7 +35,8 @@ sub rule {
 }
 
 sub reduce_wrapper {
-    my ($self, $envelope) = @_;
+    my ($self, $first, @input ) = @_;
+    my $envelope = blessed $first ? $first : ref $first ? $first : { $first, @input };
     my $type
         = blessed $envelope ? $envelope->MessageType : $envelope->{MessageType};
     return if $type ne 'Reducable';
@@ -77,27 +78,21 @@ sub reduce_wrapper {
 
         $self->storageEngine->store_new_canonical_state($idkey, $uuid, $emitter,
             $self->rule($idkey)->reduce($emitter, @state));
-        $self->eventSystem->control->emit(
-            Replay::Message->new(
+        $self->eventSystem->emit('control',
                 MessageType => 'Reduced',
-                Message     => { $idkey->hash_list }
-            )
+                $idkey->hash_list,
         );
     }
     catch {
         carp "REDUCING EXCEPTION: $_";
         carp "Reverting state because there was a reduce exception\n";
         $self->storageEngine->revert($idkey, $uuid);
-        $self->eventSystem->control->emit(
-            Replay::Message->new(
+        $self->eventSystem->emit('control',
                 MessageType => 'ReducerException',
-                Message     => {
                     rule    => $self->rule($idkey)->name,
                     version => $self->rule($idkey)->version,
                     exception => (blessed $_ && $_->can('trace') ? $_->trace->as_string : $_),
                     Message => $message
-                }
-            )
         );
     };
     return;
@@ -220,33 +215,24 @@ override reduce => sub {
         if (ruleState($index, [@atoms], 'NewStateA')) {
             $emitter->emit(
                 'derived',
-                Replay::Message->new(
-                    {   MessageType => 'StateATypeOfMessage',
-                        message     => { relayed => "data for state A" },
-                    }
-                )
+                    MessageType => 'StateATypeOfMessage',
+                    relayed => "data for state A" 
             );
         }
         if (ruleState($index, [@atoms], 'NewStateB')) {
             $emitter->emit(
                 'derived',
-                Replay::Message->new(
-                    {   MessageType => 'StateBTypeOfMessage',
-                        message     => { relayed => "data for state B" },
-                    }
-                )
+                    MessageType => 'StateBTypeOfMessage',
+                    relayed => "data for state B"
             );
         }
         if (ruleState($index, [@atoms], 'shouldNowRequest')) {
             $emitter->emit(
                 'origin',
-                Replay::Message->new(
                     MessageType => 'RPCURLResponseForRequest',
-                    message     => {
                         response => $jsonrpcAgent->get('RPCURL')->content->from_json,
                         url      => $key,
                         window   => $idKey->window,
-                    },
                     effectiveTime => $atom->{effectiveTime} || $atom->{receivedTime}
                 );
             );

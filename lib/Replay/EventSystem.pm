@@ -141,6 +141,7 @@ sub clear {
     $self->clear_origin;
     $self->clear_derived_sniffer;
     $self->clear_origin_sniffer;
+    $self->config->{QueueClass}->done;
     return;
 }
 

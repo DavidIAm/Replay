@@ -27,15 +27,20 @@ sub poll {
 }
 
 sub emit {
-    my ($self, $message) = @_;
+    my ($self, $message, @rest) = @_;
     return push @{ $self->{events} }, $message->marshall if blessed $message;
-    return push @{ $self->{events} }, $message;
+    return push @{ $self->{events} }, $message if ref $message;
+    return push @{ $self->{events} }, { $message, @rest };
 }
 
 sub subscribe {
     my ($self, $callback) = @_;
     croak 'callback must be code' if 'CODE' ne ref $callback;
     return push @{ $self->subscribers }, $callback;
+}
+
+sub done {
+  my ($self) = @_;
 }
 
 1;
