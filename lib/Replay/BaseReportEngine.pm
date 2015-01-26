@@ -60,21 +60,27 @@ sub format_globsummary {
 # merge a list of atoms with the existing list in that slot
 sub update_delivery {
     my ($self, $idkey, @state) = @_;
-    $self->store($idkey, $self->rule($idkey)->delivery(@state));
+    my $rule = $self->rule($idkey);
+    return unless $rule->can('delivery');
+    $self->store($idkey, $rule->delivery(@state));
     $self->eventSystem->control->emit(
         Replay::Message::Report::NewDelivery->new($idkey->hash_list));
 }
 
 sub update_summary {
     my ($self, $idkey, @state) = @_;
-    $self->store_summary($idkey, $self->rule($idkey)->summary(@state));
+    my $rule = $self->rule($idkey);
+    return unless $rule->can('summary');
+    $self->store_summary($idkey, $rule->summary(@state));
     return $self->eventSystem->control->emit(
         Replay::Message::Report::NewSummary->new($idkey->hash_list ));
 }
 
 sub update_globsummary {
     my ($self, $idkey, @state) = @_;
-    $self->store_globsummary($idkey, $self->rule($idkey)->globsummary(@state));
+    my $rule = $self->rule($idkey);
+    return unless $rule->can('globsummary');
+    $self->store_globsummary($idkey, $rule->globsummary(@state));
     return $self->eventSystem->control->emit(
         Replay::Message::Report::NewGlobSummary->new(
             $idkey->hash_list
