@@ -24,86 +24,134 @@ sub BUILD {
 
 sub delivery {
     my ($self, $idkey) = @_;
-    my $file = $self->filename_delivery($idkey);
+    my $directory = $self->directory_delivery($idkey);
+    my $file = $self->filename($directory, $self->revision($idkey, $directory));
     return read_file($file) if -f $file;
     return;
 }
 
 sub summary {
     my ($self, $idkey) = @_;
-    my $file = $self->filename_summary($idkey);
+    my $directory = $self->directory_summary($idkey);
+    my $file = $self->filename($directory, $self->revision($idkey, $directory));
     return read_file($file) if -f $file;
     return;
 }
 
 sub globsummary {
     my ($self, $idkey) = @_;
-    my $file = $self->filename_globsummary($idkey);
+    my $directory = $self->directory_globsummary($idkey);
+    my $file = $self->filename($directory, $self->revision($idkey, $directory));
     return read_file($file) if -f $file;
     return;
 }
 
-sub filename_delivery {
-    my ($self, $idkey) = @_;
-    my $directory = catdir($self->config->{reportFilesystemRoot},
-        $idkey->name, $idkey->version, $idkey->window, $idkey->key);
-    mkpath $directory;
-    my $vfile = catfile($directory, 'CURRENT');
+sub revision_file {
+    my ($self, $directory) = @_;
+    return catfile($directory, 'CURRENT');
+}
+sub latest {
+    my ($self, $directory) = @_;
+    return 0 unless -d $directory;
+    my $vfile = $self->revision_file($directory);
+    my $max   = -1;
     if (!-f $vfile) {
-        IO::File->new($vfile, 'w')->write('0');
+
+        # in this case we scan the directory to get past all the frozen revisions
+        # which we must not overwrite
+        my $dir = IO::Dir->new($directory);
+        if (defined $dir) {
+            my $entry;
+            while (defined($entry = $dir->read)) {
+                my ($num) = $entry =~ /version_(\d+)/;
+                $max = $num if $num > $max;
+            }
+            $max++;
+        }
+        return $max;
     }
-    my $version = read_file($vfile) + 0;
-    return catfile $directory, sprintf 'version_%05d', $version;
+    return read_file($vfile) + 0;
+}
+
+sub revision {
+    my ($self, $idkey, $directory) = @_;
+    if ($idkey->revision eq 'latest') {
+        return $self->latest($directory);
+    }
+    else {
+        return $idkey->revision;
+    }
+}
+
+sub filename {
+    my ($self, $directory, $revision) = @_;
+    return catfile $directory, sprintf 'version_%05d', $revision;
+}
+
+sub directory_delivery {
+  my ($self, $idkey) = @_;
+  return catdir($self->config->{reportFilesystemRoot},
+        $idkey->name, $idkey->version, $idkey->window, $idkey->key);
+}
+
+sub delete_latest_report {
+    my ($self, $directory) = @_;
+    unlink $self->filename($directory, $self->latest($directory));
+    unlink catfile $directory, 'CURRENT';
+    rmdir $directory;
+    return;
 }
 
 sub store {
-    my ($self, $idkey, @state) = @_;
-    my $fh = IO::File->new($self->filename_delivery($idkey), 'w');
+    my ($self, $directory, $revision, @state) = @_;
+    use Data::Dumper;
+    return $self->delete_latest_report($directory) unless scalar @state;
+    mkpath $directory unless -d $directory;
+    my $filename = $self->filename($directory, $revision);
+    # TODO: make this thread safe writes with temp name and renames
+    my $fh = IO::File->new($filename, 'w');
     print $fh @state;
+    my $vfile = $self->revision_file($directory);
+    my $vh = IO::File->new($vfile, 'w');
+    print $vh $revision;
+    return $filename;
 }
 
-sub filename_summary {
-    my ($self, $idkey) = @_;
-    my $directory = catdir($self->config->{reportFilesystemRoot},
+sub store_delivery {
+    my ($self, $idkey, @state) = @_;
+    my $directory = $self->directory_delivery($idkey);
+    return $self->store($directory, $self->revision($idkey, $directory), @state);
+}
+
+sub directory_summary {
+  my ($self, $idkey) = @_;
+  return catdir($self->config->{reportFilesystemRoot},
         $idkey->name, $idkey->version, $idkey->window);
-    mkpath $directory;
-    my $vfile = catfile($directory, 'CURRENT');
-    if (!-f $vfile) {
-        IO::File->new($vfile, 'w')->write('0');
-    }
-    my $version = read_file($vfile) + 0;
-    return catfile $directory, sprintf 'version_%05d', $version;
 }
 
 sub store_summary {
     my ($self, $idkey, @state) = @_;
-    my $fh = IO::File->new($self->filename_summary($idkey), 'w');
-    print $fh @state;
+    my $directory = $self->directory_summary($idkey);
+    return $self->store($directory, $self->revision($idkey, $directory), @state);
 }
 
-sub filename_globsummary {
-    my ($self, $idkey) = @_;
-    my $directory = catdir $self->config->{reportFilesystemRoot}, $idkey->name,
-        $idkey->version;
-    mkpath $directory;
-    my $vfile = catfile($directory, 'CURRENT');
-    if (!-f $vfile) {
-        IO::File->new($vfile, 'w')->write('0');
-    }
-    my $version = read_file($vfile) + 0;
-    return catfile $directory, sprintf 'version_%05d', $version;
+sub directory_globsummary {
+  my ($self, $idkey) = @_;
+  return catdir($self->config->{reportFilesystemRoot},
+        $idkey->name, $idkey->version);
 }
 
 sub store_globsummary {
     my ($self, $idkey, @state) = @_;
-    my $fh = IO::File->new($self->filename_globsummary($idkey), 'w');
-    print $fh @state;
+    my $directory = $self->directory_globsummary($idkey);
+    return $self->store($directory, $self->revision($idkey, $directory), @state);
 }
 
 # State transition = add new atom to inbox
 
 sub freeze {
     confess "unimplimented";
+    # this should copy the current report to a new one, and increment CURRENT.
 }
 
 1;

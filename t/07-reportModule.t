@@ -33,16 +33,20 @@ sub key_value_set {
 
 sub compare {
     my ($self, $aa, $bb) = @_;
+    return 1 if $aa eq 'purge' || $bb eq 'purge';
     return ($aa || 0) <=> ($bb || 0);
 }
 
 sub reduce {
     my ($self, $emitter, @state) = @_;
-    my $response = List::Util::reduce { $a + $b } @state;
+    warn "PURGE FOUND" if grep { $_ eq 'purge' } @state;
+    return if grep { $_ eq 'purge' } @state;
+    return List::Util::reduce { $a + $b } @state;
 }
 
 sub delivery {
     my ($self, @state) = @_;
+    return unless @state;
     warn "TESTRULE DELIVERY";
     return to_json [@state];
 }
@@ -50,7 +54,7 @@ sub delivery {
 package Test::ReportModule;
 
 use AnyEvent;
-use Test::Most tests => 11;
+use Test::Most tests => 12;
 use Data::Dumper;
 use Net::RabbitMQ;
 use Time::HiRes qw/gettimeofday/;
@@ -98,8 +102,12 @@ my $notAfterAll
 my $secondMessage = { MessageType => 'interesting',
     Message => { c => [ 6, 7, 8, 9, 10 ], } };
 
+my $purgeMessage = { MessageType => 'interesting',
+    Message => { c => [ 'purge' ], } };
+
 # automatically stop once we get both new canonicals
 my $canoncount = -2;
+my $deliverycount = -2;
 use Scalar::Util;
 $replay->eventSystem->origin->subscribe(
     sub {
@@ -169,6 +177,7 @@ $replay->eventSystem->control->subscribe(
                     . $message->{MessageType} . "\n";
 
                 return unless $message->{MessageType} eq 'ReportNewDelivery';
+                return if ++ $deliverycount;
 
                 warn "PROPER STOP";
                 $replay->eventSystem->stop;
@@ -176,6 +185,7 @@ $replay->eventSystem->control->subscribe(
         );
 
         $replay->eventSystem->derived->emit($funMessage);
+        $replay->eventSystem->derived->emit($purgeMessage);
     }
 );
 
@@ -200,5 +210,18 @@ is_deeply [
         )
     )
     ],
-    ['["15"]'];
+    ['["30"]'], 'doubled on extra insert';
+
+is_deeply [
+    $replay->reportEngine->delivery(
+        Replay::IdKey->new(
+            { name => 'TESTRULE', version => 1, window => 'alltime', key => 'c' }
+        )
+    )
+    ],
+    [], 'purged data returns empty serialization';
+
+
+
+
 

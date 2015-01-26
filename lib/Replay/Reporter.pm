@@ -83,7 +83,7 @@ sub report_wrapper {
             or $type eq 'NewDelivery'
             or $type eq 'NewNewGlobDelivery';
         $idkey = $self->extract_idkey($envelope);
-        warn "CONTROL HIT FOUND EXPECTED";
+
         $meta = $self->do_delivery($idkey, $envelope) if $type eq 'NewCanonical';
         $meta = $self->do_summary($idkey, $envelope) if $type eq 'NewDelivery';
         $meta = $self->do_globsummary($idkey, $envelope)
@@ -105,7 +105,7 @@ sub report_wrapper {
             (   $idkey
                 ? ( rule    => $self->rule($idkey)->name,
                     version => $self->rule($idkey)->version,
-                    Message => $idkey
+                    Message => { $idkey->hash_list },
                     )
                 : ()
             ),

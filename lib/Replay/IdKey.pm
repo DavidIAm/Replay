@@ -12,6 +12,7 @@ has name    => (is => 'rw', isa => 'Str', required => 1,);
 has version => (is => 'rw', isa => 'Str', required => 1,);
 has window  => (is => 'rw', isa => 'Str', required => 1,);
 has key     => (is => 'rw', isa => 'Str', required => 1,);
+has revision => (is => 'rw', isa => 'Str', default => 'latest',);
 
 with Storage('format' => 'JSON');
 
@@ -67,7 +68,8 @@ sub marshall {
         name    => $self->name,
         version => $self->version,
         window  => $self->window,
-        key     => $self->key
+        key     => $self->key,
+        ($self->revision ne 'latest' ? (revision => $self->revision) : ()),
     );
 }
 
