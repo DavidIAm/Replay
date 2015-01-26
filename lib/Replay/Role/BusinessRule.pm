@@ -35,8 +35,10 @@ has fullDiff => (is => 'ro', isa => 'CodeRef', required => 0,);
 # used by clerk
 # [formatted Report] function delivery ( rule, [ keyA => arrayrefOfMessage, ... ] )
 # [formatted summary] function summary ( rule, [ keyA => arrayrefOfMessage, ... ] )
-has delivery => (is => 'ro', isa => 'CodeRef', required => 0,);
-has summary  => (is => 'ro', isa => 'CodeRef', required => 0,);
+# [formatted globsummary] function globsummary ( rule, [ keyA => arrayrefOfMessage, ... ] )
+#has delivery => (is => 'ro', isa => 'CodeRef', required => 0,);
+#has summary  => (is => 'ro', isa => 'CodeRef', required => 0,);
+#has globsummary  => (is => 'ro', isa => 'CodeRef', required => 0,);
 
 1;
 

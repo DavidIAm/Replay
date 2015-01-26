@@ -7,13 +7,15 @@ our $VERSION = '0.02';
 
 use Moose;
 use AnyEvent;
+use Replay::StorageEngine 0.02;
+use Replay::ReportEngine 0.03;
 use Replay::EventSystem 0.02;
 use Replay::RuleSource 0.02;
-use Replay::StorageEngine 0.02;
+use Replay::Reporter 0.03;
 use Replay::Reducer 0.02;
 use Replay::Mapper 0.02;
-use Replay::WORM 0.02;
 use Replay::Types 0.02;
+use Replay::WORM 0.02;
 
 has rules => (is => 'ro', isa => 'ArrayRef[BusinessRule]', required => 1,);
 
@@ -42,6 +44,23 @@ has eventSystem => (
 sub _build_event_system {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return Replay::EventSystem->new(config => $self->config);
+}
+
+has reportEngine => (
+    is      => 'ro',
+    isa     => 'Replay::ReportEngine',
+    builder => '_build_report_engine',
+    lazy    => 1,
+);
+
+sub _build_report_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
+    my $self = shift;
+    return Replay::ReportEngine->new(
+        config      => $self->config,
+        eventSystem => $self->eventSystem,
+        ruleSource  => $self->ruleSource,
+        storageEngine => $self->storageEngine,
+    );
 }
 
 has storageEngine => (
@@ -100,6 +119,23 @@ has worm =>
 sub _build_worm {      ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return Replay::WORM->new(eventSystem => $self->eventSystem);
+}
+
+has reporter => (
+    is      => 'ro',
+    isa     => 'Replay::Reporter',
+    builder => '_build_reporter',
+    lazy    => 1,
+);
+
+sub _build_reporter {    ## no critic (ProhibitUnusedPrivateSubroutines)
+    my $self = shift;
+    return Replay::Reporter->new(
+        eventSystem   => $self->eventSystem,
+        ruleSource    => $self->ruleSource,
+        storageEngine => $self->storageEngine,
+        reportEngine => $self->reportEngine,
+    );
 }
 
 1;

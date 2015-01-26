@@ -6,7 +6,7 @@ use Try::Tiny;
 use Carp qw/croak/;
 use English qw/-no_match_vars/;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
 has engine => (
@@ -24,26 +24,45 @@ has mode => (
 );
 has ruleSource  => (is => 'ro', isa => 'Replay::RuleSource',  required => 1,);
 has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1,);
-has storage => (is => 'ro', isa => 'Replay::StorageEngine', required => 1,);
+has storageEngine =>
+    (is => 'ro', isa => 'Replay::StorageEngine', required => 1,);
 
 # Delegate the api points
 sub delivery {
-    my ($self, @args) = @_;
-    return $self->engine->retrieve(@args);
+    my ($self, $idkey) = @_;
+    return $self->engine->delivery($idkey);
+}
+sub summary {
+    my ($self, $idkey) = @_;
+    return $self->engine->summary($idkey);
+}
+sub globsummary {
+    my ($self, $idkey) = @_;
+    return $self->engine->globsummary($idkey);
+}
+sub update_delivery {
+    my ($self, $idkey) = @_;
+    return $self->engine->update_delivery($idkey,
+        $self->storageEngine->fetch_canonical_state($idkey));
 }
 
-sub summary {
-    my ($self, @args) = @_;
-    return $self->engine->absorb(@args);
+sub update_summary {
+    my ($self, $idkey) = @_;
+    return $self->engine->update_summary($idkey,
+        $self->reportEngine->fetch_summary_data($idkey));
+}
+sub update_globsummary {
+    my ($self, $idkey) = @_;
+    return $self->engine->update_globsummary($idkey,
+        $self->reportEngine->fetch_globsummary_data($idkey));
 }
 
 sub freeze {
-    my ($self, @args) = @_;
-    return $self->engine->freeze(@args);
+  confess "unimplimented";
 }
 
 sub checkpoint {
-    return;
+  confess "unimplimented";
 }
 
 sub _build_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
@@ -53,7 +72,6 @@ sub _build_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
         config      => $self->config,
         ruleSource  => $self->ruleSource,
         eventSystem => $self->eventSystem,
-        storage     => $self->storage,
     );
 }
 

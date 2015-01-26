@@ -2,11 +2,13 @@ package Replay::BaseReportEngine;
 
 use Moose;
 use Digest::MD5 qw/md5_hex/;
-use Replay::Message::Reducable;
-use Replay::Message::Reducing;
-use Replay::Message::Reverted;
-use Replay::Message::NewCanonical;
-use Replay::Message::Fetched;
+
+use Replay::Message::Report::NewDelivery;
+use Replay::Message::Report::NewSummary;
+use Replay::Message::Report::NewGlobSummary;
+use Replay::Message::Report::Freeze;
+use Replay::Message::Report::CopyDomain;
+use Replay::Message::Report::Checkpoint;
 use Replay::Message::Locked;
 use Replay::Message::Unlocked;
 use Replay::Message::WindowAll;
@@ -16,11 +18,11 @@ use Readonly;
 use Replay::IdKey;
 use Carp qw/croak carp/;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 $Storable::canonical = 1;    ## no critic (ProhibitPackageVars)
 
-Readonly my $REDUCE_TIMEOUT => 60;
+Readonly my $REPORT_TIMEOUT => 60;
 Readonly my $READONLY       => 1;
 
 has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
@@ -37,38 +39,67 @@ sub rule {
     return $rule;
 }
 
+sub format_delivery {
+  my ($self, $idkey, @state) = @_;
+  warn "REPORT ENGINE BASE FORMAT DELIVERY";
+  use Data::Dumper;
+  return $self->rule($idkey)->delivery(@state);
+};
+
+sub format_summary {
+  my ($self, $idkey, @state) = @_;
+  $self->rule($idkey)->summary(@state);
+}
+
+sub format_globsummary {
+  my ($self, $idkey, @state) = @_;
+  return $self->rule($idkey)->globsummary(@state);
+}
+
+
 # merge a list of atoms with the existing list in that slot
-sub delivery {
-    my ($self, $idkey) = @_;
-    return $self->eventSystem->control->emit(
-        Replay::Message::Report::NewDelivery->new(Message => { $idkey->hash_list }));
+sub update_delivery {
+    my ($self, $idkey, @state) = @_;
+    $self->store($idkey, $self->rule($idkey)->delivery(@state));
+    $self->eventSystem->control->emit(
+        Replay::Message::Report::NewDelivery->new($idkey->hash_list));
 }
 
-sub summary {
-    my ($self, $idkey) = @_;
+sub update_summary {
+    my ($self, $idkey, @state) = @_;
+    $self->store_summary($idkey, $self->rule($idkey)->summary(@state));
     return $self->eventSystem->control->emit(
-        Replay::Message::Report::NewSummary->new(Message => { $idkey->hash_list }));
+        Replay::Message::Report::NewSummary->new($idkey->hash_list ));
 }
 
-sub globsummary {
-    my ($self, $idkey) = @_;
+sub update_globsummary {
+    my ($self, $idkey, @state) = @_;
+    $self->store_globsummary($idkey, $self->rule($idkey)->globsummary(@state));
     return $self->eventSystem->control->emit(
         Replay::Message::Report::NewGlobSummary->new(
-            Message => { $idkey->hash_list }
+            $idkey->hash_list
         )
     );
+}
+
+sub fetch_summary_data {
+  confess "unimplimented";
+}
+
+sub fetch_globsummary_data {
+  confess "unimplimented";
 }
 
 sub freeze {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Report::Freeze->new(Message => { $idkey->hash_list }));
+        Replay::Message::Report::Freeze->new($idkey->hash_list) );
 }
 
 sub copydomain {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Report::CopyDomain->new(Message => { $idkey->hash_list }));
+        Replay::Message::Report::CopyDomain->new($idkey->hash_list ));
 }
 
 sub checkpoint {
@@ -77,7 +108,7 @@ sub checkpoint {
         $idkey->hash . 'Reducable',
         sub {
             $self->eventSystem->control->emit(
-                Replay::Message::Report::Checkpoint->new(Message => { $idkey->hash_list }));
+                Replay::Message::Report::Checkpoint->new($idkey->hash_list ));
         }
     );
 }
@@ -92,143 +123,6 @@ sub delay_to_do_once {
             $code->();
         }
     );
-}
-
-# accessor - given a state, generate a signature
-sub state_signature {
-    my ($self, $idkey, $list) = @_;
-    return undef if not defined $list;  ## no critic (ProhibitExplicitReturnUndef)
-    $self->stringtouch($list);
-    return md5_hex($idkey->hash . Storable::freeze($list));
-}
-
-sub stringtouch {
-    my ($self, $struct) = @_;
-    if (not ref $struct) {
-        $struct .= q();
-    }
-    if ('ARRAY' eq ref $struct) {
-        foreach (0 .. $#{$struct}) {
-            if (ref $struct->[$_]) {
-                stringtouch($struct->[$_]);
-            }
-            else {
-                $struct->[$_] .= q();
-            }
-        }
-    }
-    if ('HASH' eq ref $struct) {
-        foreach (keys %{$struct}) {
-            if (ref $struct->{$_}) {
-                stringtouch($struct->{$_});
-            }
-            else {
-                $struct->{$_} .= q();
-            }
-        }
-    }
-    return;
-}
-
-sub fetch_transitional_state {
-    my ($self, $idkey) = @_;
-
-    my ($uuid, $cubby) = $self->checkout($idkey, $REDUCE_TIMEOUT);
-
-    return if not defined $cubby;
-
-    # drop the checkout if we don't have any items to reduce
-    if (0 == scalar @{ $cubby->{desktop} || [] }) {
-        carp q(Reverting because we didn't check out any work to do?) . qq(\n);
-        $self->revert($idkey, $uuid);
-        return;
-    }
-
-    # merge in canonical, moving atoms from desktop
-    my $reducing;
-    try {
-        $reducing
-            = $self->merge($idkey, $cubby->{desktop}, $cubby->{canonical} || []);
-    }
-    catch {
-        carp "Reverting because doing the merge caused an exception $_\n";
-        $self->revert($idkey, $uuid);
-        return;
-    };
-
-    # notify interested parties
-    $self->eventSystem->control->emit(
-        Replay::Message::Reducing->new(Message => { $idkey->hash_list }));
-
-    # return uuid and list
-    return $uuid => {
-        Windows      => $idkey->window,
-        Timeblocks   => $cubby->{Timeblocks} || [],
-        Ruleversions => $cubby->{Ruleversions} || [],
-    } => @{$reducing};
-
-}
-
-sub store_new_canonical_state {
-    my ($self, $idkey, $uuid, $emitter, @atoms) = @_;
-    my $cubby = $self->retrieve($idkey);
-    $cubby->{canonVersion}++;
-    $cubby->{canonical} = [@atoms];
-    $cubby->{canonSignature}
-        = $self->state_signature($idkey, $cubby->{canonical});
-    delete $cubby->{desktop};
-    my $newstate = $self->checkin($idkey, $uuid, $cubby);
-    $emitter->release;
-
-    foreach my $atom (@{ $emitter->atomsToDefer }) {
-        $self->absorb($idkey, $atom, {});
-    }
-    $self->eventSystem->control->emit(
-        Replay::Message::NewCanonical->new(Message => { $idkey->hash_list }));
-    if (scalar @{ $newstate->{inbox} || [] }) {
-        $self->eventSystem->control->emit(
-            Replay::Message::Reducable->new(Message => { $idkey->hash_list }))
-            ;    # renotify reducable if inbox has entries now
-    }
-    return $newstate;    # release pending messages
-}
-
-sub fetch_canonical_state {
-    my ($self, $idkey) = @_;
-    my $cubby = $self->retrieve($idkey);
-    my $e = $self->state_signature($idkey, $cubby->{canonical}) || q();
-    if (($cubby->{canonSignature} || q()) ne ($e || q())) {
-        carp "canonical corruption $cubby->{canonSignature} vs. " . $e;
-    }
-    $self->eventSystem->control->emit(
-        Replay::Message::Fetched->new(Message => { $idkey->hash_list }));
-    return @{ $cubby->{canonical} || [] };
-}
-
-sub window_all {
-    my ($self, $idkey) = @_;
-    return $self->eventSystem->control->emit(
-        Replay::Message::WindowAll->new(Message => { $idkey->hash_list }));
-}
-
-sub enumerate_windows {
-    my ($self, $idkey) = @_;
-    croak q(unimplemented);
-}
-
-sub enumerate_keys {
-    my ($self, $idkey) = @_;
-    croak q(unimplemented);
-}
-
-sub new_document {
-    my ($self, $idkey) = @_;
-    return {
-        idkey        => { $idkey->hash_list },
-        Windows      => [],
-        Timeblocks   => [],
-        Ruleversions => [],
-    };
 }
 
 1;
@@ -422,40 +316,11 @@ else
   return nothing, we aren't allowed to do this
 
 
-=head2 hash = window_all(idkey)
-
-select and return all of the documents representing states within the
-specified window, in a hash keyed by the key within the window
-
 =head1 INTERNAL METHODS
-
-=head2 enumerate_keys
-
-not yet implimented
-
-A possible interface that lets a consumer get a list of keys within a window
-
-=head2 enumerate_windows
-
-not yet implimented
-
-A possible interface that lets a consumer get a list of Windows within a domain rule version
-
-=head2 merge($idkey, $alpha, $beta)
-
-Takes two lists and merges them together using the compare ordering from the rule
-
-=head2 new_document
-
-The default new document template filled in
 
 =head2 rule(idkey)
 
 accessor to grab the rule object for a particular idkey
-
-=head2 state_signature
-
-logic that creates a signature from a state - probably used for canonicalSignature field
 
 =head2 stringtouch(structure)
 
