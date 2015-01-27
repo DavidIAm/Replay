@@ -1,11 +1,10 @@
 package Replay::Message::RulesReady;
 
 use Moose;
-extends('Replay::Message');
-our $VERSION = '0.02';
+extends('Replay::Message::IdKey', 'Replay::Message');
+our $VERSION = '0.03';
 
 has '+MessageType' => (default => 'RulesReady');
-has '+Message' => (isa => 'IdKey', coerce => 1);
 
 1;
 

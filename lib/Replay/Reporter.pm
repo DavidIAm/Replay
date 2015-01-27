@@ -59,8 +59,6 @@ sub extract_idkey {
     }
     else {
 
-        use Data::Dumper;
-        warn "WHAT IS THIS: " . Dumper $envelope;
         $message = $envelope->{Message};
         $idkey   = Replay::IdKey->new($message);
 

@@ -8,11 +8,41 @@ use Digest::MD5 qw/md5_hex/;
 
 our $VERSION = '0.02';
 
-has name    => (is => 'rw', isa => 'Str', required => 1,);
-has version => (is => 'rw', isa => 'Str', required => 1,);
-has window  => (is => 'rw', isa => 'Str', required => 1,);
-has key     => (is => 'rw', isa => 'Str', required => 1,);
-has revision => (is => 'rw', isa => 'Str', default => 'latest',);
+has name => (
+    is          => 'rw',
+    isa         => 'Str',
+    required    => 1,
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
+has version => (
+    is          => 'rw',
+    isa         => 'Str',
+    required    => 1,
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
+has window => (
+    is          => 'rw',
+    isa         => 'Str',
+    required    => 1,
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
+has key => (
+    is          => 'rw',
+    isa         => 'Str',
+    required    => 1,
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
+has revision => (
+    is          => 'rw',
+    isa         => 'Str',
+    default     => 'latest',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
 
 with Storage('format' => 'JSON');
 
@@ -44,7 +74,7 @@ sub rule_spec {
 
 sub hash_list {
     my ($self) = @_;
-    return %{$self->marshall};
+    return %{ $self->marshall };
 }
 
 sub checkstring {
