@@ -3,7 +3,7 @@ package Replay;
 use 5.006;
 use strict;
 use warnings FATAL => 'all';
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 use Moose;
 use AnyEvent;
