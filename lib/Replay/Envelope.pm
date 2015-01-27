@@ -6,7 +6,7 @@ use Time::HiRes qw/gettimeofday/;
 use Moose::Util qw(apply_all_roles);
 use Data::UUID;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 has Replay => (
     is          => 'ro',

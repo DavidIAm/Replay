@@ -44,7 +44,7 @@ sub rule_spec {
 
 sub hash_list {
     my ($self) = @_;
-    return $self->marshall;
+    return %{$self->marshall};
 }
 
 sub checkstring {
@@ -64,13 +64,13 @@ sub hash {
 
 sub marshall {
     my ($self) = @_;
-    return (
+    return {
         name    => $self->name,
         version => $self->version,
         window  => $self->window,
         key     => $self->key,
         ($self->revision ne 'latest' ? (revision => $self->revision) : ()),
-    );
+    };
 }
 
 1;
