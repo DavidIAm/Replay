@@ -1,10 +1,11 @@
 package Replay::Message::NewCanonical;
 
 use Moose;
-extends('Replay::Message::IdKey', 'Replay::Message');
+extends('Replay::Message');
 our $VERSION = '0.02';
 
 has '+MessageType' => (default => 'NewCanonical');
+has '+Message' => (isa => 'IdKey', coerce => 1);
 
 1;
 

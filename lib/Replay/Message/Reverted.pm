@@ -1,10 +1,11 @@
 package Replay::Message::Reverted;
 
 use Moose;
-extends('Replay::Message::IdKey', 'Replay::Message');
-our $VERSION = '0.03';
+extends('Replay::Message');
+our $VERSION = '0.02';
 
 has '+MessageType' => (default => 'Reverted');
+has '+Message' => (isa => 'IdKey', coerce => 1);
 
 1;
 
