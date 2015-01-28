@@ -1,11 +1,11 @@
 package Replay::Message::WindowAll;
 
 use Moose;
-extends('Replay::Message');
-our $VERSION = '0.02';
+extends('Replay::Message::IdKey', 'Replay::Message');
+
+our $VERSION = '0.03';
 
 has '+MessageType' => (default => 'WindowAll');
-has '+Message' => (isa => 'IdKey', coerce => 1);
 
 1;
 

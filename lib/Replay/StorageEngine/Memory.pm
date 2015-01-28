@@ -110,7 +110,7 @@ override checkin => sub {
     return $result if exists $result->{desktop};
     return $result if exists $result->{canonical};
     # otherwise we clear it entirely
-    $self->purge;
+    $self->purge($idkey);
 
         $self->eventSystem->control->emit(
                 MessageType => 'ClearedState',

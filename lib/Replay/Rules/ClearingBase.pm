@@ -60,8 +60,6 @@ sub match {
     return 0;
 }
 
-has '+name' => (default => 'At');
-
 sub epoch_to_window {
     my $self  = shift;
     my $epoch = shift;

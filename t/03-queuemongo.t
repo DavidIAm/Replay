@@ -86,8 +86,8 @@ my $replay = Replay->new(
         timeout     => 40,
         stage       => 'testscript-03-' . $ENV{USER},
         awsIdentity => {
-            access => '',
-            secret => '',
+            access => 'AKIAJUZLBY2RIDB6LSJA',
+            secret => '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',
         },
         snsService => 'https://sns.us-east-1.amazonaws.com',
         sqsService => 'https://sqs.us-east-1.amazonaws.com',

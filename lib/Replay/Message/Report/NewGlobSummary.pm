@@ -1,11 +1,10 @@
 package Replay::Message::Report::NewGlobSummary;
 
 use Moose;
-extends('Replay::Message');
+extends('Replay::Message::IdKey', 'Replay::Message');
 our $VERSION = '0.03';
 
 has '+MessageType' => (default => 'ReportNewGlobSummary');
-has '+Message' => (isa => 'IdKey', coerce => 1);
 
 1;
 
