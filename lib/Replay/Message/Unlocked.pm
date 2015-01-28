@@ -1,10 +1,12 @@
 package Replay::Message::Unlocked;
 
 use Moose;
-extends('Replay::Message::IdKey', 'Replay::Message');
-our $VERSION = '0.03';
+extends('Replay::Message');
+our $VERSION = '0.02';
 
 has '+MessageType' => (default => 'Unlocked');
+has '+Message' => (isa => 'IdKey', coerce => 1);
+
 1;
 
 __END__

@@ -1,10 +1,11 @@
 package Replay::Message::Report::NewDelivery;
 
 use Moose;
-extends('Replay::Message::IdKey', 'Replay::Message');
+extends('Replay::Message');
 our $VERSION = '0.03';
 
 has '+MessageType' => (default => 'ReportNewDelivery');
+has '+Message' => (isa => 'IdKey', coerce => 1);
 
 1;
 

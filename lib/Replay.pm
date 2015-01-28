@@ -3,11 +3,11 @@ package Replay;
 use 5.006;
 use strict;
 use warnings FATAL => 'all';
-our $VERSION = '0.03';
+our $VERSION = '0.02';
 
 use Moose;
 use AnyEvent;
-use Replay::StorageEngine 0.03;
+use Replay::StorageEngine 0.02;
 use Replay::ReportEngine 0.03;
 use Replay::EventSystem 0.02;
 use Replay::RuleSource 0.02;

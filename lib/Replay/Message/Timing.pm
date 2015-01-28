@@ -3,9 +3,10 @@ package Replay::Message::Timing;
 use Moose;
 extends('Replay::Message');
 
-our $VERSION = '0.03';
+our $VERSION = '0.02';
 
 has '+MessageType' => (default => 'Timing');
+has '+Message' => (isa => 'Clock', coerce => 1);
 
 has 'epoch' => (
     is          => 'ro',

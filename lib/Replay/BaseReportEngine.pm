@@ -62,7 +62,7 @@ sub update_delivery {
     my ($self, $idkey, @state) = @_;
     my $rule = $self->rule($idkey);
     return unless $rule->can('delivery');
-    $self->store_delivery($idkey, $rule->delivery(@state));
+    $self->store($idkey, $rule->delivery(@state));
     $self->eventSystem->control->emit(
         Replay::Message::Report::NewDelivery->new($idkey->hash_list));
 }

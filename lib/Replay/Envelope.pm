@@ -6,7 +6,7 @@ use Time::HiRes qw/gettimeofday/;
 use Moose::Util qw(apply_all_roles);
 use Data::UUID;
 
-our $VERSION = '0.03';
+our $VERSION = '0.02';
 
 has Replay => (
     is          => 'ro',
@@ -19,13 +19,13 @@ has Replay => (
 has MessageType => (
     is          => 'ro',
     isa         => 'Str',
-    required    => 1,
+#    required    => 1,
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'envelope' },
 );
 has Message => (
     is          => 'ro',
-    isa         => 'Str|HashRef',
+    isa         => 'Str|HashRef|Object',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'envelope' },
 );
@@ -83,37 +83,39 @@ has UUID => (
     description => { layer => 'envelope' },
 );
 
-around BUILDARGS => sub {
-    my $orig  = shift;
-    my $class = shift;
-    use Data::Dumper;
-    my %args  = ref $_[0] ? %{ $_[0] } : @_;
-    $class->meta->make_mutable;
-    my %attributes = map { $_->{name} => $_ } $class->meta->get_all_attributes;
+# around BUILDARGS => sub {
+    # my $orig  = shift;
+    # my $class = shift;
+    # use Data::Dumper;
+    # my %args  = ref $_[0] ? %{ $_[0] } : @_;
+    # $class->meta->make_mutable;
+    # my %attributes = map { $_->{name} => $_ } $class->meta->get_all_attributes;
 
-    foreach (keys %args) {
-        next if exists $attributes{$_};
-
-        my $newattr = $class->meta->add_attribute(
-            $_ => (
-                is          => 'ro',
-                isa         => 'Item',
-                traits      => ['MooseX::MetaDescription::Meta::Trait'],
-                description => { layer => 'message' }
-            )
-        );
-        apply_all_roles($newattr, 'MooseX::MetaDescription::Meta::Trait');
-        $args{EXTRA}{$_} = $args{$_};
-    }
-    $class->meta->make_immutable;
-    return $class->$orig(%args);
-};
+    # warn(" Replay::Envelope BUILDARGS ref(class)=".ref($orig).", args=".Dumper(\%args ));
+    # if (ref($args{Message}) eq 'Replay::IdKey'){
+       # $args{Message}=$args{Message}->marshall();
+    # }
+    # if (!exists($args{Message})){
+       
+         # $class->meta->make_immutable;
+      # #  my $new_args = {Message=>\%args};
+         # warn("Replay::Envelope BUILDARGS args 2".Dumper(\%args ));
+         # return $class->$orig(\%args);
+        
+    # }   
+    # else {
+         # warn("Replay::Envelope BUILDARGS args 3");
+      # $class->meta->make_immutable;
+      # return $class->$orig(\%args);
+    # }
+# };
 
 sub marshall {
     my $self       = shift;
     my $buffer     = q();
     my $row        = 1;
     my $layers     = {};
+
     my %attributes = map { $_->{name} => $_ } $self->meta->get_all_attributes;
     foreach my $attr (sort { $a cmp $b } keys %attributes) {
 
