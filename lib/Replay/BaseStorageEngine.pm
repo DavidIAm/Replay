@@ -138,14 +138,14 @@ sub checkout {
         . $idkey->cubby . q(\));
 
     $self->eventSystem->control->emit(
-        Replay::Message::Locked->new($idkey->hash_list ));
+        Replay::Message::Locked->new($idkey->marshall ));
     return;
 }
 
 sub checkin {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Unlocked->new($idkey->hash_list ));
+        Replay::Message::Unlocked->new($idkey->marshall ));
 }
 
 sub revert {
@@ -165,19 +165,19 @@ sub revert {
     my $result = $self->unlock($idkey, $unluuid, $state);
     return unless defined $result;
     return $self->eventSystem->control->emit(
-        Replay::Message::Reverted->new($idkey->hash_list ));
+        Replay::Message::Reverted->new($idkey->marshall ));
 }
 
 sub retrieve {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Fetched->new($idkey->hash_list ));
+        Replay::Message::Fetched->new($idkey->marshall ));
 }
 
 sub absorb {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Reducable->new($idkey->hash_list ));
+        Replay::Message::Reducable->new($idkey->marshall ));
 }
 
 sub delay_to_do_once {
@@ -329,7 +329,7 @@ sub enumerate_keys {
 sub new_document {
     my ($self, $idkey) = @_;
     return {
-        idkey        => { $idkey->hash_list },
+        idkey        => $idkey->marshall,
         Windows      => [],
         Timeblocks   => [],
         Ruleversions => [],

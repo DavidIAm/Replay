@@ -60,7 +60,10 @@ has queueName =>
 sub emit {
     my ($self, $message) = @_;
     if (blessed $message) {
-        if ($message->can('stringify')) {
+        if ($message->can('marshall')) {
+            $message = to_json($message->marshall);
+        }
+        elsif ($message->can('stringify')) {
             $message = $message->stringify;
         }
         elsif ($message->can('freeze')) {
