@@ -258,7 +258,7 @@ sub fetch_transitional_state {
 
     # notify interested parties
     $self->eventSystem->control->emit(
-        Replay::Message::Reducing->new($idkey->hash_list ));
+        Replay::Message::Reducing->new(Message => { $idkey->hash_list }));
 
     # return uuid and list
     return $uuid => {
@@ -284,11 +284,11 @@ sub store_new_canonical_state {
         $self->absorb($idkey, $atom, {});
     }
     $self->eventSystem->control->emit(
-        Replay::Message::NewCanonical->new($idkey->hash_list ));
+        Replay::Message::NewCanonical->new(Message => { $idkey->hash_list }));
     if (scalar @{ $newstate->{inbox} || [] })
     {    # renotify reducable if inbox has entries now
         $self->eventSystem->control->emit(
-            Replay::Message::Reducable->new($idkey->hash_list ));
+            Replay::Message::Reducable->new(Message => { $idkey->hash_list }));
     }
     return $newstate;    # release pending messages
 }
@@ -301,14 +301,14 @@ sub fetch_canonical_state {
         carp "canonical corruption $cubby->{canonSignature} vs. " . $e;
     }
     $self->eventSystem->control->emit(
-        Replay::Message::Fetched->new($idkey->hash_list ));
+        Replay::Message::Fetched->new(Message => { $idkey->hash_list }));
     return @{ $cubby->{canonical} || [] };
 }
 
 sub window_all {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::WindowAll->new($idkey->hash_list ));
+        Replay::Message::WindowAll->new(Message => { $idkey->hash_list }));
 }
 
 sub find_keys_need_reduce {

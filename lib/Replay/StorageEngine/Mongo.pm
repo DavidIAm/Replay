@@ -155,6 +155,42 @@ sub relock {
 
     return $unlockresult;
 }
+sub findKeysNeedReduce {
+    my ($self) = @_;
+    my @idkeys = ();
+    my $rule   = $self->ruleSource->first;
+    return unless defined $rule;    # happens when there are no rules
+    do {
+        my $idkey = Replay::IdKey->new(
+            name    => $rule->name,
+            version => $rule->version,
+            window  => '-',
+            key     => '-'
+        );
+        foreach my $result (
+            $self->collection($idkey)->find(
+                {   '$or' => [
+                        { inbox           => { '$exists' => 1 } },
+                        { desktop         => { '$exists' => 1 } },
+                        { locked          => { '$exists' => 1 } },
+                        { lockExpireEpoch => { '$exists' => 1 } }
+                    ]
+                },
+                { idkey => 1 }
+            )->all
+            )
+        {
+            push @idkeys,
+                Replay::IdKey->new(
+                name    => $rule->name,
+                version => $rule->version,
+                Replay::IdKey->parse_cubby($result->{idkey})
+                );
+        }
+    } while ($rule = $self->ruleSource->next);
+    super();
+    return @idkeys;
+}
 
 =pod
 # Locking states
@@ -364,7 +400,7 @@ sub find_keys_need_reduce {
             )
         {
             push @idkeys,
-                Replay::IdKey->new(
+                Replay::Message::IdKey->new(
                 name    => $rule->name,
                 version => $rule->version,
                 Replay::IdKey->parse_cubby($result->{idkey})

@@ -41,11 +41,16 @@ sub BUILD {
 sub map {    ## no critic (ProhibitBuiltinHomonyms)
     my $self    = shift;
     my $message = shift;
+    
+    use Data::Dumper
+    warn("Replay::BaseMapper message=".Dumper($message));
     carp q(Got a message that isn't a hashref) if 'HASH' ne ref $message;
     carp q(Got a message that doesn't have type and a hashref for a message)
         if !$message->{MessageType} || 'HASH' ne ref $message->{Message};
     croak q(I CANNOT MAP UNDEF) if not defined $message;
     while (my $rule = $self->ruleSource->next) {
+        
+        warn("Base mapper rule=".$rule);
         next if not $rule->match($message);
         my @all = $rule->key_value_set($message);
         croak q(key value list from key value set must be even) if scalar @all % 2;
