@@ -60,13 +60,20 @@ has queueName =>
 sub emit {
     my ($self, $message) = @_;
     if (blessed $message) {
-        if ($message->can('stringify')) {
+        if ($message->can('marshall')){
+            $message = to_json($message->marshall());
+        }   
+        elsif ($message->can('stringify')) {
             $message = $message->stringify;
         }
+         
         elsif ($message->can('freeze')) {
             $message = $message->freeze;
         }
+        
     }
+    
+    
     try {
         if (ref $message) {
             $message = to_json($message);
@@ -90,6 +97,8 @@ sub poll {
     return $handled if not scalar(@{ $self->subscribers });
     foreach my $message ($self->_receive()) {
         $handled++;
+        #use Data::Dumper;
+        #warn("poll message=".Dumper($message));
         foreach my $subscriber (@{ $self->subscribers }) {
             try {
                 $subscriber->($message);
@@ -121,10 +130,21 @@ sub _receive {
     return if not scalar @messages;
     $self->_acknowledge(@messages);
     my @payloads;
-    foreach (@messages) {
-        my $message_body = from_json $_->MessageBody;
+    foreach my $message (@messages) {
+        use Data::Dumper;
+    #    warn("AWSQueue _receive->message=".Dumper( $message));
+    #    warn("AWSQueue _receive->MessageBody=".Dumper( $message->MessageBody));
+        try{
+        my $message_body = from_json $message->MessageBody;
         my $innermessage = from_json $message_body->{Message};
         push @payloads, $innermessage;
+        }
+        catch{
+              carp q(There was an exception while processing message through _receive )
+              ."message=".Dumper($message)
+              . $_;  
+              exit;
+        }    
     }
     return @payloads;
 }

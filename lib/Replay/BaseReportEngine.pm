@@ -62,9 +62,9 @@ sub update_delivery {
     my ($self, $idkey, @state) = @_;
     my $rule = $self->rule($idkey);
     return unless $rule->can('delivery');
-    $self->store($idkey, $rule->delivery(@state));
+    $self->store_delivery($idkey, $rule->delivery(@state));
     $self->eventSystem->control->emit(
-        Replay::Message::Report::NewDelivery->new($idkey->hash_list));
+        Replay::Message::Report::NewDelivery->new($idkey->marshall));
 }
 
 sub update_summary {
@@ -73,7 +73,7 @@ sub update_summary {
     return unless $rule->can('summary');
     $self->store_summary($idkey, $rule->summary(@state));
     return $self->eventSystem->control->emit(
-        Replay::Message::Report::NewSummary->new($idkey->hash_list ));
+        Replay::Message::Report::NewSummary->new($idkey->marshall ));
 }
 
 sub update_globsummary {
@@ -83,7 +83,7 @@ sub update_globsummary {
     $self->store_globsummary($idkey, $rule->globsummary(@state));
     return $self->eventSystem->control->emit(
         Replay::Message::Report::NewGlobSummary->new(
-            $idkey->hash_list
+            $idkey->marshall
         )
     );
 }
@@ -99,13 +99,13 @@ sub fetch_globsummary_data {
 sub freeze {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Report::Freeze->new($idkey->hash_list) );
+        Replay::Message::Report::Freeze->new($idkey->marshall) );
 }
 
 sub copydomain {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Report::CopyDomain->new($idkey->hash_list ));
+        Replay::Message::Report::CopyDomain->new($idkey->marshall ));
 }
 
 sub checkpoint {
@@ -114,7 +114,7 @@ sub checkpoint {
         $idkey->hash . 'Reducable',
         sub {
             $self->eventSystem->control->emit(
-                Replay::Message::Report::Checkpoint->new($idkey->hash_list ));
+                Replay::Message::Report::Checkpoint->new($idkey->marshall ));
         }
     );
 }

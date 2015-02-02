@@ -6,7 +6,7 @@ use Try::Tiny;
 use English '-no_match_vars';
 use Carp qw/croak/;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
 has engine => (
@@ -97,10 +97,6 @@ sub _build_mode {      ## no critic (ProhibitUnusedPrivateSubroutines)
     return $class;
 }
 
-sub findKeysNeedReduce {
-    my ($self, @args) = @_;
-    return $self->engine->findKeysNeedReduce(@args);
-}
 1;
 
 __END__

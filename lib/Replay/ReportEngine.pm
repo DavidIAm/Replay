@@ -127,13 +127,23 @@ of divisions as suits the application
 
 # how do we coordinate between workers?
 
-When a new canonical state has been stored in the storage engine, when the rule involved has a delivery function, the report engine retrieves that state from storage and processes it through the delivery function.  The new version is commited to the repo, and a new report version event is emitted.
+When a new canonical state has been stored in the storage engine, when the rule involved 
+has a delivery function, the report engine retrieves that state from storage and processes 
+it through the delivery function.  The new version is commited to the repo, and a new report 
+version event is emitted.
 
-When a new report event is detected, and there is a summary directive in the corresponding rule, all of the reports for a particular window are retrieved and passed through the summary directive. The result is commited as a summary for that window.
+When a new report event is detected, and there is a summary directive
+ in the corresponding rule, all of the reports for a particular 
+ window are retrieved and passed through the summary directive. 
+ The result is commited as a summary for that window.
 
-When a Report Engine Checkpoint event arrives, the report engine will complete all in-progress processing of deliveries and subsequent summaries and tag the set per the checkpoint identification
+When a Report Engine Checkpoint event arrives, the report engine will complete 
+all in-progress processing of deliveries and subsequent summaries and 
+tag the set per the checkpoint identification
 
-When a deliver-and-freeze request arrives, the report engine will collapse all of the changes on the specified point from the last freeze into a single change and commit the file to the frozen branch
+When a deliver-and-freeze request arrives, the report engine will collapse all of the 
+changes on the specified point from the last freeze into a single change and commit 
+the file to the frozen branch
 
 Every report has metadata - the timeblocks used, rule-versions used to process
 

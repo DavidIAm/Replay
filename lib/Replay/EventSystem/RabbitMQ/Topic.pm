@@ -64,7 +64,7 @@ sub _new_channel {
 
 sub emit {
     my ($self, $message) = @_;
-    use Data::Dumper;
+#    use Data::Dumper;
 #    warn "EMITTING ON " . $self->topic_name . " : " . $message->{MessageType};
     if (blessed $message) {
         if ($message->can('stringify')) {

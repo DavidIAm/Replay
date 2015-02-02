@@ -1,78 +1,90 @@
-package Replay::ReportEngine::Filesystem;
+package Replay::ReportEngine::Mongo;
 
 use Moose;
 use Scalar::Util qw/blessed/;
 use Replay::IdKey;
 use Carp qw/croak carp cluck/;
 use JSON qw/to_json/;
-use File::Spec::Functions;
-use File::Path qw/mkpath/;
-use File::Slurp qw/read_file/;
+use MongoDB;
+use MongoDB::OID;
 
 extends 'Replay::BaseReportEngine';
+with (qw(Replay::Role::MongoDB)
+);
+our $VERSION = q(0.01);
 
-our $VERSION = q(0.03);
+#my $store = {};
 
-my $store = {};
 
-sub BUILD {
+sub _build_mongo {    
+    my ($self) = @_;
+    my $db = MongoDB::MongoClient->new();
+    $db->authenticate($self->dbauthdb, $self->dbuser, $self->dbpass);
+    return $db;
+}
+
+sub _build_dbpass {   
     my $self = shift;
-    mkpath $self->config->{reportFilesystemRoot};
-    confess "no report filesystem root"
-        unless -d $self->config->{reportFilesystemRoot};
+    return $self->config->{ReportEngine}->{MongoPass}||$self->config->{MongoPass};
 }
 
-sub delivery {
-    my ($self, $idkey) = @_;
-    my $directory = $self->directory_delivery($idkey);
-    my $file = $self->filename($directory, $self->revision($idkey, $directory));
-    return read_file($file) if -f $file;
-    return;
+sub _build_dbuser {  
+    my $self = shift;
+    return $self->config->{ReportEngine}->{MongoUser}$self->config->{MongoUser};
 }
 
-sub summary {
-    my ($self, $idkey) = @_;
-    my $directory = $self->directory_summary($idkey);
-    my $file = $self->filename($directory, $self->revision($idkey, $directory));
-    return read_file($file) if -f $file;
-    return;
+sub _build_dbauthdb {   
+    my $self = shift;
+    return $self->config->{ReportEngine}->{MongoAuthDB}||$self->config->{MongoAuthDB} || 'admin';
 }
+
+sub _build_dbname {   
+    my $self = shift;
+    return $self->config->{ReportEngine}->{Name}||$self->config->{stage}."-report-" . '-replay';
+}
+
+sub _build_db {        
+    my ($self) = @_;
+    my $config = $self->config;
+    my $db     = $self->mongo->get_database($self->dbname);
+    return $db;
+}
+
+#report on a key
+sub delivery { #get the named documet lates version
+    my ($self, $idkey) = @_;
+    
+    return $self->document($idkey);
+}
+
+# reports on a windows and a key
+sub summary { #
+    my ($self, $idkey) = @_;
+    
+    return $self->collection($idkey)->find({ idkey => $idkey->window."-winder" });
+
+}
+
+# reports all windows for a rule version
 
 sub globsummary {
     my ($self, $idkey) = @_;
-    my $directory = $self->directory_globsummary($idkey);
-    my $file = $self->filename($directory, $self->revision($idkey, $directory));
-    return read_file($file) if -f $file;
+     return $self->collection($idkey)->find({ idkey => "all" });
     return;
 }
 
-sub revision_file {
+sub revision_file { #shows the curent revsion internal to file
     my ($self, $directory) = @_;
     return catfile($directory, 'CURRENT');
 }
-sub latest {
-    my ($self, $directory) = @_;
-    return 0 unless -d $directory;
-    my $vfile = $self->revision_file($directory);
-    my $max   = -1;
-    if (!-f $vfile) {
 
-        # in this case we scan the directory to get past all the frozen revisions
-        # which we must not overwrite
-        my $dir = IO::Dir->new($directory);
-        if (defined $dir) {
-            my $entry;
-            while (defined($entry = $dir->read)) {
-                my ($num) = $entry =~ /version_(\d+)/;
-                $max = $num if $num > $max;
-            }
-            $max++;
-        }
-        return $max;
-    }
-    return read_file($vfile) + 0;
+sub latest {
+   my ($self, $directory) = @_;
+   return $self->collection($idkey)->find({ idkey => "all" });
+
 }
 
+# get the revsion that is returning
 sub revision {
     my ($self, $idkey, $directory) = @_;
     if ($idkey->revision eq 'latest') {
@@ -102,26 +114,35 @@ sub delete_latest_report {
     return;
 }
 
-sub store {
-    my ($self, $directory, $revision, @state) = @_;
-    use Data::Dumper;
-    return $self->delete_latest_report($directory) unless scalar @state;
-    mkpath $directory unless -d $directory;
-    my $filename = $self->filename($directory, $revision);
-    # TODO: make this thread safe writes with temp name and renames
-    my $fh = IO::File->new($filename, 'w');
-    print $fh @state;
-    my $vfile = $self->revision_file($directory);
-    my $vh = IO::File->new($vfile, 'w');
-    print $vh $revision;
-    return $filename;
+
+
+
+#Api
+# storres itme at the Key levle
+sub store_delivery {
+    my ($self, $idkey,$state,$format) = @_;
+    
+    return  $self->store($idkey->key,$state,$formatted);
+
 }
 
-sub store_delivery {
-    my ($self, $idkey, @state) = @_;
-    my $directory = $self->directory_delivery($idkey);
-    return $self->store($directory, $self->revision($idkey, $directory), @state);
-}
+sub store {
+     my ($self, $key, $reportdata, $formatted) = @_;
+       use JSON;
+       my $r = $self->collection($idkey)->update(
+           { idkey => $key,
+                 revision => $idkey->revision },
+           {   q^$^ . 'set' => { formatted => $formatted, data => $reportdata },
+               q^$^ . 'setOnInsert' => { idkey => $idkey->cubby, revision => $idkey->revision, IdKey => $idkey->pack }
+           },
+           { upsert => 1, multiple => 0 },
+       );
+       super();
+       return $r;
+};
+
+
+
 
 sub directory_summary {
   my ($self, $idkey) = @_;
@@ -129,6 +150,7 @@ sub directory_summary {
         $idkey->name, $idkey->version, $idkey->window);
 }
 
+#stores item at the winder level
 sub store_summary {
     my ($self, $idkey, @state) = @_;
     my $directory = $self->directory_summary($idkey);
@@ -140,6 +162,7 @@ sub directory_globsummary {
   return catdir($self->config->{reportFilesystemRoot},
         $idkey->name, $idkey->version);
 }
+#stores item at the rule version level
 
 sub store_globsummary {
     my ($self, $idkey, @state) = @_;
@@ -148,7 +171,8 @@ sub store_globsummary {
 }
 
 # State transition = add new atom to inbox
-
+# get a report and keep a copy 
+# ie invoice 
 sub freeze {
     confess "unimplimented";
     # this should copy the current report to a new one, and increment CURRENT.

@@ -38,6 +38,7 @@ sub emit {
 }
 sub demit {
     my ($self, $message, @rest) = @_;
+     warn(" Replay::EventSystem::Null emit $message");
     return push @{ $self->{events} }, $message->marshall if blessed $message;
     return push @{ $self->{events} }, $message if ref $message;
     return push @{ $self->{events} }, { $message, @rest };

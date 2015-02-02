@@ -27,7 +27,7 @@ has dbauthdb => (is => 'ro', builder => '_build_dbauthdb', lazy => 1,);
 has dbuser   => (is => 'ro', builder => '_build_dbuser',   lazy => 1,);
 has dbpass   => (is => 'ro', builder => '_build_dbpass',   lazy => 1,);
 
-my $store = {};
+my $store = {}; #dave what is this for???
 
 override retrieve => sub {
     my ($self, $idkey) = @_;
@@ -154,42 +154,6 @@ sub relock {
     );
 
     return $unlockresult;
-}
-sub findKeysNeedReduce {
-    my ($self) = @_;
-    my @idkeys = ();
-    my $rule   = $self->ruleSource->first;
-    return unless defined $rule;    # happens when there are no rules
-    do {
-        my $idkey = Replay::IdKey->new(
-            name    => $rule->name,
-            version => $rule->version,
-            window  => '-',
-            key     => '-'
-        );
-        foreach my $result (
-            $self->collection($idkey)->find(
-                {   '$or' => [
-                        { inbox           => { '$exists' => 1 } },
-                        { desktop         => { '$exists' => 1 } },
-                        { locked          => { '$exists' => 1 } },
-                        { lockExpireEpoch => { '$exists' => 1 } }
-                    ]
-                },
-                { idkey => 1 }
-            )->all
-            )
-        {
-            push @idkeys,
-                Replay::IdKey->new(
-                name    => $rule->name,
-                version => $rule->version,
-                Replay::IdKey->parse_cubby($result->{idkey})
-                );
-        }
-    } while ($rule = $self->ruleSource->next);
-    super();
-    return @idkeys;
 }
 
 =pod
@@ -354,7 +318,7 @@ override checkin => sub {
         )
         )
     {
-        $self->eventSystem->control->emit(
+        $self->eventSystem->emit('control',
                 MessageType => 'ClearedState',
                 $idkey->hash_list
         );
@@ -400,7 +364,7 @@ sub find_keys_need_reduce {
             )
         {
             push @idkeys,
-                Replay::Message::IdKey->new(
+                Replay::IdKey->new(
                 name    => $rule->name,
                 version => $rule->version,
                 Replay::IdKey->parse_cubby($result->{idkey})

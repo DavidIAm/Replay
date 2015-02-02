@@ -45,8 +45,8 @@ use Replay::Message::At::SentMessageAt 0.02;
 use Replay::Message::At::SendMessageWhen 0.02;
 use Replay::Message 0.02;
 use Readonly;
-extends 'Replay::BusinessRule';
-
+with 'Replay::Role::BusinessRule' => { -version => 0.02 };
+has '+name' => (default => 'ClearingBase');
 our $VERSION = q(2);
 
 Readonly my $MAX_EXCEPTION_COUNT => 3;
@@ -59,8 +59,6 @@ sub match {
     return 1 if $message->{MessageType} eq 'SendMessageNow';
     return 0;
 }
-
-has '+name' => (default => 'At');
 
 sub epoch_to_window {
     my $self  = shift;

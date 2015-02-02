@@ -5,6 +5,7 @@ use Scalar::Util;
 use Replay::DelayedEmitter;
 use Replay::IdKey;
 use Replay::Message;
+use Replay::Message::Reduced;
 use Scalar::Util qw/blessed/;
 use Carp qw/carp/;
 use Try::Tiny;
@@ -78,10 +79,12 @@ sub reduce_wrapper {
 
         $self->storageEngine->store_new_canonical_state($idkey, $uuid, $emitter,
             $self->rule($idkey)->reduce($emitter, @state));
-        $self->eventSystem->emit('control',
-                MessageType => 'Reduced',
-                $idkey->hash_list,
-        );
+             $self->eventSystem->control->emit(
+        Replay::Message::Reduced->new($idkey->marshall ));
+        # $self->eventSystem->emit('control',
+                # MessageType => 'Reduced',
+                # Message=>$idkey->marshall,
+        # );
     }
     catch {
         carp "REDUCING EXCEPTION: $_";

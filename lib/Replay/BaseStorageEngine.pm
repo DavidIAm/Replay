@@ -138,14 +138,14 @@ sub checkout {
         . $idkey->cubby . q(\));
 
     $self->eventSystem->control->emit(
-        Replay::Message::Locked->new(Message => { $idkey->hash_list }));
+        Replay::Message::Locked->new($idkey->marshall ));
     return;
 }
 
 sub checkin {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Unlocked->new(Message => { $idkey->hash_list }));
+        Replay::Message::Unlocked->new($idkey->marshall ));
 }
 
 sub revert {
@@ -158,26 +158,26 @@ sub revert {
     $self->eventSystem->emit(
         'control',
             MessageType => 'NoLockDuringRevert',
-            $idkey->hash_list,
+            $idkey->marshall,
     );
     return if not $state;
     $self->revert_this_record($idkey, $unlsignature, $state);
     my $result = $self->unlock($idkey, $unluuid, $state);
     return unless defined $result;
     return $self->eventSystem->control->emit(
-        Replay::Message::Reverted->new(Message => { $idkey->hash_list }));
+        Replay::Message::Reverted->new($idkey->marshall ));
 }
 
 sub retrieve {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Fetched->new(Message => { $idkey->hash_list }));
+        Replay::Message::Fetched->new($idkey->marshall ));
 }
 
 sub absorb {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Reducable->new(Message => { $idkey->hash_list }));
+        Replay::Message::Reducable->new($idkey->marshall ));
 }
 
 sub delay_to_do_once {
@@ -258,7 +258,7 @@ sub fetch_transitional_state {
 
     # notify interested parties
     $self->eventSystem->control->emit(
-        Replay::Message::Reducing->new(Message => { $idkey->hash_list }));
+        Replay::Message::Reducing->new($idkey->marshall ));
 
     # return uuid and list
     return $uuid => {
@@ -284,11 +284,11 @@ sub store_new_canonical_state {
         $self->absorb($idkey, $atom, {});
     }
     $self->eventSystem->control->emit(
-        Replay::Message::NewCanonical->new(Message => { $idkey->hash_list }));
+        Replay::Message::NewCanonical->new($idkey->marshall ));
     if (scalar @{ $newstate->{inbox} || [] })
     {    # renotify reducable if inbox has entries now
         $self->eventSystem->control->emit(
-            Replay::Message::Reducable->new(Message => { $idkey->hash_list }));
+            Replay::Message::Reducable->new($idkey->marshall ));
     }
     return $newstate;    # release pending messages
 }
@@ -296,24 +296,27 @@ sub store_new_canonical_state {
 sub fetch_canonical_state {
     my ($self, $idkey) = @_;
     my $cubby = $self->retrieve($idkey);
+	
     my $e = $self->state_signature($idkey, $cubby->{canonical}) || q();
     if (($cubby->{canonSignature} || q()) ne ($e || q())) {
+		use Data::Dumper;
+		carp "dump of idkey=".Dumper($idkey);
         carp "canonical corruption $cubby->{canonSignature} vs. " . $e;
     }
     $self->eventSystem->control->emit(
-        Replay::Message::Fetched->new(Message => { $idkey->hash_list }));
+        Replay::Message::Fetched->new($idkey->marshall ));
     return @{ $cubby->{canonical} || [] };
 }
 
 sub window_all {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::WindowAll->new(Message => { $idkey->hash_list }));
+        Replay::Message::WindowAll->new($idkey->marshall ));
 }
 
 sub find_keys_need_reduce {
     my ($self, $idkey) = @_;
-    return $self->eventSystem->control->emit( MessageType => q(FoundKeysForReduce));
+    return $self->eventSystem->emit('control', MessageType => q(FoundKeysForReduce));
 }
 
 sub enumerate_windows {
