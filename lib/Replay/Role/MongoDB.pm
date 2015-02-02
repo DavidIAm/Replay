@@ -3,6 +3,7 @@ package Replay::Role::MongoDB;
 #all you need to get a Mogo up and running
 
 use Moose::Role;
+use Carp qw/croak confess carp/;
 
 
 requires (qw(_build_mongo 
@@ -65,6 +66,8 @@ sub checkout_record {
 
 sub collection {
     my ($self, $idkey) = @_;
+    use Carp qw/confess/;
+    confess "WHAT IS THIS $idkey " unless ref $idkey;
     my $name = $idkey->collection();
     return $self->db->get_collection($name);
 }

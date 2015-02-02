@@ -154,9 +154,9 @@ sub _build_sqs {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $config = $self->config;
     croak q(No sqs service?) if not $config->{sqsService};
     my $sqs = Amazon::SQS::Simple->new(
-        $config->{awsIdentity}{access},
-        $config->{awsIdentity}{secret},
-        Endpoint => $config->{sqsService}
+        $config->{EventSystem}{awsIdentity}{access},
+        $config->{EventSystem}{awsIdentity}{secret},
+        Endpoint => $config->{EventSystem}{sqsService}
     );
     return $sqs;
 }
@@ -165,11 +165,11 @@ sub _build_sns {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     my $config = $self->config;
     my $sns    = Amazon::SNS->new(
-        {   key    => $config->{awsIdentity}{access},
-            secret => $config->{awsIdentity}{secret}
+        {   key    => $config->{EventSystem}{awsIdentity}{access},
+            secret => $config->{EventSystem}{awsIdentity}{secret}
         }
     );
-    $sns->service($config->{snsService});
+    $sns->service($config->{EventSystem}{snsService});
     return $sns;
 }
 
@@ -278,12 +278,14 @@ Replay::EventSystem::AWSQueue->new(
     purpose => $purpose,
     config  => {
         stage       => 'test',
-        awsIdentity => {
-            access => 'AKIAILL6EOKUCA3BDO5A',
-            secret => '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',
+        EventSystem => {
+            awsIdentity => {
+                access => 'AKIAILL6EOKUCA3BDO5A',
+                secret => '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',
+            },
+            snsService => 'https://sns.us-east-1.amazonaws.com',
+            sqsService => 'https://sqs.us-east-1.amazonaws.com',
         },
-        snsService => 'https://sns.us-east-1.amazonaws.com',
-        sqsService => 'https://sqs.us-east-1.amazonaws.com',
     }
 );
 

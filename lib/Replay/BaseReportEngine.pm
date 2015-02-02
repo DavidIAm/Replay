@@ -39,29 +39,12 @@ sub rule {
     return $rule;
 }
 
-sub format_delivery {
-  my ($self, $idkey, @state) = @_;
-  warn "REPORT ENGINE BASE FORMAT DELIVERY";
-  use Data::Dumper;
-  return $self->rule($idkey)->delivery(@state);
-};
-
-sub format_summary {
-  my ($self, $idkey, @state) = @_;
-  $self->rule($idkey)->summary(@state);
-}
-
-sub format_globsummary {
-  my ($self, $idkey, @state) = @_;
-  return $self->rule($idkey)->globsummary(@state);
-}
-
-
-# merge a list of atoms with the existing list in that slot
+# store a new 
 sub update_delivery {
     my ($self, $idkey, @state) = @_;
     my $rule = $self->rule($idkey);
     return unless $rule->can('delivery');
+    return $self->delete_latest_revision($idkey->delivery) unless scalar @state;
     $self->store_delivery($idkey, $rule->delivery(@state));
     $self->eventSystem->control->emit(
         Replay::Message::Report::NewDelivery->new($idkey->marshall));
@@ -71,6 +54,7 @@ sub update_summary {
     my ($self, $idkey, @state) = @_;
     my $rule = $self->rule($idkey);
     return unless $rule->can('summary');
+    return $self->delete_latest_revision($idkey->summary) unless scalar @state;
     $self->store_summary($idkey, $rule->summary(@state));
     return $self->eventSystem->control->emit(
         Replay::Message::Report::NewSummary->new($idkey->marshall ));
@@ -80,12 +64,24 @@ sub update_globsummary {
     my ($self, $idkey, @state) = @_;
     my $rule = $self->rule($idkey);
     return unless $rule->can('globsummary');
+    return $self->delete_latest_revision($idkey->globsummary) unless scalar @state;
     $self->store_globsummary($idkey, $rule->globsummary(@state));
     return $self->eventSystem->control->emit(
         Replay::Message::Report::NewGlobSummary->new(
             $idkey->marshall
         )
     );
+}
+
+# get the revsion that is returning
+sub revision {
+    my ($self, $idkey, $directory) = @_;
+    if ($idkey->revision eq 'latest') {
+        return $self->latest($idkey);
+    }
+    else {
+        return $idkey->revision;
+    }
 }
 
 sub fetch_summary_data {

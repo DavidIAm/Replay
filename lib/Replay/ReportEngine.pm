@@ -77,17 +77,17 @@ sub _build_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
 
 sub _build_mode {      ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    if (not $self->config->{ReportMode}) {
+    if (not $self->config->{ReportEngine}->{Mode}) {
         croak q(No ReportMode?);
     }
-    my $class = 'Replay::ReportEngine::' . $self->config->{ReportMode};
+    my $class = 'Replay::ReportEngine::' . $self->config->{ReportEngine}->{Mode};
     try {
         eval "require $class"
             or croak qq(error requiring class $class : ) . $EVAL_ERROR;
     }
     catch {
-        confess q(No such report mode available )
-            . $self->config->{ReportMode}
+        confess q(No such report engine mode available )
+            . $self->config->{ReportEngine}->{Mode}
             . " --> $_";
     };
     return $class;
@@ -115,7 +115,7 @@ You can instantiate a ReportEngine object with a list of rules and config
 
 use Replay::ReportEngine;
 
-my $storage = Replay::ReportEngine->new( ruleSource => $ruleSource, config => { ReportMode => 'Memory', engine_specific_config => 'as_relevant' } );
+my $storage = Replay::ReportEngine->new( ruleSource => $ruleSource, config => { ReportEngine => { Mode => 'Memory', awsIdentity } );
 
 =head1 DESCRIPTION
 

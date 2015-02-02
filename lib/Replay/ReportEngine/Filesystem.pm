@@ -30,6 +30,14 @@ sub delivery {
     return;
 }
 
+sub delivery_data {
+    my ($self, $idkey) = @_;
+    my $directory = $self->directory_delivery($idkey);
+    my $file = $self->filename_data($directory, $self->revision($idkey, $directory));
+    return read_file($file) if -f $file;
+    return;
+}
+
 sub summary {
     my ($self, $idkey) = @_;
     my $directory = $self->directory_summary($idkey);
@@ -38,10 +46,26 @@ sub summary {
     return;
 }
 
+sub summary_data {
+    my ($self, $idkey) = @_;
+    my $directory = $self->directory_delivery($idkey);
+    my $file = $self->filename_data($directory, $self->revision($idkey, $directory));
+    return read_file($file) if -f $file;
+    return;
+}
+
 sub globsummary {
     my ($self, $idkey) = @_;
     my $directory = $self->directory_globsummary($idkey);
     my $file = $self->filename($directory, $self->revision($idkey, $directory));
+    return read_file($file) if -f $file;
+    return;
+}
+
+sub globsummary_data {
+    my ($self, $idkey) = @_;
+    my $directory = $self->directory_globsummary($idkey);
+    my $file = $self->filename_data($directory, $self->revision($idkey, $directory));
     return read_file($file) if -f $file;
     return;
 }
@@ -73,14 +97,9 @@ sub latest {
     return read_file($vfile) + 0;
 }
 
-sub revision {
-    my ($self, $idkey, $directory) = @_;
-    if ($idkey->revision eq 'latest') {
-        return $self->latest($directory);
-    }
-    else {
-        return $idkey->revision;
-    }
+sub filename_data {
+    my ($self, $directory, $revision) = @_;
+    return catfile $directory, sprintf 'version_%05d', $revision . '.data';
 }
 
 sub filename {
@@ -103,10 +122,17 @@ sub delete_latest_report {
 }
 
 sub store {
-    my ($self, $directory, $revision, @state) = @_;
+    my ($self, $directory, $revision, $data, $formatted) = @_;
     use Data::Dumper;
-    return $self->delete_latest_report($directory) unless scalar @state;
+    carp "first return value from delivery/summary/globsummary function does not appear to be an array ref" unless 'ARRAY' eq ref $data;
+    $self->delete_latest_report($directory) unless scalar @{$data};
+    return $self->delete_latest_report($directory) unless scalar @{$data};
     mkpath $directory unless -d $directory;
+    my $datafilename = $self->filename_data($directory, $revision);
+    # TODO: make this thread safe writes with temp name and renames
+    my $dfh = IO::File->new($datafilename, 'w');
+    print $dfh @state;
+    if (length $formatted) {
     my $filename = $self->filename($directory, $revision);
     # TODO: make this thread safe writes with temp name and renames
     my $fh = IO::File->new($filename, 'w');
@@ -118,9 +144,9 @@ sub store {
 }
 
 sub store_delivery {
-    my ($self, $idkey, @state) = @_;
+    my ($self, $idkey, $data, $formatted) = @_;
     my $directory = $self->directory_delivery($idkey);
-    return $self->store($directory, $self->revision($idkey, $directory), @state);
+    return $self->store($directory, $self->revision($idkey, $directory), $data, $formatted);
 }
 
 sub directory_summary {
@@ -130,9 +156,9 @@ sub directory_summary {
 }
 
 sub store_summary {
-    my ($self, $idkey, @state) = @_;
+    my ($self, $idkey, $data, $formatted) = @_;
     my $directory = $self->directory_summary($idkey);
-    return $self->store($directory, $self->revision($idkey, $directory), @state);
+    return $self->store($directory, $self->revision($idkey, $directory), $data, $formatted);
 }
 
 sub directory_globsummary {
@@ -142,9 +168,9 @@ sub directory_globsummary {
 }
 
 sub store_globsummary {
-    my ($self, $idkey, @state) = @_;
+    my ($self, $idkey, $data, $formatted) = @_;
     my $directory = $self->directory_globsummary($idkey);
-    return $self->store($directory, $self->revision($idkey, $directory), @state);
+    return $self->store($directory, $self->revision($idkey, $directory), $data, $formatted);
 }
 
 # State transition = add new atom to inbox

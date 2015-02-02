@@ -56,6 +56,13 @@ has derivedsniffer => (
     lazy    => 1,
     clearer => 'clear_derived_sniffer',
 );
+has mode => (
+    is       => 'ro',
+    isa      => 'Str',
+    required => 1,
+    builder  => '_build_mode',
+    lazy     => 1,
+);
 has config => (is => 'ro', isa => 'HashRef[Item]', required => 1);
 has domain => (is => 'ro');    # placeholder
 
@@ -212,10 +219,28 @@ sub clock {
     return;
 }
 
+sub _build_mode {      ## no critic (ProhibitUnusedPrivateSubroutines)
+    my $self = shift;
+    if (not $self->config->{EventSystem}->{Mode}) {
+        croak q(No EventSystem Mode?);
+    }
+    my $class = 'Replay::EventSystem::' . $self->config->{EventSystem}->{Mode};
+    try {
+        eval "require $class"
+            or croak qq(error requiring class $class : ) . $EVAL_ERROR;
+    }
+    catch {
+        confess q(No such event system mode available )
+            . $self->config->{EventSystem}
+            . " --> $_";
+    };
+    return $class;
+}
+
 sub _build_queue {
     my ($self, $purpose, $mode) = @_;
+    my $classname = $self->mode;
     try {
-        my $classname = $self->config->{QueueClass};
         try {
             if (eval "require $classname") {
             }
@@ -229,11 +254,14 @@ sub _build_queue {
     }
     catch {
         croak q(Unable to load queue class )
-            . $self->config->{QueueClass}
+            . $self->config->{EventSystem}->{Mode}
             . " --> $_ ";
     };
-    my $queue = $self->config->{QueueClass}
-        ->new(purpose => $purpose, config => $self->config, mode => $mode);
+    my $queue = $classname->new(
+        purpose => $purpose,
+        config  => $self->config,
+        mode    => $mode
+    );
     return $queue;
 }
 

@@ -43,6 +43,11 @@ has revision => (
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'message' },
 );
+has reportType => (
+    is          => 'rw',
+    isa         => 'Str',
+    default     => 'Delivery',
+);
 
 with Storage('format' => 'JSON');
 
@@ -70,6 +75,39 @@ sub cubby {
 sub rule_spec {
     my ($self) = @_;
     return 'rule-' . $self->name . '-version-' . $self->version;
+}
+
+sub delivery {
+    my ($self) = @_;
+    return ref($self)->new(
+        name       => $self->name,
+        version    => $self->version,
+        window     => $self->window,
+        key        => $self->key,
+        revision   => $self->revision,
+        reportType => 'Delivery',
+    );
+}
+
+sub summary {
+    my ($self) = @_;
+    return ref($self)->new(
+        name     => $self->name,
+        version  => $self->version,
+        window   => $self->window,
+        revision => $self->revision,
+        reportType => 'Summary',
+    );
+}
+
+sub globsummary {
+  my ($self) = @_;
+    return ref($self)->new(
+        name     => $self->name,
+        version  => $self->version,
+        revision => $self->revision,
+        reportType => 'GlobSummary',
+    );
 }
 
 sub hash_list {

@@ -79,20 +79,24 @@ my $secondMessage = { MessageType => 'interesting',
 is_deeply [ $tr->key_value_set($funMessage) ],
     [ a => 5, a => 1, a => 2, a => 3, a => 4 ], 'expands';
 
+use JSON;
+my $identity = from_json read_file('/etc/cargotel/testidentity');
+
 my $replay = Replay->new(
     config => {
-        QueueClass  => 'Replay::EventSystem::AWSQueue',
-        StorageMode => 'Mongo',
-        timeout     => 40,
-        stage       => 'testscript-03-' . $ENV{USER},
-        awsIdentity => {
-            access => '',
-            secret => '',
+        timeout       => 40,
+        stage         => 'testscript-03-' . $ENV{USER},
+        StorageEngine => {
+            Mode      => 'Mongo',
+            MongoUser => 'replayuser',
+            MongoPass => 'replaypass',
         },
-        snsService => 'https://sns.us-east-1.amazonaws.com',
-        sqsService => 'https://sqs.us-east-1.amazonaws.com',
-        MongoUser => 'replayuser',
-        MongoPass => 'replaypass',
+        EventSystem => {
+            Mode        => 'AWSQueue',
+            awsIdentity => $identity,
+            snsService  => 'https://sns.us-east-1.amazonaws.com',
+            sqsService  => 'https://sqs.us-east-1.amazonaws.com',
+        },
     },
     rules => [ new TESTRULE ]
 );

@@ -9,172 +9,195 @@ use MongoDB;
 use MongoDB::OID;
 
 extends 'Replay::BaseReportEngine';
-with (qw(Replay::Role::MongoDB)
-);
+with(qw(Replay::Role::MongoDB));
 our $VERSION = q(0.01);
 
 #my $store = {};
 
-
-sub _build_mongo {    
+sub _build_mongo {
     my ($self) = @_;
     my $db = MongoDB::MongoClient->new();
     $db->authenticate($self->dbauthdb, $self->dbuser, $self->dbpass);
     return $db;
 }
 
-sub _build_dbpass {   
+sub _build_dbpass {
     my $self = shift;
-    return $self->config->{ReportEngine}->{MongoPass}||$self->config->{MongoPass};
+    return $self->config->{ReportEngine}->{MongoPass};
 }
 
-sub _build_dbuser {  
+sub _build_dbuser {
     my $self = shift;
-    return $self->config->{ReportEngine}->{MongoUser}$self->config->{MongoUser};
+    return $self->config->{ReportEngine}->{MongoUser};
 }
 
-sub _build_dbauthdb {   
+sub _build_dbauthdb {
     my $self = shift;
-    return $self->config->{ReportEngine}->{MongoAuthDB}||$self->config->{MongoAuthDB} || 'admin';
+    return $self->config->{ReportEngine}->{MongoAuthDB} || 'admin';
 }
 
-sub _build_dbname {   
+sub _build_dbname {
     my $self = shift;
-    return $self->config->{ReportEngine}->{Name}||$self->config->{stage}."-report-" . '-replay';
+    return $self->config->{ReportEngine}->{Name}
+        || $self->config->{stage} . "-report-" . '-replay';
 }
 
-sub _build_db {        
+sub _build_db {
     my ($self) = @_;
     my $config = $self->config;
     my $db     = $self->mongo->get_database($self->dbname);
     return $db;
 }
 
-#report on a key
-sub delivery { #get the named documet lates version
+# does the work of actually getting a report from the DB
+sub retrieve {
     my ($self, $idkey) = @_;
+
+    return $self->collection($idkey)->find_one(
+        {   idkey      => $idkey->cubby,
+            REVISION   => $self->revision($idkey),
+            ReportType => $idkey->reportType,
+        },
+        { DATA => 1, FORMATTED => 1 }
+    );
     
-    return $self->document($idkey);
+}
+
+#report on a key
+sub delivery {    #get the named documet lates version
+    my ($self, $idkey) = @_;
+
+    return $self->retrieve($idkey->delivery);
 }
 
 # reports on a windows and a key
-sub summary { #
+sub summary {    #
     my ($self, $idkey) = @_;
-    
-    return $self->collection($idkey)->find({ idkey => $idkey->window."-winder" });
-
+    return $self->retrieve($idkey->summary);
 }
 
 # reports all windows for a rule version
-
 sub globsummary {
     my ($self, $idkey) = @_;
-     return $self->collection($idkey)->find({ idkey => "all" });
-    return;
-}
-
-sub revision_file { #shows the curent revsion internal to file
-    my ($self, $directory) = @_;
-    return catfile($directory, 'CURRENT');
+    return $self->retrieve($idkey->globsummary);
 }
 
 sub latest {
-   my ($self, $directory) = @_;
-   return $self->collection($idkey)->find({ idkey => "all" });
-
+    my ($self, $idkey) = @_;
+    my $result = $self->collection($idkey)->find_one(
+        {   idkey            => $idkey->cubby,
+            CURRENT_REVISION => { q/$/ . 'exists' => 1 },
+            ReportType       => $idkey->reportType,
+        },
+        { CURRENT_REVISION => 1, NEXT_REVISION => 1, }
+    );
+    return $result->{CURRENT_REVISION} || $result->{NEXT_REVISION} || 0;
 }
 
-# get the revsion that is returning
-sub revision {
-    my ($self, $idkey, $directory) = @_;
-    if ($idkey->revision eq 'latest') {
-        return $self->latest($directory);
-    }
-    else {
-        return $idkey->revision;
-    }
-}
-
-sub filename {
-    my ($self, $directory, $revision) = @_;
-    return catfile $directory, sprintf 'version_%05d', $revision;
-}
-
-sub directory_delivery {
-  my ($self, $idkey) = @_;
-  return catdir($self->config->{reportFilesystemRoot},
-        $idkey->name, $idkey->version, $idkey->window, $idkey->key);
-}
-
-sub delete_latest_report {
-    my ($self, $directory) = @_;
-    unlink $self->filename($directory, $self->latest($directory));
-    unlink catfile $directory, 'CURRENT';
-    rmdir $directory;
+sub delete_latest_revision {
+    my ($self, $idkey) = @_;
+    $self->collection($idkey)->remove(
+        {   idkey      => $idkey->cubby,
+            REVISION   => $self->latest($idkey),
+            ReportType => $idkey->reportType
+        }
+    );
+    $self->collection($idkey)->update(
+        {   idkey            => $idkey->cubby,
+            CURRENT_REVISION => { q/$/.'exists' => 1 },
+            ReportType       => $idkey->reportType
+        },
+        {   q/$/ . 'set' => { CURRENT_REVISION => undef },
+        },
+        { upsert => 0, multiple => 0 },
+    );
     return;
 }
 
-
-
-
 #Api
-# storres itme at the Key levle
+# stores item at the Key level
 sub store_delivery {
-    my ($self, $idkey,$state,$format) = @_;
-    
-    return  $self->store($idkey->key,$state,$formatted);
+    my ($self, $idkey, $state, $format) = @_;
+
+    return $self->store($idkey->delivery, $state, $format);
 
 }
 
 sub store {
-     my ($self, $key, $reportdata, $formatted) = @_;
-       use JSON;
-       my $r = $self->collection($idkey)->update(
-           { idkey => $key,
-                 revision => $idkey->revision },
-           {   q^$^ . 'set' => { formatted => $formatted, data => $reportdata },
-               q^$^ . 'setOnInsert' => { idkey => $idkey->cubby, revision => $idkey->revision, IdKey => $idkey->pack }
-           },
-           { upsert => 1, multiple => 0 },
-       );
-       super();
-       return $r;
-};
-
-
-
-
-sub directory_summary {
-  my ($self, $idkey) = @_;
-  return catdir($self->config->{reportFilesystemRoot},
-        $idkey->name, $idkey->version, $idkey->window);
+    my ($self, $idkey, $reportdata, $formatted) = @_;
+    use JSON;
+    my $r = $self->collection($idkey)->update(
+        { idkey => $idkey->cubby, REVISION => $idkey->revision },
+        {   q^$^
+                . 'set' => {
+                FORMATTED  => $formatted,
+                DATA       => $reportdata,
+                ReportType => $idkey->reportType
+                },
+            q^$^
+                . 'setOnInsert' => {
+                idkey    => $idkey->cubby,
+                REVISION => $idkey->revision,
+                IdKey    => $idkey->pack
+                }
+        },
+        { upsert => 1, multiple => 0 },
+    );
+    super();
+    return $r;
 }
 
 #stores item at the winder level
 sub store_summary {
     my ($self, $idkey, @state) = @_;
-    my $directory = $self->directory_summary($idkey);
-    return $self->store($directory, $self->revision($idkey, $directory), @state);
+    confess "unimplimented";
 }
 
-sub directory_globsummary {
-  my ($self, $idkey) = @_;
-  return catdir($self->config->{reportFilesystemRoot},
-        $idkey->name, $idkey->version);
-}
 #stores item at the rule version level
 
 sub store_globsummary {
     my ($self, $idkey, @state) = @_;
-    my $directory = $self->directory_globsummary($idkey);
-    return $self->store($directory, $self->revision($idkey, $directory), @state);
+    confess "unimplimented";
 }
 
-# State transition = add new atom to inbox
-# get a report and keep a copy 
-# ie invoice 
+# get a report and keep a copy
+# ie invoice
+sub freeze_delivery {
+  my ($self, $idkey) = @_;
+  return $self->freeze($idkey->delivery);
+}
+
+sub freeze_summary {
+  my ($self, $idkey) = @_;
+  return $self->freeze($idkey->summary);
+}
+
+sub freeze_globsummary {
+  my ($self, $idkey) = @_;
+  return $self->freeze($idkey->globsummary);
+}
+
 sub freeze {
     confess "unimplimented";
+    my ($self, $idkey) = @_;
+    $idkey->revision('latest');
+    my $newrevision = $self->revision($idkey) + 1;
+    $self->collection($idkey)->update(
+        {   idkey            => $idkey->cubby,
+            CURRENT_REVISION => { q/$/.'exists' => 1 },
+            ReportType       => $idkey->reportType
+        },
+        {   q/$/ . 'set' => { CURRENT_REVISION => undef },
+            q^$^
+                . 'setOnInsert' => {
+                idkey    => $idkey->cubby,
+                NEXT_REVISION => $idkey->revision,
+                IdKey    => $idkey->pack
+                },
+        },
+        { upsert => 1, multiple => 0 },
+    );
+
     # this should copy the current report to a new one, and increment CURRENT.
 }
 

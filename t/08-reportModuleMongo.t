@@ -48,7 +48,7 @@ sub delivery {
     my ($self, @state) = @_;
     return unless @state;
     warn "TESTRULE DELIVERY";
-    return [@state], to_json [@state];
+    return to_json [@state];
 }
 
 package Test::ReportModule;
@@ -62,18 +62,24 @@ use JSON qw/to_json from_json/;
 
 use_ok 'Replay';
 
-my $storedir = '/tmp/testscript-07-' . $ENV{USER};
-`rm -r $storedir`;
+use File::Slurp;
+use JSON;
+my $identity = from_json read_file('/etc/cargotel/testidentity');
 
 my $replay = Replay->new(
     config => {
-        QueueClass           => 'Replay::EventSystem::Null',
-        StorageMode          => 'Memory',
-        ReportMode           => 'Filesystem',
-        timeout              => 10,
-        stage                => 'testscript-07-' . $ENV{USER},
-        reportFilesystemRoot => $storedir,
-    },
+        QueueClass    => 'Replay::EventSystem::Null',
+        EventSystem   => { Mode => 'Null', },
+        StorageEngine => { Mode => 'Memory', },
+        ReportEngine  => {
+            Mode        => 'Mongo',
+            awsIdentity => $identity,
+            MongoUser   => 'replayuser',
+            MongoPass   => 'replaypass',
+        },
+        timeout => 10,
+        stage   => 'testscript-08-' . $ENV{USER},
+        },
     rules => [ new TESTRULE ]
 );
 
@@ -220,6 +226,7 @@ is_deeply [
     )
     ],
     [], 'purged data returns empty serialization';
+
 
 
 

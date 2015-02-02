@@ -78,10 +78,10 @@ sub _build_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
 
 sub _build_mode {      ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self, @args) = @_;
-    if (not $self->config->{StorageMode}) {
+    if (not $self->config->{StorageEngine}{Mode}) {
         croak q(No StorageMode?);
     }
-    my $class = 'Replay::StorageEngine::' . $self->config->{StorageMode};
+    my $class = 'Replay::StorageEngine::' . $self->config->{StorageEngine}{Mode};
     try {
         if (eval "require $class") {
         }
@@ -91,7 +91,7 @@ sub _build_mode {      ## no critic (ProhibitUnusedPrivateSubroutines)
     }
     catch {
         confess q(No such storage mode available )
-            . $self->config->{StorageMode}
+            . $self->config->{StorageEngine}{Mode}
             . " --> $_";
     };
     return $class;
