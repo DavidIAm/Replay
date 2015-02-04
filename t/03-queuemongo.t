@@ -43,6 +43,7 @@ package main;
 use Data::Dumper;
 
 use Replay 0.02;
+use File::Slurp;
 use Time::HiRes qw/gettimeofday/;
 use Test::Most tests => 17;
 use Config::Locale;
@@ -81,6 +82,8 @@ is_deeply [ $tr->key_value_set($funMessage) ],
 
 use JSON;
 my $identity = from_json read_file('/etc/cargotel/testidentity');
+use Data::Dumper;
+warn "IDENTITY IS " . Dumper $identity;
 
 my $replay = Replay->new(
     config => {

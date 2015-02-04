@@ -4,7 +4,7 @@ use Moose;
 use Scalar::Util qw/blessed/;
 use Replay::IdKey;
 use Carp qw/croak carp cluck/;
-use JSON qw/to_json/;
+use JSON qw/to_json from_json/;
 use File::Spec::Functions;
 use File::Path qw/mkpath/;
 use File::Slurp qw/read_file/;
@@ -17,9 +17,9 @@ my $store = {};
 
 sub BUILD {
     my $self = shift;
-    mkpath $self->config->{reportFilesystemRoot};
+    mkpath $self->config->{ReportEngine}->{reportFilesystemRoot};
     confess "no report filesystem root"
-        unless -d $self->config->{reportFilesystemRoot};
+        unless -d $self->config->{ReportEngine}->{reportFilesystemRoot};
 }
 
 sub delivery {
@@ -33,8 +33,9 @@ sub delivery {
 sub delivery_data {
     my ($self, $idkey) = @_;
     my $directory = $self->directory_delivery($idkey);
-    my $file = $self->filename_data($directory, $self->revision($idkey, $directory));
-    return read_file($file) if -f $file;
+    my $file
+        = $self->filename_data($directory, $self->revision($idkey, $directory));
+    return from_json read_file($file) if -f $file;
     return;
 }
 
@@ -49,8 +50,9 @@ sub summary {
 sub summary_data {
     my ($self, $idkey) = @_;
     my $directory = $self->directory_delivery($idkey);
-    my $file = $self->filename_data($directory, $self->revision($idkey, $directory));
-    return read_file($file) if -f $file;
+    my $file
+        = $self->filename_data($directory, $self->revision($idkey, $directory));
+    return from_json read_file($file) if -f $file;
     return;
 }
 
@@ -65,8 +67,9 @@ sub globsummary {
 sub globsummary_data {
     my ($self, $idkey) = @_;
     my $directory = $self->directory_globsummary($idkey);
-    my $file = $self->filename_data($directory, $self->revision($idkey, $directory));
-    return read_file($file) if -f $file;
+    my $file
+        = $self->filename_data($directory, $self->revision($idkey, $directory));
+    return from_json read_file($file) if -f $file;
     return;
 }
 
@@ -74,6 +77,7 @@ sub revision_file {
     my ($self, $directory) = @_;
     return catfile($directory, 'CURRENT');
 }
+
 sub latest {
     my ($self, $directory) = @_;
     return 0 unless -d $directory;
@@ -99,7 +103,7 @@ sub latest {
 
 sub filename_data {
     my ($self, $directory, $revision) = @_;
-    return catfile $directory, sprintf 'version_%05d', $revision . '.data';
+    return catfile $directory, sprintf 'version_%05d.data', $revision;
 }
 
 sub filename {
@@ -107,15 +111,27 @@ sub filename {
     return catfile $directory, sprintf 'version_%05d', $revision;
 }
 
+sub directory {
+    my ($self, $idkey) = @_;
+    return catdir(
+        $self->config->{ReportEngine}->{reportFilesystemRoot},
+        $idkey->name,
+        $idkey->version,
+        ($idkey->window ? ($idkey->window) : ()),
+        ($idkey->key    ? ($idkey->key)    : ())
+    );
+}
 sub directory_delivery {
-  my ($self, $idkey) = @_;
-  return catdir($self->config->{reportFilesystemRoot},
+    my ($self, $idkey) = @_;
+    return catdir($self->config->{ReportEngine}->{reportFilesystemRoot},
         $idkey->name, $idkey->version, $idkey->window, $idkey->key);
 }
 
-sub delete_latest_report {
-    my ($self, $directory) = @_;
+sub delete_latest_revision {
+    my ($self, $idkey) = @_;
+    my $directory = $self->directory($idkey);
     unlink $self->filename($directory, $self->latest($directory));
+    unlink $self->filename_data($directory, $self->latest($directory));
     unlink catfile $directory, 'CURRENT';
     rmdir $directory;
     return;
@@ -124,59 +140,68 @@ sub delete_latest_report {
 sub store {
     my ($self, $directory, $revision, $data, $formatted) = @_;
     use Data::Dumper;
-    carp "first return value from delivery/summary/globsummary function does not appear to be an array ref" unless 'ARRAY' eq ref $data;
-    $self->delete_latest_report($directory) unless scalar @{$data};
-    return $self->delete_latest_report($directory) unless scalar @{$data};
-    mkpath $directory unless -d $directory;
+    carp
+        "first return value from delivery/summary/globsummary function does not appear to be an array ref"
+        unless 'ARRAY' eq ref $data;
+    $self->delete_latest_revision($directory)        unless scalar @{$data};
+    return $self->delete_latest_revision($directory) unless scalar @{$data};
+    mkpath $directory                              unless -d $directory;
     my $datafilename = $self->filename_data($directory, $revision);
+
     # TODO: make this thread safe writes with temp name and renames
     my $dfh = IO::File->new($datafilename, 'w');
-    print $dfh @state;
+    print $dfh to_json $data;
     if (length $formatted) {
-    my $filename = $self->filename($directory, $revision);
-    # TODO: make this thread safe writes with temp name and renames
-    my $fh = IO::File->new($filename, 'w');
-    print $fh @state;
-    my $vfile = $self->revision_file($directory);
-    my $vh = IO::File->new($vfile, 'w');
-    print $vh $revision;
-    return $filename;
+        my $filename = $self->filename($directory, $revision);
+
+        # TODO: make this thread safe writes with temp name and renames
+        my $fh = IO::File->new($filename, 'w');
+        print $fh $formatted;
+        my $vfile = $self->revision_file($directory);
+        my $vh = IO::File->new($vfile, 'w');
+        print $vh $revision;
+        return $filename;
+    }
 }
 
 sub store_delivery {
     my ($self, $idkey, $data, $formatted) = @_;
     my $directory = $self->directory_delivery($idkey);
-    return $self->store($directory, $self->revision($idkey, $directory), $data, $formatted);
+    return $self->store($directory, $self->revision($idkey, $directory),
+        $data, $formatted);
 }
 
 sub directory_summary {
-  my ($self, $idkey) = @_;
-  return catdir($self->config->{reportFilesystemRoot},
+    my ($self, $idkey) = @_;
+    return catdir($self->config->{ReportEngine}->{reportFilesystemRoot},
         $idkey->name, $idkey->version, $idkey->window);
 }
 
 sub store_summary {
     my ($self, $idkey, $data, $formatted) = @_;
     my $directory = $self->directory_summary($idkey);
-    return $self->store($directory, $self->revision($idkey, $directory), $data, $formatted);
+    return $self->store($directory, $self->revision($idkey, $directory),
+        $data, $formatted);
 }
 
 sub directory_globsummary {
-  my ($self, $idkey) = @_;
-  return catdir($self->config->{reportFilesystemRoot},
+    my ($self, $idkey) = @_;
+    return catdir($self->config->{ReportEngine}->{reportFilesystemRoot},
         $idkey->name, $idkey->version);
 }
 
 sub store_globsummary {
     my ($self, $idkey, $data, $formatted) = @_;
     my $directory = $self->directory_globsummary($idkey);
-    return $self->store($directory, $self->revision($idkey, $directory), $data, $formatted);
+    return $self->store($directory, $self->revision($idkey, $directory),
+        $data, $formatted);
 }
 
 # State transition = add new atom to inbox
 
 sub freeze {
     confess "unimplimented";
+
     # this should copy the current report to a new one, and increment CURRENT.
 }
 

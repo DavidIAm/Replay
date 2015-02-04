@@ -88,8 +88,8 @@ is_deeply [ $tr->key_value_set({ Message => { b => [ 1, 2, 3, 4 ] } }) ],
 
 my $replay = Replay->new(
     config => {
-        QueueClass  => 'Replay::EventSystem::Null',
-        StorageMode => 'Memory',
+      EventSystem => { Mode => 'Null' },
+      StorageEngine => { Mode => 'Memory' },
         timeout     => 50,
         stage       => 'testscript-01-' . $ENV{USER},
     },

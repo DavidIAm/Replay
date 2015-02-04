@@ -9,6 +9,9 @@ use Replay::Message::Report::NewGlobSummary;
 use Replay::Message::Report::Freeze;
 use Replay::Message::Report::CopyDomain;
 use Replay::Message::Report::Checkpoint;
+use Replay::Message::Report::PurgedDelivery;
+use Replay::Message::Report::PurgedSummary;
+use Replay::Message::Report::PurgedGlobSummary;
 use Replay::Message::Locked;
 use Replay::Message::Unlocked;
 use Replay::Message::WindowAll;
@@ -39,12 +42,31 @@ sub rule {
     return $rule;
 }
 
+sub delete_latest_delivery {
+    my ($self, $idkey) = @_;
+    $self->delete_latest_revision($idkey->delivery);
+    $self->eventSystem->control->emit(
+        Replay::Message::Report::PurgedDelivery->new($idkey->marshall));
+}
+sub delete_latest_summary {
+    my ($self, $idkey) = @_;
+    $self->delete_latest_revision($idkey->summary);
+    $self->eventSystem->control->emit(
+        Replay::Message::Report::PurgedSummary->new($idkey->marshall));
+}
+sub delete_latest_globsummary {
+    my ($self, $idkey) = @_;
+    $self->delete_latest_revision($idkey->globsummary);
+    $self->eventSystem->control->emit(
+        Replay::Message::Report::PurgedGlobSummary->new($idkey->marshall));
+}
+
 # store a new 
 sub update_delivery {
     my ($self, $idkey, @state) = @_;
     my $rule = $self->rule($idkey);
     return unless $rule->can('delivery');
-    return $self->delete_latest_revision($idkey->delivery) unless scalar @state;
+    return $self->delete_latest_delivery($idkey) unless scalar @state;
     $self->store_delivery($idkey, $rule->delivery(@state));
     $self->eventSystem->control->emit(
         Replay::Message::Report::NewDelivery->new($idkey->marshall));
@@ -54,7 +76,7 @@ sub update_summary {
     my ($self, $idkey, @state) = @_;
     my $rule = $self->rule($idkey);
     return unless $rule->can('summary');
-    return $self->delete_latest_revision($idkey->summary) unless scalar @state;
+    return $self->delete_latest_summary($idkey) unless scalar @state;
     $self->store_summary($idkey, $rule->summary(@state));
     return $self->eventSystem->control->emit(
         Replay::Message::Report::NewSummary->new($idkey->marshall ));
@@ -64,7 +86,7 @@ sub update_globsummary {
     my ($self, $idkey, @state) = @_;
     my $rule = $self->rule($idkey);
     return unless $rule->can('globsummary');
-    return $self->delete_latest_revision($idkey->globsummary) unless scalar @state;
+    return $self->delete_latest_globsummary($idkey) unless scalar @state;
     $self->store_globsummary($idkey, $rule->globsummary(@state));
     return $self->eventSystem->control->emit(
         Replay::Message::Report::NewGlobSummary->new(

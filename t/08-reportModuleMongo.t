@@ -48,7 +48,7 @@ sub delivery {
     my ($self, @state) = @_;
     return unless @state;
     warn "TESTRULE DELIVERY";
-    return to_json [@state];
+    return [@state], to_json [@state];
 }
 
 package Test::ReportModule;
@@ -62,18 +62,16 @@ use JSON qw/to_json from_json/;
 
 use_ok 'Replay';
 
-use File::Slurp;
-use JSON;
-my $identity = from_json read_file('/etc/cargotel/testidentity');
+my $storedir = '/tmp/testscript-07-' . $ENV{USER};
+`rm -rf $storedir`;
 
 my $replay = Replay->new(
     config => {
-        QueueClass    => 'Replay::EventSystem::Null',
         EventSystem   => { Mode => 'Null', },
         StorageEngine => { Mode => 'Memory', },
         ReportEngine  => {
             Mode        => 'Mongo',
-            awsIdentity => $identity,
+#            awsIdentity => $identity,
             MongoUser   => 'replayuser',
             MongoPass   => 'replaypass',
         },
@@ -182,8 +180,8 @@ $replay->eventSystem->control->subscribe(
                     . ": This is a control message of type "
                     . $message->{MessageType} . "\n";
 
-                return unless $message->{MessageType} eq 'ReportNewDelivery';
-                return if ++ $deliverycount;
+                return unless $message->{MessageType} eq 'ReportPurgedDelivery';
+#                return if ++ $deliverycount;
 
                 warn "PROPER STOP";
                 $replay->eventSystem->stop;
@@ -226,7 +224,6 @@ is_deeply [
     )
     ],
     [], 'purged data returns empty serialization';
-
 
 
 

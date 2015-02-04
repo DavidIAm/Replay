@@ -87,6 +87,7 @@ around BUILDARGS => sub {
     my $orig  = shift;
     my $class = shift;
     use Data::Dumper;
+    confess "Strange build of an envelope: ".Dumper [@_] if !ref $_[0] && scalar @_ % 2;
     my %args  = ref $_[0] ? %{ $_[0] } : @_;
     $class->meta->make_mutable;
     my %attributes = map { $_->{name} => $_ } $class->meta->get_all_attributes;

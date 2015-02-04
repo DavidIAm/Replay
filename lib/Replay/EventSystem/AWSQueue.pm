@@ -10,7 +10,7 @@ with 'Replay::EventSystem::Base';
 use Replay::Message;
 
 #use Replay::Message::Clock;
-use Carp qw/carp croak/;
+use Carp qw/carp croak confess/;
 
 use Perl::Version;
 use Amazon::SNS;
@@ -59,34 +59,17 @@ has queueName =>
 
 sub emit {
     my ($self, $message) = @_;
-    if (blessed $message) {
-        if ($message->can('marshall')){
-            $message = to_json($message->marshall());
-        }   
-        elsif ($message->can('stringify')) {
-            $message = $message->stringify;
-        }
-         
-        elsif ($message->can('freeze')) {
-            $message = $message->freeze;
-        }
-        
-    }
-    
-    
-    try {
-        if (ref $message) {
-            $message = to_json($message);
-        }
-    }
-    catch {
-        croak q(WE WERE TRYING TO EMIT A )
-            . ref($message)
-            . " BUT GOT EXCEPTIOIN $_ - NO STRINGIFY OR FREEZE??"
-            . to_json [$message];
-    };
 
-    return $self->topic->Publish($message, 'control');
+    $message = Replay::Message->new($message) unless blessed $message;
+
+    # THIS MUST DOES A Replay::Envelope
+    confess "Can only emit Replay::Envelope consumer"
+        unless $message->does('Replay::Envelope');
+    my $uuid = $message->UUID;
+
+    $self->topic->Publish(to_json $message->marshall) or return;
+
+    return $uuid;
 }
 
 sub poll {
@@ -97,6 +80,7 @@ sub poll {
     return $handled if not scalar(@{ $self->subscribers });
     foreach my $message ($self->_receive()) {
         $handled++;
+
         #use Data::Dumper;
         #warn("poll message=".Dumper($message));
         foreach my $subscriber (@{ $self->subscribers }) {
@@ -132,19 +116,21 @@ sub _receive {
     my @payloads;
     foreach my $message (@messages) {
         use Data::Dumper;
-    #    warn("AWSQueue _receive->message=".Dumper( $message));
-    #    warn("AWSQueue _receive->MessageBody=".Dumper( $message->MessageBody));
-        try{
-        my $message_body = from_json $message->MessageBody;
-        my $innermessage = from_json $message_body->{Message};
-        push @payloads, $innermessage;
+
+        #    warn("AWSQueue _receive->message=".Dumper( $message));
+        #    warn("AWSQueue _receive->MessageBody=".Dumper( $message->MessageBody));
+        try {
+            my $message_body = from_json $message->MessageBody;
+            my $innermessage = from_json $message_body->{Message};
+            push @payloads, $innermessage;
         }
-        catch{
-              carp q(There was an exception while processing message through _receive )
-              ."message=".Dumper($message)
-              . $_;  
-              exit;
-        }    
+        catch {
+            carp q(There was an exception while processing message through _receive )
+                . "message="
+                . Dumper($message)
+                . $_;
+            exit;
+        }
     }
     return @payloads;
 }
@@ -152,7 +138,7 @@ sub _receive {
 sub _build_sqs {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     my $config = $self->config;
-    croak q(No sqs service?) if not $config->{sqsService};
+    croak q(No sqs service?) if not $config->{EventSystem}{sqsService};
     my $sqs = Amazon::SQS::Simple->new(
         $config->{EventSystem}{awsIdentity}{access},
         $config->{EventSystem}{awsIdentity}{secret},
@@ -177,6 +163,7 @@ sub _build_queue {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     carp q(BUILDING QUEUE ) . $self->queueName;
     my $queue = $self->sqs->CreateQueue($self->queueName);
+    carp q(SETTING QUEUE POLICY ) . $self->queueName;
     $queue->SetAttribute(
         'Policy',
         to_json(
@@ -193,6 +180,7 @@ sub _build_queue {    ## no critic (ProhibitUnusedPrivateSubroutines)
             }
         )
     );
+    carp q(SUBSCRIBING TO QUEUE ) . $self->queueName;
     $self->{subscriptionARN} = $self->sns->dispatch(
         {   Action   => 'Subscribe',
             Endpoint => $self->queuearn,
@@ -204,7 +192,7 @@ sub _build_queue {    ## no critic (ProhibitUnusedPrivateSubroutines)
 }
 
 sub done {
-  my $self = shift;
+    my $self = shift;
 }
 
 sub DEMOLISH {

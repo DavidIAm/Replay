@@ -8,6 +8,8 @@ use Readonly;
 use JSON;
 use Carp qw/croak carp/;
 use Replay::Message::Reducable;
+use Replay::Message::ClearedState;
+use Replay::Message::NoLockDuringRevert;
 use Replay::Message;
 
 our $VERSION = 0.02;
@@ -192,9 +194,8 @@ override checkout => sub {
             q(Unable to obtain lock because the current one is locked and unexpired ())
             . $idkey->cubby
             . qq(\)\n);
-        $self->eventSystem->control->emit(
-                MessageType => 'NoLock',
-                $idkey->hash_list
+        $self->eventSystem->emit('control',
+                Replay::Message::NoLock->new($idkey->marshall),
         );
         return;
     }
@@ -212,8 +213,7 @@ override checkout => sub {
 
     $self->eventSystem->emit(
         'control',
-            MessageType => 'NoLockPostRevert',
-            $idkey->hash_list,
+            Replay::Message::NoLockPostRevert->new($idkey->marshall),
     );
     if (not defined $relockresult) {
         carp "Unable to relock after revert ($unlsignature)? "
@@ -231,8 +231,7 @@ override checkout => sub {
 
     $self->eventSystem->emit(
         'control',
-            MessageType => 'NoLockPostRevertRelock',
-            $idkey->hash_list,
+            Replay::Message::NoLockPostRevertRelock->new($idkey->marshall),
     );
     carp q(checkout after revert and relock failed.  Look in COLLECTION \()
         . $idkey->collection
@@ -259,8 +258,7 @@ sub relock_i_match_with {
     carp q(tried to do a revert but didn't have a lock on it) if not $state;
     $self->eventSystem->emit(
         'control',
-            MessageType => 'NoLockDuringRevert',
-            $idkey->hash_list,
+            Replay::Message::NoLockDuringRevert->new($idkey->marshall),
     );
     return if not $state;
     $self->revert_this_record($idkey, $unlsignature, $state);
@@ -319,8 +317,7 @@ override checkin => sub {
         )
     {
         $self->eventSystem->emit('control',
-                MessageType => 'ClearedState',
-                $idkey->hash_list
+                Replay::Message::ClearedState->new( $idkey->marshall ),
         );
     }
     return if not defined $result;

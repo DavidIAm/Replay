@@ -63,16 +63,15 @@ use JSON qw/to_json from_json/;
 use_ok 'Replay';
 
 my $storedir = '/tmp/testscript-07-' . $ENV{USER};
-`rm -r $storedir`;
+`rm -rf $storedir`;
 
 my $replay = Replay->new(
     config => {
-        QueueClass           => 'Replay::EventSystem::Null',
-        StorageMode          => 'Memory',
-        ReportMode           => 'Filesystem',
-        timeout              => 10,
-        stage                => 'testscript-07-' . $ENV{USER},
-        reportFilesystemRoot => $storedir,
+        EventSystem   => { Mode => 'Null' },
+        StorageEngine => { Mode => 'Memory' },
+        ReportEngine  => { Mode => 'Filesystem', reportFilesystemRoot => $storedir, },
+        timeout => 10,
+        stage   => 'testscript-07-' . $ENV{USER},
     },
     rules => [ new TESTRULE ]
 );
@@ -176,8 +175,8 @@ $replay->eventSystem->control->subscribe(
                     . ": This is a control message of type "
                     . $message->{MessageType} . "\n";
 
-                return unless $message->{MessageType} eq 'ReportNewDelivery';
-                return if ++ $deliverycount;
+                return unless $message->{MessageType} eq 'ReportPurgedDelivery';
+#                return if ++ $deliverycount;
 
                 warn "PROPER STOP";
                 $replay->eventSystem->stop;

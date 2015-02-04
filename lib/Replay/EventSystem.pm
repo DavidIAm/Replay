@@ -10,7 +10,7 @@ use Carp qw/confess carp cluck/;
 use Time::HiRes;
 use Replay::Message::Timing;
 use Try::Tiny;
-use Carp qw/croak carp/;
+use Carp qw/croak carp confess/;
 
 use Replay::EventSystem::AWSQueue;
 
@@ -68,8 +68,9 @@ has domain => (is => 'ro');    # placeholder
 
 sub BUILD {
     my ($self) = @_;
-    if (not $self->config->{QueueClass}) {
-        croak q(NO QueueClass CONFIG!?  Make sure its in the locale files);
+    if (not $self->config->{EventSystem}->{Mode}) {
+      use Data::Dumper;
+        confess q(NO EventSystem Mode CONFIG!?  Make sure its in the locale files).Dumper $self->config;
     }
     $self->{stop} = AnyEvent->condvar(cb => sub {exit});
     return;
@@ -148,18 +149,24 @@ sub clear {
     $self->clear_origin;
     $self->clear_derived_sniffer;
     $self->clear_origin_sniffer;
-    $self->config->{QueueClass}->done;
+    my $class = 'Replay::EventSystem::'.$self->config->{EventSystem}->{Mode};
+    $class->done;
     return;
 }
 
 sub emit {
-    my ($self, $channel, $message, @rest) = @_;
-    
-    
-    return $self->$channel->emit(Replay::Message->new(ref $message ? $message : $message => @rest )->marshall)
-        if $self->can($channel);
-    use Carp qw/confess/;
-    confess "Unknown channel $channel";
+    my ($self, $channel, $message) = @_;
+
+    $message = Replay::Message->new($message) unless blessed $message;
+
+    # THIS MUST DOES A Replay::Envelope
+    confess "Can only emit Replay::Envelope consumer"
+        unless $message->does('Replay::Envelope');
+
+    confess "Unknown channel $channel" unless $self->can($channel);
+
+    $self->$channel->emit($message->marshall);
+    return $message->UUID;
 
 }
 
@@ -219,7 +226,7 @@ sub clock {
     return;
 }
 
-sub _build_mode {      ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_mode {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     if (not $self->config->{EventSystem}->{Mode}) {
         croak q(No EventSystem Mode?);

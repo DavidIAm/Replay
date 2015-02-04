@@ -3,6 +3,8 @@ package Replay::Reporter;
 use Moose;
 use Scalar::Util;
 use Replay::DelayedEmitter;
+use Replay::Message::ReporterException;
+use Replay::Message::Reported;
 use Replay::IdKey;
 use Replay::Message;
 use Scalar::Util qw/blessed/;
@@ -82,50 +84,31 @@ sub report_wrapper {
             or $type eq 'NewNewGlobDelivery';
         $idkey = $self->extract_idkey($envelope);
 
-        $meta = $self->do_delivery($idkey, $envelope) if $type eq 'NewCanonical';
-        $meta = $self->do_summary($idkey, $envelope) if $type eq 'NewDelivery';
-        $meta = $self->do_globsummary($idkey, $envelope)
+        $meta = $self->reportEngine->update_delivery($idkey) if $type eq 'NewCanonical';
+        $meta = $self->reportEngine->update_summary($idkey) if $type eq 'NewDelivery';
+        $meta = $self->reportEngine->update_globsummary($idkey)
             if $type eq 'NewGlobDelivery';
 
         $self->eventSystem->emit(
             'control',
-            MessageType => 'Reported',
-            $idkey->hash_list,
-            inReactionToType => $type,
-            inReactionToUUID => (blessed $envelope ? $envelope->UUID: $envelope->{UUID}),
+            Replay::Message::Reported->new(
+                $idkey->hash_list,
+                inReactionToType => $type,
+                inReactionToUUID => (blessed $envelope ? $envelope->UUID : $envelope->{UUID}),
+            ),
         );
     }
     catch {
         carp "REPORTING EXCEPTION: $_";
         $self->eventSystem->emit(
             'control',
-            MessageType => 'ReporterException',
-            (   $idkey
-                ? ( rule    => $self->rule($idkey)->name,
-                    version => $self->rule($idkey)->version,
-                    Message => { $idkey->hash_list },
-                    )
-                : (""=>"")
-            ),
-            exception => (blessed $_ && $_->can('trace') ? $_->trace->as_string : $_),
+            Replay::Message::ReporterException->new(
+                ($idkey ? $idkey->hash_list : ()),
+                exception => (blessed $_ && $_->can('trace') ? $_->trace->as_string : $_),
+            )
         );
     };
     return;
-}
-
-sub do_delivery {
-    my ($self, $idkey, $envelope) = @_;
-    return $self->reportEngine->update_delivery($idkey);
-}
-
-sub do_summary {
-    my ($self, $idkey, $envelope) = @_;
-    return $self->reportEngine->update_summary($idkey);
-}
-
-sub do_globsummary {
-    my ($self, $idkey, $envelope) = @_;
-    return $self->reportEngine->update_globsummary($idkey);
 }
 
 1;
