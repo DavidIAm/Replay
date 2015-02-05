@@ -30,15 +30,15 @@ has storageEngine =>
 # Delegate the api points
 sub delivery {
     my ($self, $idkey) = @_;
-    return $self->engine->delivery($idkey);
+    return $self->engine->delivery($idkey->delivery);
 }
 sub summary {
     my ($self, $idkey) = @_;
-    return $self->engine->summary($idkey);
+    return $self->engine->summary($idkey->summary);
 }
 sub globsummary {
     my ($self, $idkey) = @_;
-    return $self->engine->globsummary($idkey);
+    return $self->engine->globsummary($idkey->globsummary);
 }
 sub update_delivery {
     my ($self, $idkey) = @_;

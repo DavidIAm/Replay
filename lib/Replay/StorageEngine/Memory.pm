@@ -9,6 +9,7 @@ use Carp qw/croak carp cluck/;
 
 extends 'Replay::BaseStorageEngine';
 
+has 'debug' => (is => 'rw');
 our $VERSION = q(0.02);
 
 my $store = {};
@@ -177,7 +178,7 @@ sub update_and_unlock {
     my ($self, $idkey, $uuid, $state) = @_;
     my $signature = $self->state_signature($idkey, [$uuid]);
     return unless exists $state->{locked};
-    warn "LOCKED" .$state->{locked};
+    warn "LOCKED" .$state->{locked} if $self->debug;
     return unless $state->{locked} eq $signature;
     delete $state->{desktop};            # there is no more desktop on checkin
     delete $state->{lockExpireEpoch};    # there is no more expire time on checkin

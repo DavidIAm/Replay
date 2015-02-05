@@ -46,8 +46,7 @@ sub reduce {
 
 sub delivery {
     my ($self, @state) = @_;
-    return unless @state;
-    warn "TESTRULE DELIVERY";
+    use Data::Dumper;
     return [@state], to_json [@state];
 }
 
@@ -169,17 +168,13 @@ $replay->eventSystem->control->subscribe(
                 )
             )
             ],
-            ['["15"]'];
+            [{DATA => [15], FORMATTED => '["15"]'}];
 
         $replay->eventSystem->control->subscribe(
             sub {
                 my ($message) = @_;
 
                 return if $message->{MessageType} eq 'Fetched';
-                warn __FILE__
-                    . ": This is a control message of type "
-                    . $message->{MessageType} . "\n";
-
                 return unless $message->{MessageType} eq 'ReportPurgedDelivery';
 #                return if ++ $deliverycount;
 
@@ -214,7 +209,7 @@ is_deeply [
         )
     )
     ],
-    ['["30"]'], 'doubled on extra insert';
+    [{DATA => [30], FORMATTED => '["30"]'}], 'doubled on extra insert';
 
 is_deeply [
     $replay->reportEngine->delivery(
@@ -223,7 +218,7 @@ is_deeply [
         )
     )
     ],
-    [], 'purged data returns empty serialization';
+    [{DATA => undef, FORMATTED => undef}], 'purged data returns empty serialization';
 
 
 

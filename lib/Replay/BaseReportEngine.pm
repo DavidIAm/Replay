@@ -95,10 +95,37 @@ sub update_globsummary {
     );
 }
 
+#report on a key
+sub delivery {    #get the named documet lates version
+    my ($self, $idkey) = @_;
+    return $self->do_retrieve($idkey->delivery);
+}
+
+# reports on a windows and a key
+sub summary {    #
+    my ($self, $idkey) = @_;
+    return $self->do_retrieve($idkey->summary);
+}
+
+# reports all windows for a rule version
+sub globsummary {
+    my ($self, $idkey) = @_;
+    return $self->do_retrieve($idkey->globsummary);
+}
+
+sub do_retrieve {
+  my ($self, $idkey) = @_;
+  my $result = $self->retrieve($idkey);
+    confess "retrieve in storage engine implimentation must return hash" unless 'HASH' eq ref $result;
+    confess "retrieve in storage engine implimentation must have DATA key" unless exists $result->{DATA};
+    confess "retrieve in storage engine implimentation must have FORMATTED key" unless exists $result->{FORMATTED};
+    return $result;
+}
+
 # get the revsion that is returning
 sub revision {
     my ($self, $idkey, $directory) = @_;
-    if ($idkey->revision eq 'latest') {
+    if ($idkey->revision_is_default) {
         return $self->latest($idkey);
     }
     else {

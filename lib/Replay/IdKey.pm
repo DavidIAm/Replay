@@ -5,8 +5,11 @@ use MongoDB;
 use MooseX::Storage;
 use MongoDB::OID;
 use Digest::MD5 qw/md5_hex/;
+use Readonly;
 
 our $VERSION = '0.02';
+
+Readonly my $DEFAULT_REVISION => 'latest';
 
 has name => (
     is          => 'rw',
@@ -39,7 +42,7 @@ has key => (
 has revision => (
     is          => 'rw',
     isa         => 'Str',
-    default     => 'latest',
+    default     => $DEFAULT_REVISION,
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'message' },
 );
@@ -50,6 +53,11 @@ has reportType => (
 );
 
 with Storage('format' => 'JSON');
+
+sub revision_is_default {
+  my ($self) = @_;
+  return $self->revision eq $DEFAULT_REVISION;
+}
 
 sub collection {
     my ($self) = @_;

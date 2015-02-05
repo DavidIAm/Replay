@@ -50,44 +50,30 @@ sub _build_db {
 }
 
 # does the work of actually getting a report from the DB
+# returns { DATA => <reference>, FORMATTED => <scalar> }
 sub retrieve {
     my ($self, $idkey) = @_;
 
-    return $self->collection($idkey)->find_one(
-        {   idkey      => $idkey->cubby,
+    my $r = $self->collection($idkey)->find_one(
+       my $e = {   idkey      => $idkey->cubby,
             REVISION   => $self->revision($idkey),
             ReportType => $idkey->reportType,
         },
         { DATA => 1, FORMATTED => 1 }
     );
-    
+    return { DATA => undef, FORMATTED => undef } unless defined $r;
+    delete $r->{_id};
+    return $r;
 }
 
-#report on a key
-sub delivery {    #get the named documet lates version
-    my ($self, $idkey) = @_;
-
-    return $self->retrieve($idkey->delivery);
-}
-
-# reports on a windows and a key
-sub summary {    #
-    my ($self, $idkey) = @_;
-    return $self->retrieve($idkey->summary);
-}
-
-# reports all windows for a rule version
-sub globsummary {
-    my ($self, $idkey) = @_;
-    return $self->retrieve($idkey->globsummary);
-}
 
 sub latest {
     my ($self, $idkey) = @_;
     my $result = $self->collection($idkey)->find_one(
-        {   idkey            => $idkey->cubby,
-            CURRENT_REVISION => { q/$/ . 'exists' => 1 },
-            ReportType       => $idkey->reportType,
+        {
+            idkey         => $idkey->cubby,
+            NEXT_REVISION => { q/$/ . 'exists' => 1 },
+            ReportType    => $idkey->reportType,
         },
         { CURRENT_REVISION => 1, NEXT_REVISION => 1, }
     );
@@ -107,7 +93,7 @@ sub delete_latest_revision {
             CURRENT_REVISION => { q/$/.'exists' => 1 },
             ReportType       => $idkey->reportType
         },
-        {   q/$/ . 'set' => { CURRENT_REVISION => undef },
+        {   q/$/ . 'unset' => { CURRENT_REVISION => undef },
         },
         { upsert => 0, multiple => 0 },
     );
@@ -126,8 +112,9 @@ sub store_delivery {
 sub store {
     my ($self, $idkey, $reportdata, $formatted) = @_;
     use JSON;
+    my $revision = $self->revision($idkey);
     my $r = $self->collection($idkey)->update(
-        { idkey => $idkey->cubby, REVISION => $idkey->revision },
+        { idkey => $idkey->cubby, REVISION => $revision },
         {   q^$^
                 . 'set' => {
                 FORMATTED  => $formatted,
@@ -137,12 +124,28 @@ sub store {
             q^$^
                 . 'setOnInsert' => {
                 idkey    => $idkey->cubby,
-                REVISION => $idkey->revision,
+                REVISION => $revision,
                 IdKey    => $idkey->pack
                 }
         },
         { upsert => 1, multiple => 0 },
     );
+    $self->collection($idkey)->update(
+        {   idkey         => $idkey->cubby,
+            NEXT_REVISION => { q/$/ . 'exists' => 1 },
+            ReportType    => $idkey->reportType
+        },
+        {   q^$^
+                . 'setOnInsert' => {
+                CURRENT_REVISION => $revision,
+                NEXT_REVISION    => $revision,
+                idkey            => $idkey->cubby,
+                IdKey            => $idkey->pack
+                },
+        },
+        { upsert => 1, multiple => 0 },
+    );
+
     super();
     return $r;
 }
@@ -183,17 +186,14 @@ sub freeze {
     $idkey->revision('latest');
     my $newrevision = $self->revision($idkey) + 1;
     $self->collection($idkey)->update(
-        {   idkey            => $idkey->cubby,
-            CURRENT_REVISION => { q/$/.'exists' => 1 },
-            ReportType       => $idkey->reportType
+        {   idkey         => $idkey->cubby,
+            NEXT_REVISION => { q/$/ . 'exists' => 1 },
+            ReportType    => $idkey->reportType
         },
-        {   q/$/ . 'set' => { CURRENT_REVISION => undef },
-            q^$^
-                . 'setOnInsert' => {
-                idkey    => $idkey->cubby,
-                NEXT_REVISION => $idkey->revision,
-                IdKey    => $idkey->pack
-                },
+        {   q/$/
+                . 'set' =>
+                { CURRENT_REVISION => $newrevision, NEXT_REVISION => $newrevision, },
+            q^$^ . 'setOnInsert' => { idkey => $idkey->cubby, IdKey => $idkey->pack },
         },
         { upsert => 1, multiple => 0 },
     );
