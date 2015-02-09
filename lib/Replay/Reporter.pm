@@ -80,14 +80,16 @@ sub report_wrapper {
     try {
         return
                unless $type eq 'NewCanonical'
-            or $type eq 'NewDelivery'
-            or $type eq 'NewNewGlobDelivery';
+            or $type eq 'ReportNewDelivery'
+            or $type eq 'ReportNewSummary';
         $idkey = $self->extract_idkey($envelope);
 
-        $meta = $self->reportEngine->update_delivery($idkey) if $type eq 'NewCanonical';
-        $meta = $self->reportEngine->update_summary($idkey) if $type eq 'NewDelivery';
+        $meta = $self->reportEngine->update_delivery($idkey)
+            if $type eq 'NewCanonical';
+        $meta = $self->reportEngine->update_summary($idkey)
+            if $type eq 'ReportNewDelivery';
         $meta = $self->reportEngine->update_globsummary($idkey)
-            if $type eq 'NewGlobDelivery';
+            if $type eq 'ReportNewSummary';
 
         $self->eventSystem->emit(
             'control',
@@ -260,6 +262,25 @@ override reduce => sub {
 
 sub ruleState                {...}
 sub myWindowChooserAlgorithm {...}
+
+=head1 DESCRIPTION 
+
+the reporter subscribes to the control channel
+
+When the reporter sees a NewCanonical message, it calls the report 
+engine implimentation with 'update_delivery' method
+
+When the reporter sees a ReportNewDelivery message, it calls the report 
+engine implimentation with 'update_summary' method
+
+When the reporter sees a ReportNewSummary message, it calls the report 
+engine implimentation with 'update_globsummary' method
+
+When the reporter sees a Freeze message, it calls the report 
+engine implimentation with 'freeze' method
+
+When the reporter sees a Freeze message, it calls the report 
+engine implimentation with 'freeze' method
 
 =head1 SUBROUTINES/METHODS
 

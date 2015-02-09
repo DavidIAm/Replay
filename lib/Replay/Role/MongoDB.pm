@@ -5,13 +5,14 @@ package Replay::Role::MongoDB;
 use Moose::Role;
 use Carp qw/croak confess carp/;
 
-
-requires (qw(_build_mongo 
-             _build_db
-             _build_dbname
-             _build_dbauthdb
-             _build_dbuser
-             _build_dbpass));
+requires(
+    qw(_build_mongo
+        _build_db
+        _build_dbname
+        _build_dbauthdb
+        _build_dbuser
+        _build_dbpass)
+);
 
 our $VERSION = q(0.01);
 
@@ -153,14 +154,14 @@ sub relock_i_match_with {
     carp q(tried to do a revert but didn't have a lock on it) if not $state;
     $self->eventSystem->emit(
         'control',
-            MessageType => 'NoLockDuringRevert',
-            $idkey->hash_list,
+        MessageType => 'NoLockDuringRevert',
+        $idkey->hash_list,
     );
     return if not $state;
     $self->revert_this_record($idkey, $unlsignature, $state);
     my $result = $self->unlock($idkey, $unluuid, $state);
     return defined $result;
-};
+}
 
 sub revert_this_record {
     my ($self, $idkey, $signature, $document) = @_;

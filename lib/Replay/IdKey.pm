@@ -9,8 +9,6 @@ use Readonly;
 
 our $VERSION = '0.02';
 
-Readonly my $DEFAULT_REVISION => 'latest';
-
 has name => (
     is          => 'rw',
     isa         => 'Str',
@@ -28,36 +26,47 @@ has version => (
 has window => (
     is          => 'rw',
     isa         => 'Str',
-    required    => 1,
+    required    => 0,
+    predicate   => 'has_window',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'message' },
 );
 has key => (
     is          => 'rw',
     isa         => 'Str',
-    required    => 1,
+    required    => 0,
+    predicate   => 'has_key',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'message' },
 );
 has revision => (
     is          => 'rw',
-    isa         => 'Str',
-    default     => $DEFAULT_REVISION,
+    isa         => 'Num',
+    predicate   => 'has_revision',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'message' },
-);
-has reportType => (
-    is          => 'rw',
-    isa         => 'Str',
-    default     => 'Delivery',
 );
 
 with Storage('format' => 'JSON');
 
-sub revision_is_default {
-  my ($self) = @_;
-  return $self->revision eq $DEFAULT_REVISION;
+sub BUILD {
+    my $self = shift;
+    confess "WTF" if $self->has_revision && !defined $self->revision;
 }
+
+around BUILDARGS => sub {
+    my $orig  = shift;
+    my $class = shift;
+    my %args  = 'HASH' eq ref $_[0] ? %{ $_[0] } : @_;
+    delete $args{window} if exists $args{window} && (!defined $args{window});
+    delete $args{key}    if exists $args{key}    && (!defined $args{key});
+    delete $args{revision}
+        if exists $args{revision}
+        && (!defined $args{revision}
+        || $args{revision} eq 'latest'
+        || $args{revision} eq '');
+    return $class->$orig(%args);
+};
 
 sub collection {
     my ($self) = @_;
@@ -72,12 +81,12 @@ sub parse_cubby {
 
 sub window_prefix {
     my ($self) = @_;
-    return 'wind-' . $self->window . '-key-';
+    return 'wind-' . ($self->window || '') . '-key-';
 }
 
 sub cubby {
     my ($self) = @_;
-    return $self->window_prefix . $self->key;
+    return $self->window_prefix . ($self->key || '');
 }
 
 sub rule_spec {
@@ -88,33 +97,30 @@ sub rule_spec {
 sub delivery {
     my ($self) = @_;
     return ref($self)->new(
-        name       => $self->name,
-        version    => $self->version,
-        window     => $self->window,
-        key        => $self->key,
-        revision   => $self->revision,
-        reportType => 'Delivery',
+        name    => $self->name,
+        version => $self->version,
+        ($self->has_window   ? (window   => $self->window)   : ()),
+        ($self->has_key      ? (key      => $self->key)      : ()),
+        ($self->has_revision ? (revision => $self->revision) : ()),
     );
 }
 
 sub summary {
     my ($self) = @_;
     return ref($self)->new(
-        name     => $self->name,
-        version  => $self->version,
-        window   => $self->window,
-        revision => $self->revision,
-        reportType => 'Summary',
+        name    => $self->name,
+        version => $self->version,
+        ($self->has_window   ? (window   => $self->window)   : ()),
+        ($self->has_revision ? (revision => $self->revision) : ()),
     );
 }
 
 sub globsummary {
-  my ($self) = @_;
+    my ($self) = @_;
     return ref($self)->new(
-        name     => $self->name,
-        version  => $self->version,
-        revision => $self->revision,
-        reportType => 'GlobSummary',
+        name    => $self->name,
+        version => $self->version,
+        ($self->has_revision ? (revision => $self->revision) : ()),
     );
 }
 
@@ -141,11 +147,11 @@ sub hash {
 sub marshall {
     my ($self) = @_;
     return {
-        name    => $self->name,
-        version => $self->version,
-        window  => $self->window,
-        key     => $self->key,
-        ($self->revision ne 'latest' ? (revision => $self->revision) : ()),
+        name    => $self->name . '',
+        version => $self->version . '',
+        ($self->has_window     ? (window     => $self->window . '')     : ()),
+        ($self->has_key        ? (key        => $self->key . '')        : ()),
+        ($self->has_revision   ? (revision   => $self->revision . '')   : ()),
     };
 }
 
@@ -211,6 +217,18 @@ Provides an md5 sum that is distinct for this location
 =head2 marshall
 
 Arrange the fields in a list for passing to various other locations
+
+=head2 delivery
+
+Returns the key in delivery mode - all the components intact
+
+=head2 summary
+
+Clips the key for summary mode - no key mentioned
+
+=head2 globsummary
+
+Clips the key for global summary mode - no window or key mentioned
 
 =cut
 
