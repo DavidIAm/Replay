@@ -2,11 +2,14 @@ package Replay::StorageEngine::Memory;
 
 use Moose;
 use Scalar::Util qw/blessed/;
+use Replay::Message::NoLockDuringRevert;
+use Replay::Message::ClearedState;
 use Replay::IdKey;
 use Carp qw/croak carp cluck/;
 
 extends 'Replay::BaseStorageEngine';
 
+has 'debug' => (is => 'rw');
 our $VERSION = q(0.02);
 
 my $store = {};
@@ -110,11 +113,10 @@ override checkin => sub {
     return $result if exists $result->{desktop};
     return $result if exists $result->{canonical};
     # otherwise we clear it entirely
-    $self->purge;
+    $self->purge($idkey);
 
-        $self->eventSystem->control->emit(
-                MessageType => 'ClearedState',
-                $idkey->hash_list,
+        $self->eventSystem->emit('control',
+                Replay::Message::ClearedState->new( $idkey->hash_list ),
         );
 
     super();
@@ -142,7 +144,7 @@ override revert => sub {
     if (exists $state->{locked} && $state->{locked} ne $signature) {
         carp q(tried to do a revert but didn't have a lock on it);
         $self->eventSystem->emit('control',
-            MessageType => 'NoLockDuringRevert', $idkey->hash_list,
+            Replay::Message::NoLockDuringRevert->new( $idkey->hash_list),
         );
     }
 
@@ -176,7 +178,7 @@ sub update_and_unlock {
     my ($self, $idkey, $uuid, $state) = @_;
     my $signature = $self->state_signature($idkey, [$uuid]);
     return unless exists $state->{locked};
-    warn "LOCKED" .$state->{locked};
+    warn "LOCKED" .$state->{locked} if $self->debug;
     return unless $state->{locked} eq $signature;
     delete $state->{desktop};            # there is no more desktop on checkin
     delete $state->{lockExpireEpoch};    # there is no more expire time on checkin

@@ -136,6 +136,7 @@ is $rule->compare('purge', 1),       1,  'compare permute';
 
 is $rule->reduce(undef, qw[1 2 3 4 5]),    15, 'reduce verify';
 is $rule->reduce(undef, qw[1 2 3 4 5 10]), 25, 'reduce verify';
+
 is_deeply [ $rule->summary() ], [ [], '[]' ], 'summary verify empty';
 is_deeply [
     $rule->summary(a => [5], b => [4], c => [3], d => [2], e => [1]) ],
@@ -147,19 +148,23 @@ is_deeply [
 
 use_ok 'Replay';
 
-my $storedir = '/tmp/testscript-07-' . $ENV{USER};
-`rm -rf $storedir`;
-
 my $replay = Replay->new(
     config => {
         EventSystem   => { Mode => 'Null', },
         StorageEngine => { Mode => 'Memory', },
-        ReportEngine  => { Mode => 'Filesystem', reportFilesystemRoot => $storedir, },
+        ReportEngine  => {
+            Mode      => 'Mongo',
+            MongoUser => 'replayuser',
+            MongoPass => 'replaypass',
+        },
         timeout => 10,
-        stage   => 'testscript-07-' . $ENV{USER},
+        stage   => 'testscript-08-' . $ENV{USER},
     },
     rules => [ new TESTRULE ]
 );
+
+$replay->reportEngine->engine->collection(
+    Replay::IdKey->new(name => 'TESTRULE', version => 1))->remove();
 
 $replay->worm;
 $replay->reducer;

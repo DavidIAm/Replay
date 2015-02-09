@@ -81,12 +81,14 @@ is_deeply [ $tr->key_value_set($funMessage) ],
 
 my $replay = Replay->new(
     config => {
-        QueueClass  => 'Replay::EventSystem::Null',
-        StorageMode => 'Mongo',
-        MongoUser => 'replayuser',
-        MongoPass => 'replaypass',
-        timeout     => 5,
-        stage       => 'testscript-02-' . $ENV{USER},
+        EventSystem   => { Mode => 'Null' },
+        StorageEngine => {
+            Mode      => 'Mongo',
+            MongoUser => 'replayuser',
+            MongoPass => 'replaypass',
+        },
+        timeout => 5,
+        stage   => 'testscript-02-' . $ENV{USER},
     },
     rules => [ new TESTRULE ]
 );

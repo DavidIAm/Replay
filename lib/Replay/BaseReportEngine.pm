@@ -1,6 +1,6 @@
 package Replay::BaseReportEngine;
 
-use Moose;
+use Moose::Role;
 use Digest::MD5 qw/md5_hex/;
 
 use Replay::Message::Report::NewDelivery;
@@ -9,9 +9,9 @@ use Replay::Message::Report::NewGlobSummary;
 use Replay::Message::Report::Freeze;
 use Replay::Message::Report::CopyDomain;
 use Replay::Message::Report::Checkpoint;
-use Replay::Message::Locked;
-use Replay::Message::Unlocked;
-use Replay::Message::WindowAll;
+use Replay::Message::Report::PurgedDelivery;
+use Replay::Message::Report::PurgedSummary;
+use Replay::Message::Report::PurgedGlobSummary;
 use Storable qw//;
 use Try::Tiny;
 use Readonly;
@@ -19,6 +19,8 @@ use Replay::IdKey;
 use Carp qw/croak carp/;
 
 our $VERSION = '0.03';
+
+requires qw/retrieve store freeze delivery_keys summary_keys/;
 
 $Storable::canonical = 1;    ## no critic (ProhibitPackageVars)
 
@@ -39,73 +41,137 @@ sub rule {
     return $rule;
 }
 
-sub format_delivery {
-  my ($self, $idkey, @state) = @_;
-  warn "REPORT ENGINE BASE FORMAT DELIVERY";
-  use Data::Dumper;
-  return $self->rule($idkey)->delivery(@state);
-};
-
-sub format_summary {
-  my ($self, $idkey, @state) = @_;
-  $self->rule($idkey)->summary(@state);
+sub notify_purge {
+    my ($self, $idkey, $part) = @_;
+    return $self->eventSystem->control->emit(
+        Replay::Message::Report::PurgedDelivery->new($idkey->marshall))
+        if ($part eq 'delivery');
+    return $self->eventSystem->control->emit(
+        Replay::Message::Report::PurgedSummary->new($idkey->marshall))
+        if ($part eq 'summary');
+    return $self->eventSystem->control->emit(
+        Replay::Message::Report::PurgedGlobSummary->new($idkey->marshall))
+        if ($part eq 'globsummary');
 }
 
-sub format_globsummary {
-  my ($self, $idkey, @state) = @_;
-  return $self->rule($idkey)->globsummary(@state);
+sub notify_new {
+    my ($self, $idkey, $part) = @_;
+    return $self->eventSystem->control->emit(
+        Replay::Message::Report::NewDelivery->new($idkey->marshall))
+        if ($part eq 'delivery');
+    return $self->eventSystem->control->emit(
+        Replay::Message::Report::NewSummary->new($idkey->marshall))
+        if ($part eq 'summary');
+    return $self->eventSystem->control->emit(
+        Replay::Message::Report::NewGlobSummary->new($idkey->marshall))
+        if ($part eq 'globsummary');
 }
 
+sub delete_latest {
+    my ($self, $idkey, $part) = @_;
+    $self->delete_latest_revision($idkey);
+    $self->notify_purge($idkey, $part);
+}
 
-# merge a list of atoms with the existing list in that slot
+sub update {
+    my ($self, $part, $idkey, @state) = @_;
+    my $rule = $self->rule($idkey);
+    return unless $rule->can($part);
+    return $self->delete_latest($idkey, $part)
+        if 0 == scalar @state && defined $self->current($idkey);
+    $self->store($part, $idkey, $rule->can($part)->($rule, @state));
+    $self->notify_new($idkey, $part);
+}
+
+# store a new
 sub update_delivery {
     my ($self, $idkey, @state) = @_;
-    my $rule = $self->rule($idkey);
-    return unless $rule->can('delivery');
-    $self->store($idkey, $rule->delivery(@state));
-    $self->eventSystem->control->emit(
-        Replay::Message::Report::NewDelivery->new($idkey->hash_list));
+    $self->update('delivery', $idkey, @state);
 }
 
 sub update_summary {
     my ($self, $idkey, @state) = @_;
-    my $rule = $self->rule($idkey);
-    return unless $rule->can('summary');
-    $self->store_summary($idkey, $rule->summary(@state));
-    return $self->eventSystem->control->emit(
-        Replay::Message::Report::NewSummary->new($idkey->hash_list ));
+    $self->update('summary', $idkey->summary, @state);
 }
 
 sub update_globsummary {
     my ($self, $idkey, @state) = @_;
-    my $rule = $self->rule($idkey);
-    return unless $rule->can('globsummary');
-    $self->store_globsummary($idkey, $rule->globsummary(@state));
-    return $self->eventSystem->control->emit(
-        Replay::Message::Report::NewGlobSummary->new(
-            $idkey->hash_list
-        )
-    );
+    $self->update('globsummary', $idkey->globsummary, @state);
 }
 
-sub fetch_summary_data {
-  confess "unimplimented";
+#report on a key
+sub delivery {    #get the named document latest version
+    my ($self, $idkey) = @_;
+    return $self->do_retrieve($idkey->delivery);
 }
 
-sub fetch_globsummary_data {
-  confess "unimplimented";
+# reports on a windows and a key
+sub summary {     #
+    my ($self, $idkey) = @_;
+    return $self->do_retrieve($idkey->summary);
+}
+
+# reports all windows for a rule version
+sub globsummary {
+    my ($self, $idkey) = @_;
+    return $self->do_retrieve($idkey->globsummary);
+}
+
+#report on a key
+sub delivery_data {    #get the named document latest version
+    my ($self, $idkey) = @_;
+    return $self->do_retrieve($idkey->delivery, 1);
+}
+
+# reports on a windows and a key
+sub summary_data {     #
+    my ($self, $idkey) = @_;
+    return $self->do_retrieve($idkey->summary, 1);
+}
+
+# reports all windows for a rule version
+sub globsummary_data {
+    my ($self, $idkey) = @_;
+    return $self->do_retrieve($idkey->globsummary, 1);
+}
+
+sub do_retrieve {
+    my ($self, $idkey, $structured) = @_;
+    my $result = $self->retrieve($idkey, $structured);
+    confess "retrieve in storage engine implimentation must return hash"
+        unless 'HASH' eq ref $result;
+    return $result if $result->{EMPTY};
+    if ($structured) {
+        confess
+            "retrieve in storage engine implimentation must have DATA key for structured"
+            unless exists $result->{DATA};
+    }
+    else {
+        confess
+            "retrieve in storage engine implimentation must have FORMATTED key for unstructured"
+            unless exists $result->{FORMATTED};
+    }
+    return $result;
+}
+
+# get the revsion that is returning
+sub revision {
+    my ($self, $idkey) = @_;
+    confess "This isn't an idkey" unless UNIVERSAL::isa($idkey, 'Replay::IdKey');
+    return $idkey->revision if $idkey->has_revision;
+    return $self->current($idkey);
 }
 
 sub freeze {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Report::Freeze->new($idkey->hash_list) );
+        Replay::Message::Report::Freeze->new($idkey->marshall));
 }
 
 sub copydomain {
     my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Report::CopyDomain->new($idkey->hash_list ));
+        Replay::Message::Report::CopyDomain->new($idkey->marshall));
 }
 
 sub checkpoint {
@@ -114,7 +180,7 @@ sub checkpoint {
         $idkey->hash . 'Reducable',
         sub {
             $self->eventSystem->control->emit(
-                Replay::Message::Report::Checkpoint->new($idkey->hash_list ));
+                Replay::Message::Report::Checkpoint->new($idkey->marshall));
         }
     );
 }
@@ -155,64 +221,109 @@ This is the base class for the implimentation specific parts of the Replay syste
         eventSystem => $self->eventSystem,
     );
 
-=head1 SUBROUTINES/METHODS
+=head1 REQUIRED ROLE IMPLIMENTATION METHODS
 
-These methods are used by consumers of the storage class
+All role consumers must impliment the following
 
-=head2 ( uuid, meta, state ) = fetch_transitional_state(idkey)
+=head2 retrieve - get report
 
-uuid is a key used for the new lock that will be obtained on this record
+retrieve($key, $structured)
 
-meta is a hash with keys, critical to emit new events
-    Windows      =>
-    Timeblocks   =>
-    Ruleversions =>
+if $structured is true, return the data structure of the report
 
-state is an array of atoms
+otherwise return the formatted version
 
-=head2 store_new_canonical_state ( idkey, uuid, emitter, atoms )
+if no report available, return empty
 
-if the lock indicated by uuid is still valid, stores state (a list of atoms) 
-into the canonical state of this cubby.  called 'release' on the emitter object,
-also issues absorb calls on the storage engine for each atom listed in the array
-ref returned by 'atomsToDefer' from the emitter object
+=head2 store - update the report
 
-=head2 fetch_canonical_state ( idkey )
+store($key, $data, [$formatted])
 
-simply returns the list of atoms that represents the previously stored 
-canonical state of this cubby
+Overwrite the current version of the report with the new data.
 
-=head2 delivery ( idkey, state )
+formatted is optional - some reports don't have a formatted output for a particular data key
 
-return the output of the delivery method of the rule indicated with the given state
+Data must be an array reference
 
-=head2 summary ( idkey, deliveries )
+if the list of data is empty, behavior is to set this report as having no current revision at all 
 
-return the output of the summary method of the rule indicated with the given delivery reports
+=head2 freeze - add atom
 
-=head2 globsummary ( idkey, summaries )
+freeze($key)
 
-return the output of the globsummary method of the rule indicated with the given summary reports
+if the revision is indicated but not the current, do nothing. otherwise...
 
-=head2 freeze ( $idkey )
+Copy the current report to a new revision number, and make the new revision the current
 
-the base method that emits the freeze report message
+return the key of the frozen revision
 
-=head2 freezeWindow ( idkey window )
+=head2 delivery_keys - retrieve a list of current keys within a window
 
-return the success of the freeze operation on the window level delivery report
+delivery_keys($key)
 
-=head2 freezeGlob ( idkey )
+This is used for the list IdKeys to use to retrieve the data used for summary report generation
 
-return the success of the freeze operation on the rule level delivery report
+=head2 summary_keys - retrieve a list of current windows within a rule-version
 
-=head2 checkpoint ( domain )
+summary_keys($key)
 
-freeze and tag everything.  return the checkpoint identifier when complete
+This is used for the list IdKeys to use to retrieve the data used for globsummary report generation
 
-=head2 copydomain ( newdomain, oldcheckpoint )
+=head1 REPORT ENGINE INTERFACE
 
-create a new domain starting from an existing checkpoint
+The utilizers of report engine roles can use these API points
+
+if revision is not specified, latest is assumed
+if resulting revision is not available, nothing is returned
+
+=head2 delivery(idkey)
+
+returns the formatted report
+
+=head2 summary(idkey)
+
+returns the formatted report
+
+=head2 globsummary(idkey)
+
+returns the formatted report
+
+=head2 delivery_data(idkey)
+
+returns the structured report data for the delivery (key specific level)
+
+=head2 summary_data(idkey)
+
+returns the structured report data for the summary (all in window level)
+
+=head2 globsummary_data(idkey)
+
+returns the structured report data for the summary (all in rule-version)
+
+=head2 update_delivery(idkey)
+
+uses the data from the storage engine to format the key report
+
+=head2 update_summary(idkey)
+
+uses the data from the storage engine to format the summary report
+
+=head2 update_globsummary(idkey)
+
+uses the data from the storage engine to format the rule-version report
+
+=head2 freeze(idkey)
+
+locks down the latest revision so it can be retrieved forever
+
+=head2 copydomain(olddomain, newdomain)
+
+using copy-on-modify logic, make another domain of reports available
+
+=head2 checkpoint(attimefactor)
+
+checkpoint for easy reversion (like commit into a source control) the state of the
+report system when the specified time factor is reached.
 
 =head1 DATA TYPES
 
@@ -222,6 +333,7 @@ create a new domain starting from an existing checkpoint
   , version: string
   , window: string
   , key: string
+  , revision: integer
   }
  - atom
   { a hashref which is an atom of the state for this compartment }
@@ -237,10 +349,15 @@ create a new domain starting from an existing checkpoint
   - state fetch_canonical_state(idkey): returns the current collective state
 
  events emitted:
-  - Replay::Message::Fetched - when a canonical state is retrieved
-  - Replay::Message::Reducable - when its possible a reduction can occur
-  - Replay::Message::Reducing - when a reduction lock has been supplied
-  - Replay::Message::NewCanonical - when we've updated our canonical state
+  - Replay::Message::Report::NewDelivery - there is a new key level report available;
+  - Replay::Message::Report::NewSummary - there is a new window level report available;
+  - Replay::Message::Report::NewGlobSummary - there is a new rule-version level report available;
+  - Replay::Message::Report::Freeze - A report was frozen
+  - Replay::Message::Report::CopyDomain - Copy domain complete
+  - Replay::Message::Report::Checkpoint - Checkpoint established
+  - Replay::Message::Report::PurgedDelivery - a key level report is now empty
+  - Replay::Message::Report::PurgedSummary - a window level report is now empty
+  - Replay::Message::Report::PurgedGlobSummary - a rule-version level report is now empty
 
  events consumed:
   - None

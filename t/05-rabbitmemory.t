@@ -81,27 +81,29 @@ is_deeply [ $tr->key_value_set($funMessage) ],
 
 my $replay = Replay->new(
     config => {
-        stage => 'tests',
-        QueueClass  => 'Replay::EventSystem::RabbitMQ',
-        StorageMode => 'Memory',
-        RabbitMQ    => {
-            host    => 'localhost',
-            options => {
-                port => '5672',
-                user => 'testuser',
-                password => 'testpass',
+        stage       => 'tests',
+        EventSystem => {
+            Mode     => 'RabbitMQ',
+            RabbitMQ => {
+                host    => 'localhost',
+                options => {
+                    port     => '5672',
+                    user     => 'testuser',
+                    password => 'testpass',
 
-                #            user    => 'replay',
-                #            pass    => 'replaypass',
-                #vhost   => 'replay',
-                vhost   => '/testing',
-                timeout => 30,
-                tls     => 1,
-                heartbeat => 1, 
-                channel_max => 0, 
-                frame_max => 131072 
+                    #            user    => 'replay',
+                    #            pass    => 'replaypass',
+                    #vhost   => 'replay',
+                    vhost       => '/testing',
+                    timeout     => 30,
+                    tls         => 1,
+                    heartbeat   => 1,
+                    channel_max => 0,
+                    frame_max   => 131072
+                },
             },
         },
+        StorageEngine => { Mode => 'Memory' },
     },
     rules => [ new TESTRULE ]
 );

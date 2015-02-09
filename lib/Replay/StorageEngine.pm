@@ -6,7 +6,7 @@ use Try::Tiny;
 use English '-no_match_vars';
 use Carp qw/croak/;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
 has engine => (
@@ -78,10 +78,10 @@ sub _build_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
 
 sub _build_mode {      ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self, @args) = @_;
-    if (not $self->config->{StorageMode}) {
+    if (not $self->config->{StorageEngine}{Mode}) {
         croak q(No StorageMode?);
     }
-    my $class = 'Replay::StorageEngine::' . $self->config->{StorageMode};
+    my $class = 'Replay::StorageEngine::' . $self->config->{StorageEngine}{Mode};
     try {
         if (eval "require $class") {
         }
@@ -91,16 +91,12 @@ sub _build_mode {      ## no critic (ProhibitUnusedPrivateSubroutines)
     }
     catch {
         confess q(No such storage mode available )
-            . $self->config->{StorageMode}
+            . $self->config->{StorageEngine}{Mode}
             . " --> $_";
     };
     return $class;
 }
 
-sub findKeysNeedReduce {
-    my ($self, @args) = @_;
-    return $self->engine->findKeysNeedReduce(@args);
-}
 1;
 
 __END__

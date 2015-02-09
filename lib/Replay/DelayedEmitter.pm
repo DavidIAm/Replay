@@ -1,6 +1,7 @@
 package Replay::DelayedEmitter;
 
 use Moose;
+use Carp qw/confess/;
 
 our $VERSION = '0.02';
 
@@ -42,31 +43,31 @@ sub origin {
 }
 
 sub emit {
-    my $self    = shift;
-    my $channel = shift;
-    my $message = shift;
+    my ($self, $channel, $message) = shift;
 
+    #warn(" Replay::EventSystem::Null emit $message");
     # handle single argument construct
     if (blessed $channel && $channel->isa('Replay::Message')) {
         $message = $channel;
         $channel = 'derived';
     }
 
+    $message = Replay::Message->new($message) unless blessed $message;
+
+    # THIS MUST DOES A Replay::Envelope
+    confess "Can only emit Replay::Envelope consumer"
+        unless $message->does('Replay::Envelope');
+
     #    die "Must emit a Replay message" unless $message->isa('Replay::Message');
 
-    if (blessed $message) {
+    # augment message with metadata from storage
+    $message->Timeblocks($self->Timeblocks);
+    $message->Ruleversions($self->Ruleversions);
 
-        # augment message with metadata from storage
-        $message->Timeblocks($self->Timeblocks);
-        $message->Ruleversions($self->Ruleversions);
-    }
-    else {
-        $message->{Timeblocks}   = $self->Timeblocks;
-        $message->{Ruleversions} = $self->Ruleversions;
-    }
     push @{ $self->messagesToSend },
         sub { $self->eventSystem->emit($channel, $message) };
-    return 1;
+
+    return $message->UUID;
 }
 
 sub release {

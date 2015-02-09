@@ -5,15 +5,68 @@ use MongoDB;
 use MooseX::Storage;
 use MongoDB::OID;
 use Digest::MD5 qw/md5_hex/;
+use Readonly;
 
 our $VERSION = '0.02';
 
-has name    => (is => 'rw', isa => 'Str', required => 1,);
-has version => (is => 'rw', isa => 'Str', required => 1,);
-has window  => (is => 'rw', isa => 'Str', required => 1,);
-has key     => (is => 'rw', isa => 'Str', required => 1,);
+has name => (
+    is          => 'rw',
+    isa         => 'Str',
+    required    => 1,
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
+has version => (
+    is          => 'rw',
+    isa         => 'Str',
+    required    => 1,
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
+has window => (
+    is          => 'rw',
+    isa         => 'Str',
+    required    => 0,
+    predicate   => 'has_window',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
+has key => (
+    is          => 'rw',
+    isa         => 'Str',
+    required    => 0,
+    predicate   => 'has_key',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
+has revision => (
+    is          => 'rw',
+    isa         => 'Num',
+    predicate   => 'has_revision',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
 
 with Storage('format' => 'JSON');
+
+sub BUILD {
+    my $self = shift;
+    confess "WTF" if $self->has_revision && !defined $self->revision;
+}
+
+around BUILDARGS => sub {
+    my $orig  = shift;
+    my $class = shift;
+    my %args  = 'HASH' eq ref $_[0] ? %{ $_[0] } : @_;
+    delete $args{window} if exists $args{window} && (!defined $args{window});
+    delete $args{key}    if exists $args{key}    && (!defined $args{key});
+    delete $args{revision}
+        if exists $args{revision}
+        && (!defined $args{revision}
+        || $args{revision} eq 'latest'
+        || $args{revision} eq '');
+    return $class->$orig(%args);
+};
 
 sub collection {
     my ($self) = @_;
@@ -28,12 +81,12 @@ sub parse_cubby {
 
 sub window_prefix {
     my ($self) = @_;
-    return 'wind-' . $self->window . '-key-';
+    return 'wind-' . ($self->window || '') . '-key-';
 }
 
 sub cubby {
     my ($self) = @_;
-    return $self->window_prefix . $self->key;
+    return $self->window_prefix . ($self->key || '');
 }
 
 sub rule_spec {
@@ -41,9 +94,39 @@ sub rule_spec {
     return 'rule-' . $self->name . '-version-' . $self->version;
 }
 
+sub delivery {
+    my ($self) = @_;
+    return ref($self)->new(
+        name    => $self->name,
+        version => $self->version,
+        ($self->has_window   ? (window   => $self->window)   : ()),
+        ($self->has_key      ? (key      => $self->key)      : ()),
+        ($self->has_revision ? (revision => $self->revision) : ()),
+    );
+}
+
+sub summary {
+    my ($self) = @_;
+    return ref($self)->new(
+        name    => $self->name,
+        version => $self->version,
+        ($self->has_window   ? (window   => $self->window)   : ()),
+        ($self->has_revision ? (revision => $self->revision) : ()),
+    );
+}
+
+sub globsummary {
+    my ($self) = @_;
+    return ref($self)->new(
+        name    => $self->name,
+        version => $self->version,
+        ($self->has_revision ? (revision => $self->revision) : ()),
+    );
+}
+
 sub hash_list {
     my ($self) = @_;
-    return $self->marshall;
+    return %{ $self->marshall };
 }
 
 sub checkstring {
@@ -63,12 +146,12 @@ sub hash {
 
 sub marshall {
     my ($self) = @_;
-
     return {
-        name    => $self->name,
-        version => $self->version,
-        window  => $self->window,
-        key     => $self->key
+        name    => $self->name . '',
+        version => $self->version . '',
+        ($self->has_window     ? (window     => $self->window . '')     : ()),
+        ($self->has_key        ? (key        => $self->key . '')        : ()),
+        ($self->has_revision   ? (revision   => $self->revision . '')   : ()),
     };
 }
 
@@ -134,6 +217,18 @@ Provides an md5 sum that is distinct for this location
 =head2 marshall
 
 Arrange the fields in a list for passing to various other locations
+
+=head2 delivery
+
+Returns the key in delivery mode - all the components intact
+
+=head2 summary
+
+Clips the key for summary mode - no key mentioned
+
+=head2 globsummary
+
+Clips the key for global summary mode - no window or key mentioned
 
 =cut
 

@@ -34,7 +34,7 @@ has channel => (
 
 has purpose => (is => 'ro', isa => 'Str', required => 1,);
 
-has topic => ( is => 'ro', isa => 'Replay::EventSystem::RabbitMQ::Topic', );
+has topic => (is => 'ro', isa => 'Replay::EventSystem::RabbitMQ::Topic',);
 
 has exchange_type => (is => 'ro', isa => 'Str', default => 'topic',);
 
@@ -64,33 +64,20 @@ sub _new_channel {
 
 sub emit {
     my ($self, $message) = @_;
-    use Data::Dumper;
-#    warn "EMITTING ON " . $self->topic_name . " : " . $message->{MessageType};
-    if (blessed $message) {
-        if ($message->can('stringify')) {
-            $message = $message->stringify;
-        }
-        elsif ($message->can('freeze')) {
-            $message = $message->freeze;
-        }
-    } elsif ('HASH' eq ref $message) {
-    } else {
-      use Carp qw/confess/;
-     confess "why am I trying to emit $message?";
-    }
-    try {
-        if (ref $message) {
-            $message = to_json($message);
-        }
-    }
-    catch {
-        croak q(WE WERE TRYING TO EMIT A )
-            . ref($message)
-            . " BUT GOT EXCEPTIOIN $_ - NO STRINGIFY OR FREEZE??"
-            . to_json [$message];
-    };
 
-    return $self->rabbit->rabbit->publish($self->channel, $self->topic_name, $message, { exchange => $self->topic_name } );
+    # THIS MUST DOES A Replay::Envelope
+    confess "Can only emit Replay::Envelope consumer"
+        unless $message->does('Replay::Envelope');
+
+   #    warn "EMITTING ON " . $self->topic_name . " : " . $message->{MessageType};
+
+    $self->rabbit->rabbit->publish(
+        $self->channel, $self->topic_name,
+        to_json($message->marshall),
+        { exchange => $self->topic_name }
+    );
+
+    return $message->UUID;
 }
 
 sub DEMOLISH {

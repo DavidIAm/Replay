@@ -3,6 +3,8 @@ package Replay::Reporter;
 use Moose;
 use Scalar::Util;
 use Replay::DelayedEmitter;
+use Replay::Message::ReporterException;
+use Replay::Message::Reported;
 use Replay::IdKey;
 use Replay::Message;
 use Scalar::Util qw/blessed/;
@@ -59,8 +61,6 @@ sub extract_idkey {
     }
     else {
 
-        use Data::Dumper;
-        warn "WHAT IS THIS: " . Dumper $envelope;
         $message = $envelope->{Message};
         $idkey   = Replay::IdKey->new($message);
 
@@ -80,54 +80,37 @@ sub report_wrapper {
     try {
         return
                unless $type eq 'NewCanonical'
-            or $type eq 'NewDelivery'
-            or $type eq 'NewNewGlobDelivery';
+            or $type eq 'ReportNewDelivery'
+            or $type eq 'ReportNewSummary';
         $idkey = $self->extract_idkey($envelope);
-        warn "CONTROL HIT FOUND EXPECTED";
-        $meta = $self->do_delivery($idkey, $envelope) if $type eq 'NewCanonical';
-        $meta = $self->do_summary($idkey, $envelope) if $type eq 'NewDelivery';
-        $meta = $self->do_globsummary($idkey, $envelope)
-            if $type eq 'NewGlobDelivery';
+
+        $meta = $self->reportEngine->update_delivery($idkey)
+            if $type eq 'NewCanonical';
+        $meta = $self->reportEngine->update_summary($idkey)
+            if $type eq 'ReportNewDelivery';
+        $meta = $self->reportEngine->update_globsummary($idkey)
+            if $type eq 'ReportNewSummary';
 
         $self->eventSystem->emit(
             'control',
-            MessageType => 'Reported',
-            $idkey->hash_list,
-            inReactionToType => $type,
-            inReactionToUUID => (blessed $envelope ? $envelope->UUID: $envelope->{UUID}),
+            Replay::Message::Reported->new(
+                $idkey->hash_list,
+                inReactionToType => $type,
+                inReactionToUUID => (blessed $envelope ? $envelope->UUID : $envelope->{UUID}),
+            ),
         );
     }
     catch {
         carp "REPORTING EXCEPTION: $_";
         $self->eventSystem->emit(
             'control',
-            MessageType => 'ReporterException',
-            (   $idkey
-                ? ( rule    => $self->rule($idkey)->name,
-                    version => $self->rule($idkey)->version,
-                    Message => $idkey
-                    )
-                : ()
-            ),
-            exception => (blessed $_ && $_->can('trace') ? $_->trace->as_string : $_),
+            Replay::Message::ReporterException->new(
+                ($idkey ? $idkey->hash_list : ()),
+                exception => (blessed $_ && $_->can('trace') ? $_->trace->as_string : $_),
+            )
         );
     };
     return;
-}
-
-sub do_delivery {
-    my ($self, $idkey, $envelope) = @_;
-    return $self->reportEngine->update_delivery($idkey);
-}
-
-sub do_summary {
-    my ($self, $idkey, $envelope) = @_;
-    return $self->reportEngine->update_summary($idkey);
-}
-
-sub do_globsummary {
-    my ($self, $idkey, $envelope) = @_;
-    return $self->reportEngine->update_globsummary($idkey);
 }
 
 1;
@@ -279,6 +262,25 @@ override reduce => sub {
 
 sub ruleState                {...}
 sub myWindowChooserAlgorithm {...}
+
+=head1 DESCRIPTION 
+
+the reporter subscribes to the control channel
+
+When the reporter sees a NewCanonical message, it calls the report 
+engine implimentation with 'update_delivery' method
+
+When the reporter sees a ReportNewDelivery message, it calls the report 
+engine implimentation with 'update_summary' method
+
+When the reporter sees a ReportNewSummary message, it calls the report 
+engine implimentation with 'update_globsummary' method
+
+When the reporter sees a Freeze message, it calls the report 
+engine implimentation with 'freeze' method
+
+When the reporter sees a Freeze message, it calls the report 
+engine implimentation with 'freeze' method
 
 =head1 SUBROUTINES/METHODS
 

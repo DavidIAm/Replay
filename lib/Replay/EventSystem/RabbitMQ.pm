@@ -13,7 +13,7 @@ use Replay::EventSystem::RabbitMQ::Topic;
 use Replay::Message;
 
 #use Replay::Message::Clock;
-use Carp qw/carp croak/;
+use Carp qw/carp croak confess/;
 
 use Perl::Version;
 use Net::RabbitMQ;
@@ -29,20 +29,32 @@ has subscribers => (is => 'ro', isa => 'ArrayRef', default => sub { [] },);
 has config => (is => 'ro', isa => 'HashRef[Item]', required => 1);
 
 has rabbit => (
-  is => 'ro',
-  isa => 'Replay::EventSystem::RabbitMQ::Connection',
-  builder => '_build_rabbit',
-  handles => [ qw( channel_close channel_open exchange_declare queue_declare queue_bind publish get ack reject ) ],
-  lazy => 1,
-  clearer => 'done_with_object',
+    is      => 'ro',
+    isa     => 'Replay::EventSystem::RabbitMQ::Connection',
+    builder => '_build_rabbit',
+    handles => [
+        qw(
+            channel_close
+            channel_open
+            exchange_declare
+            queue_declare
+            queue_bind
+            publish
+            get
+            ack
+            reject
+            )
+    ],
+    lazy    => 1,
+    clearer => 'done_with_object',
 );
 
 has queue => (
     is        => 'ro',
-    isa     => 'Replay::EventSystem::RabbitMQ::Queue',
+    isa       => 'Replay::EventSystem::RabbitMQ::Queue',
     builder   => '_build_queue',
     predicate => 'has_queue',
-    handles => [ qw( _receive ) ],
+    handles   => [qw( _receive )],
     lazy      => 1,
 );
 
@@ -50,9 +62,10 @@ has topic => (
     is      => 'ro',
     isa     => 'Replay::EventSystem::RabbitMQ::Topic',
     builder => '_build_topic',
+
     # Why won't this match the require of base?
     #  handles => [ qw( emit ) ],
-    lazy    => 1,
+    lazy => 1,
 );
 
 sub _build_rabbit {
@@ -62,14 +75,22 @@ sub _build_rabbit {
     }
     catch {
         Replay::EventSystem::RabbitMQ::Connection->initialize(
-            config => $self->config->{RabbitMQ});
+            config => $self->config->{EventSystem}{RabbitMQ});
         return Replay::EventSystem::RabbitMQ::Connection->instance;
     };
 }
 
 sub emit {
-  my ($self, @args) = @_;
-  return $self->topic->emit(@args);
+    my ($self, $message) = @_;
+
+    $message = Replay::Message->new($message) unless blessed $message;
+    # THIS MUST DOES A Replay::Envelope
+    confess "Can only emit Replay::Envelope consumer"
+        unless $message->does('Replay::Envelope');
+    my $uuid = $message->UUID;
+
+    $self->topic->emit($message) or return;
+    return $self->topic->emit($message);
 }
 
 sub poll {
@@ -80,17 +101,17 @@ sub poll {
     foreach my $message ($self->_receive()) {
         next if not scalar(@{ $self->subscribers });
         $handled++;
-            try {
-        foreach my $subscriber (@{ $self->subscribers }) {
+        try {
+            foreach my $subscriber (@{ $self->subscribers }) {
                 $subscriber->($message->body);
-        }
-                $message->ack;
             }
-            catch {
-                $message->nack;
-                carp q(There was an exception while processing message through subscriber )
-                    . $_;
-            };
+            $message->ack;
+        }
+        catch {
+            $message->nack;
+            carp q(There was an exception while processing message through subscriber )
+                . $_;
+        };
     }
     return $handled;
 }
@@ -102,30 +123,31 @@ sub subscribe {
     return;
 }
 
-sub _build_topic {         ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_topic {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     return Replay::EventSystem::RabbitMQ::Topic->new(
-      rabbit => $self,
-      purpose => $self->purpose,
-      exchange_type => $self->mode,
+        rabbit        => $self,
+        purpose       => $self->purpose,
+        exchange_type => $self->mode,
     );
 
 }
 
-sub _build_queue {         ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_queue {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     return Replay::EventSystem::RabbitMQ::Queue->new(
-      rabbit => $self,
-      purpose => $self->purpose,
-      topic => $self->topic,
-      exchange_type => $self->mode,
+        rabbit        => $self,
+        purpose       => $self->purpose,
+        topic         => $self->topic,
+        exchange_type => $self->mode,
     );
 
 }
 
 sub done {
-  my ($self) = @_;
-#  $self->rabbit->_clear_instance;
+    my ($self) = @_;
+
+    #  $self->rabbit->_clear_instance;
 }
 
 __PACKAGE__->meta->make_immutable;

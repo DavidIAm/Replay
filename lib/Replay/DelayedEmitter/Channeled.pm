@@ -10,6 +10,7 @@ has 'channel' => (is => 'ro', isa => 'Str', required => 1,);
 
 sub emit {
     my ($self, $message) = @_;
+
     return $self->delemitter->emit($self->channel, $message);
 }
 

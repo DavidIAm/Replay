@@ -10,7 +10,7 @@ use Carp qw/confess carp cluck/;
 use Time::HiRes;
 use Replay::Message::Timing;
 use Try::Tiny;
-use Carp qw/croak carp/;
+use Carp qw/croak carp confess/;
 
 use Replay::EventSystem::AWSQueue;
 
@@ -56,13 +56,21 @@ has derivedsniffer => (
     lazy    => 1,
     clearer => 'clear_derived_sniffer',
 );
+has mode => (
+    is       => 'ro',
+    isa      => 'Str',
+    required => 1,
+    builder  => '_build_mode',
+    lazy     => 1,
+);
 has config => (is => 'ro', isa => 'HashRef[Item]', required => 1);
 has domain => (is => 'ro');    # placeholder
 
 sub BUILD {
     my ($self) = @_;
-    if (not $self->config->{QueueClass}) {
-        croak q(NO QueueClass CONFIG!?  Make sure its in the locale files);
+    if (not $self->config->{EventSystem}->{Mode}) {
+      use Data::Dumper;
+        confess q(NO EventSystem Mode CONFIG!?  Make sure its in the locale files).Dumper $self->config;
     }
     $self->{stop} = AnyEvent->condvar(cb => sub {exit});
     return;
@@ -141,17 +149,24 @@ sub clear {
     $self->clear_origin;
     $self->clear_derived_sniffer;
     $self->clear_origin_sniffer;
-    $self->config->{QueueClass}->done;
+    my $class = 'Replay::EventSystem::'.$self->config->{EventSystem}->{Mode};
+    $class->done;
     return;
 }
 
 sub emit {
-    my ($self, $channel, $message, @rest) = @_;
-    return $self->$channel->emit($message) if $self->can($channel);
-#    return $self->$channel->emit(Replay::Message->new(ref $message ? $message : $message => @rest )->marshall)
-#        if $self->can($channel);
-    use Carp qw/confess/;
-    confess "Unknown channel $channel";
+    my ($self, $channel, $message) = @_;
+
+    $message = Replay::Message->new($message) unless blessed $message;
+
+    # THIS MUST DOES A Replay::Envelope
+    confess "Can only emit Replay::Envelope consumer"
+        unless $message->does('Replay::Envelope');
+
+    confess "Unknown channel $channel" unless $self->can($channel);
+
+    $self->$channel->emit($message->marshall);
+    return $message->UUID;
 
 }
 
@@ -211,10 +226,28 @@ sub clock {
     return;
 }
 
+sub _build_mode {    ## no critic (ProhibitUnusedPrivateSubroutines)
+    my $self = shift;
+    if (not $self->config->{EventSystem}->{Mode}) {
+        croak q(No EventSystem Mode?);
+    }
+    my $class = 'Replay::EventSystem::' . $self->config->{EventSystem}->{Mode};
+    try {
+        eval "require $class"
+            or croak qq(error requiring class $class : ) . $EVAL_ERROR;
+    }
+    catch {
+        confess q(No such event system mode available )
+            . $self->config->{EventSystem}
+            . " --> $_";
+    };
+    return $class;
+}
+
 sub _build_queue {
     my ($self, $purpose, $mode) = @_;
+    my $classname = $self->mode;
     try {
-        my $classname = $self->config->{QueueClass};
         try {
             if (eval "require $classname") {
             }
@@ -228,11 +261,14 @@ sub _build_queue {
     }
     catch {
         croak q(Unable to load queue class )
-            . $self->config->{QueueClass}
+            . $self->config->{EventSystem}->{Mode}
             . " --> $_ ";
     };
-    my $queue = $self->config->{QueueClass}
-        ->new(purpose => $purpose, config => $self->config, mode => $mode);
+    my $queue = $classname->new(
+        purpose => $purpose,
+        config  => $self->config,
+        mode    => $mode
+    );
     return $queue;
 }
 

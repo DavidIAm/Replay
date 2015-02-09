@@ -1,11 +1,10 @@
 package Replay::Message::Report::Freeze;
 
 use Moose;
-extends('Replay::Message');
+extends('Replay::Message::IdKey', 'Replay::Message');
 our $VERSION = '0.03';
 
 has '+MessageType' => (default => 'ReportFreeze');
-has '+Message' => (isa => 'IdKey', coerce => 1);
 
 1;
 

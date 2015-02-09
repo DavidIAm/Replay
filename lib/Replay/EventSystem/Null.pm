@@ -7,7 +7,7 @@ package Replay::EventSystem::Null;
 
 use Scalar::Util qw/blessed/;
 use Moose;
-use Carp qw/croak/;
+use Carp qw/croak confess/;
 with 'Replay::EventSystem::Base';
 
 our $VERSION = '0.02';
@@ -15,32 +15,37 @@ our $VERSION = '0.02';
 has subscribers => (is => 'ro', isa => 'ArrayRef', default => sub { [] },);
 
 use Try::Tiny;
+
 sub poll {
     my $self = shift;
     my $c    = 0;
     while (my $message = shift @{ $self->{events} }) {
         $c++;
         foreach (@{ $self->subscribers }) {
-          try {
-            $_->($message);
-          } catch {
-            warn "EXCEPTION SUBSCRIBER STYLE $_";
-          }
+            try {
+                $_->($message);
+            }
+            catch {
+                warn "EXCEPTION SUBSCRIBER STYLE $_";
+            }
         }
     }
     return $c;
 }
 
 sub emit {
-    my ($self, $message, @rest) = @_;
-    $self->demit($message, @rest);
+    my ($self, $message) = @_;
 
-}
-sub demit {
-    my ($self, $message, @rest) = @_;
-    return push @{ $self->{events} }, $message->marshall if blessed $message;
-    return push @{ $self->{events} }, $message if ref $message;
-    return push @{ $self->{events} }, { $message, @rest };
+    $message = Replay::Message->new($message) unless blessed $message;
+
+    # THIS MUST DOES A Replay::Envelope
+    confess "Can only emit Replay::Envelope consumer"
+        unless $message->does('Replay::Envelope');
+
+    #warn(" Replay::EventSystem::Null emit $message");
+
+    push @{ $self->{events} }, $message->marshall;
+    return $message->UUID;
 }
 
 sub subscribe {
@@ -50,7 +55,7 @@ sub subscribe {
 }
 
 sub done {
-  my ($self) = @_;
+    my ($self) = @_;
 }
 
 1;

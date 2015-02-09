@@ -75,7 +75,7 @@ use Try::Tiny;
 use Replay::Message 0.02;
 use Replay::Message::At::SendMessageNow 0.02;
 use Readonly;
-extends 'Replay::BusinessRule';
+with 'Replay::Role::BusinessRule' => { -version => 0.02 };
 
 our $VERSION = q(2);
 
