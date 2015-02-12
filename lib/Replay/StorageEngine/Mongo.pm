@@ -381,17 +381,17 @@ sub _build_mongo {    ## no critic (ProhibitUnusedPrivateSubroutines)
 
 sub _build_dbpass {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return $self->config->{MongoPass};
+    return $self->config->{StorageEngine}{MongoPass};
 }
 
 sub _build_dbuser {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return $self->config->{MongoUser};
+    return $self->config->{StorageEngine}{MongoUser};
 }
 
 sub _build_dbauthdb {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return $self->config->{MongoAuthDB} || 'admin';
+    return $self->config->{StorageEngine}{MongoAuthDB} || 'admin';
 }
 
 sub _build_dbname {      ## no critic (ProhibitUnusedPrivateSubroutines)
