@@ -76,6 +76,7 @@ sub _build_availableReportEngines {    ## no critic (ProhibitUnusedPrivateSubrou
     foreach my $engine (keys($self->config->{ReportEngines})){
         
         $hash_of_engines->{$engine} = Replay::ReportEngine->new(
+        mode        =>  $engine,
         config      => $self->config->{ReportEngines}->{$engine},
         eventSystem => $self->eventSystem,
         ruleSource  => $self->ruleSource,
