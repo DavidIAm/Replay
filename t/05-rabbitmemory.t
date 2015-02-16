@@ -1,8 +1,11 @@
 package Test::Replay::RabbitMemory;
 
-use base qw/Test::Replay/;
+use lib 't/lib';
 
-use lib 'lib';
+use base qw/Replay::Test Test::Class/;
+use JSON;
+use File::Slurp;
+use Test::Most qw/bail/;
 
 =pod
 sub t_environment_reset : Test(startup) {
@@ -23,30 +26,26 @@ sub t_environment_reset : Test(startup) {
 }
 =cut
 
-sub t_environment_reset : Test(startup) {
-  my $self = shift;
-   `rm -rf $self->{storedir}`;
-
+sub t_environment_reset : Test(startup => 1) {
+    my $self = shift;
+    `rm -rf $self->{storedir}`;
+    ok !-d $self->{storedir};
 }
 
 sub a_replay_config : Test(startup) {
     my $self = shift;
-    $self->{storedir} = '/tmp/testscript-07-' . $ENV{USER};
-    $self->{config} = {
+    $self->{storedir} = '/tmp/testscript-05-' . $ENV{USER};
+    $self->{config}   = {
         stage       => 'tests',
         EventSystem => {
             Mode     => 'RabbitMQ',
             RabbitMQ => {
                 host    => 'localhost',
                 options => {
-                    port     => '5672',
-                    user     => 'testuser',
-                    password => 'testpass',
-
-                    #            user    => 'replay',
-                    #            pass    => 'replaypass',
-                    #vhost   => 'replay',
-                    vhost       => '/testing',
+                    port        => '5672',
+                    user        => 'replay',
+                    password    => 'replaypass',
+                    vhost       => '/replay',
                     timeout     => 30,
                     tls         => 1,
                     heartbeat   => 1,
@@ -55,13 +54,16 @@ sub a_replay_config : Test(startup) {
                 },
             },
         },
-        ReportEngine =>
-            { Mode => 'Filesystem', reportFilesystemRoot => $self->{storedir} },
         StorageEngine => { Mode => 'Memory' },
+        ReportEngine  => { Mode => 'Memory' },
     };
 }
 
 sub alldone : Test(teardown) {
+my ($self) = @_;
+    $self->{replay}->eventSystem->origin->purge();
+    $self->{replay}->eventSystem->derived->purge();
+    $self->{replay}->eventSystem->control->purge();
 }
 
 Test::Class->runtests();

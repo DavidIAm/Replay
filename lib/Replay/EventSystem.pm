@@ -22,39 +22,44 @@ Readonly my $SECS_IN_MINUTE => 60;
 my $quitting = 0;
 
 has control => (
-    is      => 'ro',
-    isa     => 'Object',
-    builder => '_build_control',
-    lazy    => 1,
-    clearer => 'clear_control',
+    is        => 'ro',
+    isa       => 'Object',
+    builder   => '_build_control',
+    predicate => 'has_control',
+    lazy      => 1,
+    clearer   => 'clear_control',
 );
 has derived => (
-    is      => 'rw',
-    isa     => 'Object',
-    builder => '_build_derived',
-    lazy    => 1,
-    clearer => 'clear_derived',
+    is        => 'rw',
+    isa       => 'Object',
+    builder   => '_build_derived',
+    predicate => 'has_derived',
+    lazy      => 1,
+    clearer   => 'clear_derived',
 );
 has origin => (
-    is      => 'rw',
-    isa     => 'Object',
-    builder => '_build_origin',
-    lazy    => 1,
-    clearer => 'clear_origin',
+    is        => 'rw',
+    isa       => 'Object',
+    builder   => '_build_origin',
+    predicate => 'has_origin',
+    lazy      => 1,
+    clearer   => 'clear_origin',
 );
 has originsniffer => (
-    is      => 'rw',
-    isa     => 'Object',
-    builder => '_build_origin_sniffer',
-    lazy    => 1,
-    clearer => 'clear_origin_sniffer',
+    is        => 'rw',
+    isa       => 'Object',
+    builder   => '_build_origin_sniffer',
+    predicate => 'has_origin_sniffer',
+    lazy      => 1,
+    clearer   => 'clear_origin_sniffer',
 );
 has derivedsniffer => (
-    is      => 'rw',
-    isa     => 'Object',
-    builder => '_build_derived_sniffer',
-    lazy    => 1,
-    clearer => 'clear_derived_sniffer',
+    is        => 'rw',
+    isa       => 'Object',
+    builder   => '_build_derived_sniffer',
+    predicate => 'has_derived_sniffer',
+    lazy      => 1,
+    clearer   => 'clear_derived_sniffer',
 );
 has mode => (
     is       => 'ro',
@@ -69,8 +74,9 @@ has domain => (is => 'ro');    # placeholder
 sub BUILD {
     my ($self) = @_;
     if (not $self->config->{EventSystem}->{Mode}) {
-      use Data::Dumper;
-        confess q(NO EventSystem Mode CONFIG!?  Make sure its in the locale files).Dumper $self->config;
+        use Data::Dumper;
+        confess q(NO EventSystem Mode CONFIG!?  Make sure its in the locale files)
+            . Dumper $self->config;
     }
     $self->{stop} = AnyEvent->condvar(cb => sub {exit});
     return;
@@ -149,7 +155,7 @@ sub clear {
     $self->clear_origin;
     $self->clear_derived_sniffer;
     $self->clear_origin_sniffer;
-    my $class = 'Replay::EventSystem::'.$self->config->{EventSystem}->{Mode};
+    my $class = 'Replay::EventSystem::' . $self->config->{EventSystem}->{Mode};
     $class->done;
     return;
 }
@@ -175,7 +181,13 @@ use EV;
 sub poll {
     my ($self, @purposes) = @_;
     if (0 == scalar @purposes) {
-        @purposes = qw/origin derived control derivedsniffer originsniffer/;
+        @purposes = (
+            ($self->has_origin          ? qw(origin)         : ()),
+            ($self->has_control         ? qw(control)        : ()),
+            ($self->has_derived         ? qw(derived)        : ()),
+            ($self->has_derived_sniffer ? qw(derivedsniffer) : ()),
+            ($self->has_origin_sniffer  ? qw(originsniffer)  : ()),
+        );
     }
     my $activity = 0;
     foreach my $purpose (@purposes) {

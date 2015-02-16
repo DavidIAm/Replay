@@ -124,35 +124,25 @@ sub globsummary {
     );
 }
 
-sub hash_list {
+sub marshall {
     my ($self) = @_;
-    return %{ $self->marshall };
-}
-
-sub checkstring {
-    my ($self) = @_;
-    $self->name($self->name . q());
-    $self->version($self->version . q());
-    $self->window($self->window . q());
-    $self->key($self->key . q());
-    return;
+    return { $self->hash_list };
 }
 
 sub hash {
     my ($self) = @_;
-    $self->checkstring;
-    return md5_hex($self->freeze);
+    return md5_hex(join ':', $self->hash_list);
 }
 
-sub marshall {
+sub hash_list {
     my ($self) = @_;
-    return {
+    return (
         name    => $self->name . '',
         version => $self->version . '',
         ($self->has_window     ? (window     => $self->window . '')     : ()),
         ($self->has_key        ? (key        => $self->key . '')        : ()),
         ($self->has_revision   ? (revision   => $self->revision . '')   : ()),
-    };
+    );
 }
 
 1;

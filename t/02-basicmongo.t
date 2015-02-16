@@ -15,7 +15,7 @@ sub a_replay_config : Test(startup) {
     my $self = shift;
     $self->{storedir} = '/tmp/testscript-02-' . $ENV{USER};
     $self->{config}   = {
-        timeout       => 40,
+        timeout       => 10,
         stage         => 'testscript-02-' . $ENV{USER},
         StorageEngine => {
             Mode      => 'Mongo',
@@ -23,8 +23,7 @@ sub a_replay_config : Test(startup) {
             MongoPass => 'replaypass',
         },
         EventSystem   => { Mode => 'Null' },
-        ReportEngine =>
-            { Mode => 'Filesystem', reportFilesystemRoot => $self->{storedir}, },
+        ReportEngine  => { Mode => 'Memory' }
     };
 }
 

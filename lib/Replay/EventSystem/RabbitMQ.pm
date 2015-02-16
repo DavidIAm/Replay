@@ -54,7 +54,7 @@ has queue => (
     isa       => 'Replay::EventSystem::RabbitMQ::Queue',
     builder   => '_build_queue',
     predicate => 'has_queue',
-    handles   => [qw( _receive )],
+    handles   => [qw( _receive purge )],
     lazy      => 1,
 );
 
@@ -89,7 +89,6 @@ sub emit {
         unless $message->does('Replay::Envelope');
     my $uuid = $message->UUID;
 
-    $self->topic->emit($message) or return;
     return $self->topic->emit($message);
 }
 
@@ -101,17 +100,17 @@ sub poll {
     foreach my $message ($self->_receive()) {
         next if not scalar(@{ $self->subscribers });
         $handled++;
-        try {
-            foreach my $subscriber (@{ $self->subscribers }) {
+        foreach my $subscriber (@{ $self->subscribers }) {
+            try {
                 $subscriber->($message->body);
+                $message->ack;
             }
-            $message->ack;
+            catch {
+                $message->nack;
+                carp q(There was an exception while processing message through subscriber )
+                    . $_;
+            };
         }
-        catch {
-            $message->nack;
-            carp q(There was an exception while processing message through subscriber )
-                . $_;
-        };
     }
     return $handled;
 }
@@ -174,7 +173,7 @@ look like this.
 
 my $cv = AnyEvent->condvar;
 
-Replay::EventSystem::AWSQueue->new(
+Replay::EventSystem::RabbitMQ->new(
     purpose => $purpose,
     config  => {
         stage    => 'test',

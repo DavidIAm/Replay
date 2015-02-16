@@ -69,6 +69,7 @@ sub key_value_set {
             push @keyvalues, $key, $_;
         }
     }
+    warn __FILE__ . ": KEYVALUESET HIT" . to_json [@keyvalues];
     return @keyvalues;
 }
 
@@ -80,6 +81,7 @@ sub compare {
 
 sub reduce {
     my ($self, $emitter, @state) = @_;
+    warn __FILE__ . ": REDUCE HIT" . to_json [@state];
     warn __FILE__ . ": PURGE FOUND" if grep { $_ eq 'purge' } @state;
     return                          if grep { $_ eq 'purge' } @state;
     return List::Util::reduce { $a + $b } @state;
@@ -88,29 +90,29 @@ sub reduce {
 sub delivery {
     my ($self, @state) = @_;
     use Data::Dumper;
-    warn __FILE__ . ": DELIVERY HIT";
+    warn __FILE__ . ": DELIVERY HIT" . to_json [@state];
     return [@state], to_json [@state];
 }
 
 sub summary {
     my ($self, %deliverydatas) = @_;
-    warn __FILE__ . ": SUMMARY HIT";
     my @state
         = keys %deliverydatas
         ? List::Util::reduce { $a + $b }
     map { @{ $deliverydatas{$_} } } keys %deliverydatas
         : ();
+    warn __FILE__ . ": SUMMARY HIT" . to_json [@state];;
     return [@state], to_json [@state];
 }
 
 sub globsummary {
     my ($self, %summarydatas) = @_;
-    warn __FILE__ . ": GLOBSUMMARY HIT";
     my @state
         = keys %summarydatas
         ? List::Util::reduce { $a + $b }
     map { @{ $summarydatas{$_} } } keys %summarydatas
         : ();
+    warn __FILE__ . ": GLOBSUMMARY HIT" . to_json [@state];;
     return [@state], to_json [@state];
 }
 
@@ -268,24 +270,24 @@ sub testloop : Test(no_plan) {
     # automatically stop once we get both new canonicals
     my $globsumcount    = -3;
     my $secglobsumcount = -2;
-    my $purgecount      = 0;
+    my $purgecount      = -1;
     use Scalar::Util;
     $replay->eventSystem->origin->subscribe(
         sub {
             my ($message) = @_;
 
-            warn __FILE__
-                . ": This is a origin message of type "
-                . $message->{MessageType} . "\n";
+#            warn __FILE__
+#                . ": This is a origin message of type "
+#                . $message->{MessageType} . "\n";
         }
     );
     $replay->eventSystem->derived->subscribe(
         sub {
             my ($message) = @_;
 
-            warn __FILE__
-                . ": This is a derived message of type "
-                . $message->{MessageType} . "\n";
+#            warn __FILE__
+#                . ": This is a derived message of type "
+#                . $message->{MessageType} . "\n";
         }
     );
 
@@ -308,9 +310,9 @@ sub testloop : Test(no_plan) {
             return if $message->{MessageType} eq 'Fetched';
 
             # so the tester can watch them fly by
-            warn __FILE__
-                . ": This is a control message of type "
-                . $message->{MessageType} . "\n";
+#            warn __FILE__
+#                . ": This is a control message of type "
+#                . $message->{MessageType} . "\n";
 
             # The behavior of this return plus the globsumcount increment is that
             # it will keep letting things run until it sees the third
@@ -331,27 +333,29 @@ sub testloop : Test(no_plan) {
                 "windowall returns all late";
 
             # Get a pointer to a report that does not exist, and see that it does not.
-            is_deeply [ $replay->reportEngine->delivery($keyX) ], [ { EMPTY => 1 } ];
+            is_deeply [ $replay->reportEngine->delivery($keyX) ], [ { EMPTY => 1 } ], "X report proper";
 
             # Get a report for key a
             is_deeply [ $replay->reportEngine->delivery($keyA) ],
-                [ { FORMATTED => '["15"]', EMPTY => 0 } ];
+                [ { FORMATTED => '["15"]', EMPTY => 0 } ], "A delivery proper";
 
             # Get a formatted summary for window early
             # (the key part is ignored in this idkey!)
             is_deeply [ $replay->reportEngine->summary($keyA) ],
-                [ { FORMATTED => '[55]', EMPTY => 0 } ];
+                [ { FORMATTED => '[55]', EMPTY => 0 } ], "A summary proper";;
 
             $replay->eventSystem->control->subscribe(
                 sub {
                     my ($message) = @_;
 
+                    #warn "SUBSEQUENT: " . $message->{MessageType};
                     return             if $message->{MessageType} eq 'Fetched';
                     $purgecount++      if $message->{MessageType} eq 'ReportPurgedDelivery';
                     $secglobsumcount++ if $message->{MessageType} eq 'ReportNewGlobSummary';
                     return             if $secglobsumcount;
+                    return if $purgecount;
 
-                    warn __FILE__ . ": PROPER STOP";
+                    warn __FILE__ . ": PROPER STOP ( $secglobsumcount, $purgecount )";
                     $replay->eventSystem->stop;
                 }
             );
@@ -366,8 +370,6 @@ sub testloop : Test(no_plan) {
     my $e = AnyEvent->timer(
         after => 1,
         cb    => sub {
-            warn "EMITTING MESSAGES NOW";
-
             $replay->eventSystem->derived->emit($self->{funMessage});
             $replay->eventSystem->derived->emit($self->{secondMessage});
             $replay->eventSystem->derived->emit($self->{lateMessage});
@@ -376,7 +378,7 @@ sub testloop : Test(no_plan) {
 
     $replay->eventSystem->run;
 
-    ok $purgecount, "we did get a purge when expected";
+    ok !$purgecount, "we did get a purge when expected";
 
     is_deeply [ $replay->reportEngine->delivery($keyA) ],
         [ { FORMATTED => '["30"]', EMPTY => 0 } ], 'doubled on extra insert';

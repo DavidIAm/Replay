@@ -9,7 +9,20 @@ my $rabbit = Net::RabbitMQ->new;
 
 isa_ok $rabbit, 'Net::RabbitMQ';
 
-my $connected = $rabbit->connect('localhost', { user => 'guest', password => 'guest' });
+#my $connected = $rabbit->connect('localhost', { user => 'testuser', password => 'testpass', vhost => '/testing' });
+#my $connected = $rabbit->connect('localhost', { user => 'replay', password => 'replaypass', vhost => '/replay' });
+my $connected = $rabbit->connect('localhost', {
+                          'frame_max' => 131072,
+                         'password' => 'replaypass',
+                         'port' => '5672',
+                         'user' => 'replay',
+                         'vhost' => '/replay',
+                         'channel_max' => 0,
+                         'timeout' => 30,
+                         'heartbeat' => 1,
+                         'tls' => 1
+                       }),
+
  
 
 lives_ok sub { $rabbit->channel_open(2) };
