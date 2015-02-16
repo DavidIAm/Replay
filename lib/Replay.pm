@@ -46,12 +46,54 @@ sub _build_event_system {    ## no critic (ProhibitUnusedPrivateSubroutines)
     return Replay::EventSystem->new(config => $self->config);
 }
 
+has availableReportEngines => (
+    is      => 'ro',
+    isa     => 'ReportEngine',
+    builder => '_build_availableReportEngines',
+    lazy    => 1,
+);
+
+has defaultReportEngine => (
+    is      => 'ro',
+    isa     => 'Replay::ReportEngine',
+    builder => '_build_defaultReportEngine',
+    lazy    => 1,
+);
+
 has reportEngine => (
     is      => 'ro',
     isa     => 'Replay::ReportEngine',
     builder => '_build_report_engine',
     lazy    => 1,
 );
+
+
+
+sub _build_availableReportEngines {    ## no critic (ProhibitUnusedPrivateSubroutines)
+    my $self = shift;
+    my $hash_of_engines = {};
+    
+    foreach my $engine (keys($self->config->{ReportEngines})){
+        
+        $hash_of_engines->{$engine} = Replay::ReportEngine->new(
+        config      => $self->config->{ReportEngines}->{$engine},
+        eventSystem => $self->eventSystem,
+        ruleSource  => $self->ruleSource,
+        storageEngine => $self->storageEngine,
+    );
+   }
+   return  $hash_of_engines;
+}
+
+
+sub _build_defaultReportEngine {    ## no critic (ProhibitUnusedPrivateSubroutines)
+    my $self = shift;
+    my $default = $self->availableReportEngines()->{$self->config->{Defaults}->{ReportEngine}};
+    unless ($default)
+       croak "No ReportEngine ".$self->config->{Defaults}->{ReportEngine}." defined";
+    return $default;
+}
+
 
 sub _build_report_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
