@@ -7,3 +7,42 @@ Replay:
     secret: ''
   snsService: 'https://sns.us-east-1.amazonaws.com'
   sqsService: 'https://sqs.us-east-1.amazonaws.com'
+Replay:
+  StorageEngine: 
+    Mode: Mongo
+    Host: 
+    Port: 
+    AuthDB: 
+    User: 
+    Pass: 
+  Defaults:
+    ReportEngine: 'Filesystem'
+  ReportEngines:
+    Filesystem:
+      reportFilesystemRoot: /data/sandboxes/scolesj/sand_25570/wwwveh/replay/reports
+    Mongo:
+      Host: 
+      Port: 
+      AuthDB: 
+      User: 
+      Pass: 
+  EventSystem: 
+    Mode: AWSQueue
+    awsIdentity:
+      access: ''
+      secret: ''
+    snsService: 'https://sns.us-east-1.amazonaws.com'
+    sqsService: 'https://sqs.us-east-1.amazonaws.com'
+  stage: sandbox_jps 
+  domain: merrydev
+  QueueClass: Replay::EventSystem::AWSQueue
+  StorageMode: Mongo
+  Mongo:
+    host: merry.cargotel.com
+    port: 27017 
+    authdb: admin
+    user: replayuser
+    pass: replaypass
+  ReportGitroot: /tmp/gittmp
+  ReportFileRoot: /tmp/gittmp
+  RESTSecret: 48SPAdEDchw5oCWi!yt%ETY*^VCN77c&D#

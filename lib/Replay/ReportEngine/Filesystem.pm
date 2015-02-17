@@ -23,7 +23,7 @@ my $store = {};
 
 sub BUILD {
     my $self = shift;
-    mkpath $self->config->{ReportEngine}->{reportFilesystemRoot};
+    mkpath $self->config->{reportFilesystemRoot};
     confess "no report filesystem root"
         unless -d $self->config->{ReportEngine}->{reportFilesystemRoot};
 }

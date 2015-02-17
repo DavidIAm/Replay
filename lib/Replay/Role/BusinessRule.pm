@@ -6,6 +6,7 @@ use Moose::Util::TypeConstraints;
 our $VERSION = '0.02';
 
 has eventSystem => (is => 'ro', isa => 'Replay::EventSystem',);
+has reportEngine=> (is => 'ro', isa => 'Str',);
 
 # mapper
 # [string]
