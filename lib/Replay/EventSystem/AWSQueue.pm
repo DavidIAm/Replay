@@ -164,9 +164,9 @@ sub _build_sns {    ## no critic (ProhibitUnusedPrivateSubroutines)
 
 sub _build_queue {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    carp q(BUILDING QUEUE ) . $self->queueName;
+    carp q(BUILDING QUEUE ) . $self->queueName if $ENV{DEBUG_REPLAY_TEST};;
     my $queue = $self->sqs->CreateQueue($self->queueName);
-    carp q(SETTING QUEUE POLICY ) . $self->queueName;
+    carp q(SETTING QUEUE POLICY ) . $self->queueName if $ENV{DEBUG_REPLAY_TEST};;
     $queue->SetAttribute(
         'Policy',
         to_json(
@@ -183,7 +183,7 @@ sub _build_queue {    ## no critic (ProhibitUnusedPrivateSubroutines)
             }
         )
     );
-    carp q(SUBSCRIBING TO QUEUE ) . $self->queueName;
+    carp q(SUBSCRIBING TO QUEUE ) . $self->queueName if $ENV{DEBUG_REPLAY_TEST};;
     $self->{subscriptionARN} = $self->sns->dispatch(
         {   Action   => 'Subscribe',
             Endpoint => $self->queuearn,
@@ -220,7 +220,7 @@ sub _build_topic_name {    ## no critic (ProhibitUnusedPrivateSubroutines)
 sub _build_topic {         ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     my $topic;
-    carp q(BUILDING TOPIC ) . $self->topicName;
+    carp q(BUILDING TOPIC ) . $self->topicName if $ENV{DEBUG_REPLAY_TEST};;
     if ($self->has_topicarn) {
         $topic = $self->sns->GetTopic($self->topicarn);
     }

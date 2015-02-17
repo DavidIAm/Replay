@@ -69,7 +69,7 @@ sub key_value_set {
             push @keyvalues, $key, $_;
         }
     }
-    warn __FILE__ . ": KEYVALUESET HIT" . to_json [@keyvalues];
+    warn __FILE__ . ": KEYVALUESET HIT" . to_json [@keyvalues] if $ENV{DEBUG_REPLAY_TEST};
     return @keyvalues;
 }
 
@@ -81,7 +81,7 @@ sub compare {
 
 sub reduce {
     my ($self, $emitter, @state) = @_;
-    warn __FILE__ . ": REDUCE HIT" . to_json [@state];
+    warn __FILE__ . ": REDUCE HIT" . to_json [@state] if $ENV{DEBUG_REPLAY_TEST};;
     warn __FILE__ . ": PURGE FOUND" if grep { $_ eq 'purge' } @state;
     return                          if grep { $_ eq 'purge' } @state;
     return List::Util::reduce { $a + $b } @state;
@@ -90,7 +90,7 @@ sub reduce {
 sub delivery {
     my ($self, @state) = @_;
     use Data::Dumper;
-    warn __FILE__ . ": DELIVERY HIT" . to_json [@state];
+    warn __FILE__ . ": DELIVERY HIT" . to_json [@state] if $ENV{DEBUG_REPLAY_TEST};;
     return [@state], to_json [@state];
 }
 
@@ -101,7 +101,7 @@ sub summary {
         ? List::Util::reduce { $a + $b }
     map { @{ $deliverydatas{$_} } } keys %deliverydatas
         : ();
-    warn __FILE__ . ": SUMMARY HIT" . to_json [@state];;
+    warn __FILE__ . ": SUMMARY HIT" . to_json [@state] if $ENV{DEBUG_REPLAY_TEST};;;
     return [@state], to_json [@state];
 }
 
@@ -112,7 +112,7 @@ sub globsummary {
         ? List::Util::reduce { $a + $b }
     map { @{ $summarydatas{$_} } } keys %summarydatas
         : ();
-    warn __FILE__ . ": GLOBSUMMARY HIT" . to_json [@state];;
+    warn __FILE__ . ": GLOBSUMMARY HIT" . to_json [@state] if $ENV{DEBUG_REPLAY_TEST};;;
     return [@state], to_json [@state];
 }
 
@@ -201,7 +201,7 @@ sub a_testruleoperation : Test(no_plan) {
 }
 
 sub m_replay_construct : Test(startup => 1) {
-  warn "REPLAY CONSTRUCT";
+  warn "REPLAY CONSTRUCT" if $ENV{DEBUG_REPLAY_TEST};;
   my $self = shift;
     return "out of replay context" unless $self->{config};
 
@@ -355,7 +355,7 @@ sub testloop : Test(no_plan) {
                     return             if $secglobsumcount;
                     return if $purgecount;
 
-                    warn __FILE__ . ": PROPER STOP ( $secglobsumcount, $purgecount )";
+                    warn __FILE__ . ": PROPER STOP ( $secglobsumcount, $purgecount )" if $ENV{DEBUG_REPLAY_TEST};;
                     $replay->eventSystem->stop;
                 }
             );

@@ -41,6 +41,7 @@ sub rule {
     return $rule;
 }
 
+
 sub notify_purge {
     my ($self, $idkey, $part) = @_;
     return $self->eventSystem->control->emit(
@@ -162,16 +163,16 @@ sub revision {
     return $self->current($idkey);
 }
 
-sub freeze {
-    my ($self, $idkey) = @_;
+sub notify_freeze {
+    my ($self, $idkey, $part) = @_;
     return $self->eventSystem->control->emit(
         Replay::Message::Report::Freeze->new($idkey->marshall));
 }
 
-sub copydomain {
-    my ($self, $idkey) = @_;
+sub notify_copydomain {
+    my ($self) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Report::CopyDomain->new($idkey->marshall));
+        Replay::Message::Report::CopyDomain->new());
 }
 
 sub checkpoint {
@@ -209,7 +210,7 @@ Replay::BaseReportEngine - wrappers for the storage engine implimentation
 
 =head1 VERSION
 
-Version 0.01
+Version 0.03
 
 =head1 SYNOPSIS
 
@@ -363,81 +364,36 @@ report system when the specified time factor is reached.
   - None
 
 
-=head1 STORAGE ENGINE IMPLIMENTATION METHODS 
-
-These methods must be overridden by the specific implimentation
-
-They should call super() to cause the emit of control messages when they succeed
+=head1 REPORT ENGINE IMPLIMENTATION METHODS 
 
 =head2 (state) = retrieve ( idkey )
 
-Unconditionally return the entire state document 
+Unconditionally return the entire state record 
 
-This includes all the components of the document model and is usually used internally
+=head2 (revision|undef) = current ( idkey )
 
-This is expected to be something like:
+if there is a valid current report for this key, return the number.
 
-{ Timeblocks => [ ... ]
-, Ruleversions => [ { ...  }, { ... }, ... ]
-, Windows => [ ... ]
-, inbox => [ <unprocessed atoms> ]
-, desktop => [ <atoms in processing ]
-, canonical => [ a
-, locked => signature of a secret uuid with the idkey required to unlock.  presence indicates record is locked.
-, lockExpireEpoch => epoch time after which the lock has expired.  not presnet when not locked
-} 
+otherwise return undefined to indicate 404
 
-=head2 (success) = absorb ( idkey, message, meta )
+=head2 delete_latest_revision ( idkey )
 
-Insert a new atom into the indicated state, with metadata
+Remove the current revision from the report store.
 
-append the new atom atomically to the 'inbox' in the state document referenced
-ensure the meta->{Windows} member are in the 'Windows' set in the state document referenced
-ensure the meta->{Ruleversions} members are in the 'Ruleversions' set in the state document referenced
-ensure the meta->{Timeblocks} members are in the 'Timeblocks' set in the state document referenced
+This implies that the entire node of the report tree should be
+destroyed if there are no frozen versions in it!
 
+throw an exception if there's an error
 
-=head2 (uuid, state) = checkout ( idkey, timeout )
+it is not an error if there is no current/latest revision
 
-if the record is locked already
-  if the lock is expired
-    lock with a new uuid
-      revert the state by reabsorbing the desktop to the inbox
-      clear desktop
-      clear lock
-      clear expire time
-  else 
-    return nothing
-else
-  lock the record atomically so no other processes may lock it with a uuid
-    move inbox to desktop
-    return the uuid and the new state
+=head2 store( idkey, data=[...], formatted)
 
-=head2 revert  ( idkey, uuid )
+store this data and formatted blob at this idkey for later retrieval
 
-if the record is locked with this uuid
-  if the lock is not expired
-    lock the record with a new uuid
-      reabsorb the atoms in desktop
-      clear desktop
-      clear lock
-      clear expire time
-      return success
-  else 
-    return nothing, this isn't available for reverting
-else 
-  return nothing, this isn't available for reverting
+This always stores in the latest report revision!
 
-=head2 checkin ( idkey, uuid, state )
-
-if the record is locked, (expiration agnostic)
-  update the record with the new state
-  clear desktop
-  clear lock
-  clear expire time
-else
-  return nothing, we aren't allowed to do this
-
+throw an exception if there is an error
 
 =head1 INTERNAL METHODS
 

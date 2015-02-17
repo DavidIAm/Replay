@@ -171,7 +171,7 @@ sub delete_latest_revision {
 }
 
 sub store {
-    my ($self, $part, $idkey, $data, $formatted) = @_;
+    my ($self, $idkey, $data, $formatted) = @_;
     confess
         "first return value from delivery/summary/globsummary function does not appear to be an array ref"
         unless 'ARRAY' eq ref $data;
@@ -230,7 +230,7 @@ sub unlock {
 
 sub freeze {
     confess "unimplimented";
-    my ($self, $part, $idkey) = @_;
+    my ($self, $idkey) = @_;
 
     # this should copy the current report to a new one, and increment CURRENT
     # AND WRITABLE.
@@ -261,7 +261,7 @@ sub freeze {
     );
 
     $self->store(
-        $part, $idkey,
+        $idkey,
         $self->retrieve($oldkey, 1)->{DATA},
         $self->retrieve($oldkey)->{FORMATTED}
     );
@@ -277,7 +277,7 @@ __END__
 
 =head1 NAME
 
-Replay::ReportEngine::Filesystem - report implimentation for filesystem - testing only
+Replay::ReportEngine::Filesystem - report implimentation for base filesystem use
 
 =head1 VERSION
 
@@ -392,9 +392,7 @@ return the directory appropriate for this key
 
 Remove the current report for this location
 
-=head2 store(part=(delivery|summary|globsummary), idkey, data=[...], formatted)
-
-part is one of 'delivery', 'summary', 'globsummary'
+=head2 store( idkey, data=[...], formatted)
 
 data is an array reference
 
@@ -421,6 +419,8 @@ enact the freeze logic for filesystem
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
 =head1 BUGS
+
+This does not currently properly do locking or support freeze
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'
@@ -505,84 +505,55 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 1;
 
-=head1 STORAGE ENGINE MODEL ASSUMPTIONS
+=head1 REPORT ENGINE MODEL ASSUMPTIONS
 
 IdKey: object that indicates all the axis of selection for the data requested
-Atom: defined by the rule being processed; storage engine shouldn't care about it.
+Data: an array reference defined returned by the reporting functions of the rule being processed
+Formatted: treated with no interpolation - some sort of blob that means something to the user
 
-STATE DOCUMENT GENERAL TO STORAGE ENGINE
+STATE DOCUMENT GENERAL TO REPORT ENGINE
 
-inbox: [ Array of Atoms ] - freshly arrived atoms are stored here.
-canonical: [ Array of Atoms ] - the current reduced 
-canonSignature: q(SIGNATURE) - a sanity check to see if this canonical has been mucked with
-Timeblocks: [ Array of input timeblock names ]
-Ruleversions: [ Array of objects like { name: <rulename>, version: <ruleversion> } ]
+CURRENT - the current or latest revision, if any. gets overwritten on update
+WRITABLE - the revision that we can write to, exists even if there is no current report
 
 STATE DOCUMENT SPECIFIC TO THIS IMPLIMENTATION
 
-db is determined by idkey->ruleversion
-collection is determined by idkey->collection
-idkey is determined by idkey->cubby
+REVISIONS - all of the revisions are inside here.
+REVISIONS->##->DATA - the data structure for revision ##
+REVISIONS->##->FORMATTED - the blob scalar for revision ##
 
-desktop: [ Array of Atoms ] - the previously arrived atoms that are currently being processed
-locked: q(SIGNATURE) - if this is set, only a worker who knows the signature may update this
-lockExpireEpoch: TIMEINT - used in case of processing timeout to unlock the record
-
-STATE TRANSITIONS IN THIS IMPLEMENTATION 
-
-checkout
-
-rename inbox to desktop so that any new absorbs don't get confused with what is being processed
-
-=head1 STORAGE ENGINE IMPLIMENTATION METHODS 
+=head1 REPORT ENGINE IMPLIMENTATION METHODS 
 
 =head2 (state) = retrieve ( idkey )
 
 Unconditionally return the entire state record 
 
-=head2 (success) = absorb ( idkey, message, meta )
+=head2 (revision|undef) = current ( idkey )
 
-Insert a new atom into the indicated state
+if there is a valid current report for this key, return the number.
 
-=head2 (uuid, state) = checkout ( idkey, timeout )
+otherwise return undefined to indicate 404
 
-if the record is locked already
-  if the lock is expired
-    lock with a new uuid
-      revert the state by reabsorbing the desktop to the inbox
-      clear desktop
-      clear lock
-      clear expire time
-  else 
-    return nothing
-else
-  lock the record atomically so no other processes may lock it with a uuid
-    move inbox to desktop
-    return the uuid and the new state
+=head2 delete_latest_revision ( idkey )
 
-=head2 revert  ( idkey, uuid )
+Remove the current revision from the report store.
 
-if the record is locked with this uuid
-  if the lock is not expired
-    lock the record with a new uuid
-      reabsorb the atoms in desktop
-      clear desktop
-      clear lock
-      clear expire time
-  else 
-    return nothing, this isn't available for reverting
-else 
-  return nothing, this isn't available for reverting
+This implies that the entire node of the report tree should be
+destroyed if there are no frozen versions in it!
 
-=head2 checkin ( idkey, uuid, state )
+throw an exception if there's an error
 
-if the record is locked, (expiration agnostic)
-  update the record with the new state
-  clear desktop
-  clear lock
-  clear expire time
-else
-  return nothing, we aren't allowed to do this
+it is not an error if there is no current/latest revision
+
+=head2 store( idkey, data=[...], formatted)
+
+store this data and formatted blob at this idkey for later retrieval
+
+This always stores in the latest report revision!
+
+throw an exception if there is an error
+
+=head2 
 
 =cut
 

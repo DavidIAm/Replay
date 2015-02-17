@@ -30,7 +30,6 @@ sub retrieve {
         return { EMPTY => 0, DATA => $directory->{REVISIONS}{$revision}{DATA} } if exists $directory->{REVISIONS}{$revision}{DATA};
         return { EMPTY => 1 };
     }
-    my $ffile = $self->filename($directory, $self->revision($idkey));
     return { EMPTY => 0, FORMATTED => $directory->{REVISIONS}{$revision}{FORMATTED} } if exists $directory->{REVISIONS}{$revision}{FORMATTED};
     return { EMPTY => 1 };
 }
@@ -118,16 +117,6 @@ sub summary_keys {
         $self->current_subdirs($parentDir);
 }
 
-sub filename_data {
-    my ($self, $directory, $revision) = @_;
-    return $directory->{REVISIONS}{$revision}{DATA};
-}
-
-sub filename {
-    my ($self, $directory, $revision) = @_;
-    return catfile $directory, sprintf 'revision_%05d', $revision;
-}
-
 sub directory {
     my ($self, $idkey) = @_;
     my $s = $store->{$idkey->name}{$idkey->version} ||= {};
@@ -185,7 +174,6 @@ sub unlock {
 # State transition = add new atom to inbox
 
 sub freeze {
-    confess "unimplimented";
     my ($self, $part, $idkey) = @_;
 
     # this should copy the current report to a new one, and increment CURRENT
@@ -197,7 +185,7 @@ sub freeze {
     my $old_revision = $self->current_revision($directory);
     my $new_revision = $old_revision + 1;
 
-    $directory->{WRITABLE} = $new_revision;
+    $directory->{CURRENT} = $directory->{WRITABLE} = $new_revision;
 
     my $deepcopy = thaw(Storable::freeze($self->current_revision_path($directory)));
 
@@ -207,6 +195,7 @@ sub freeze {
         $deepcopy->{FORMATTED},
     );
 
+    $self->notify_freeze($idkey);
     $self->unlock($directory);
 }
 
@@ -242,11 +231,10 @@ Data structure follows the format of the idkey.
 The hierarchy names are joined together to form a data structure.
 
 $store->{rulename}{versionnum}{windowname}{keyname}
-.../REPORTFILESYSTEMROOT/RULENAME/VERSIONNUM/WINDOWNAME/KEYNAME/...
 
 if a key or window isn't relevant (for summaries and globsummary) the hash may or may not be present.
 
-keys within a directory, and what they mean
+keys within a directory, and what they mean:
 
 WRITABLE - contains a number, the revision number of the current version for writing.
 
@@ -256,9 +244,9 @@ CURRENT - contains a number, the revision number of the latest existing report
 
 if there is no CURRENT, the report is 404, not available.
 
-REVISIONS->#####->{FORMATTED} - contains the 'formatted' report - in whatever format programmer desires.
+REVISIONS->#####->FORMATTED - contains the 'formatted' report - in whatever format programmer desires.
 
-REVISIONS->#####->{DATA} - contains the 'data' part of report - in native structure
+REVISIONS->#####->DATA - contains the 'data' part of report - in native structure
 
 a 'purge' happens when a report or summary returns empty list, indicating 'no state to report'. The system will remove the current revision file, and the CURRENT file to indicate there is no report available at this location any longer.
 
@@ -274,57 +262,49 @@ return the raw data if structured is set
 
 otherwise return the formatted form of the report
 
-=head2 writable_revision_path(directory)
+=head2 writable_revision_path(parentnode)
 
-return the path for the writable revision file in this directory
+return the data node writable revision data in this node
 
-=head2 current_revision_path(directory)
+=head2 current_revision_path(parentnode)
 
-return the path for the current revision file in this directory
+return the path for the current revision data in this node
 
-=head2 writable_revision(directory)
+=head2 writable_revision(parentnode)
 
-return the writable revision appropriate for this directory
+return the writable revision appropriate for this node
 
-=head2 current_revision(directory)
+=head2 current_revision(parentnode)
 
-return the current revision appropriate for this directory
+return the current revision appropriate for this node
 
 =head2 current(idkey)
 
 return the current revision appropriate for this key
 
-=head2 subdirs(directory)
+=head2 subdirs(parentnode)
 
-return the list of keys to subdirectories that exist in this directory
+return the list of keys to hierarchy keys that exist immediately below this node
 
-=head2 current_subdirs(directory)
+=head2 current_subdirs(parentnode)
 
-return the list of keys to subdirectories that have current values for this directory
+return the list of keys to hierarchy keys that exist immediately below this node
 
 =head2 delivery_keys(idkey)
 
-return the list of keys that have current values for this window location
+return the list of keys that have CURRENT revision values for this window location
 
 =head2 summary_keys(idkey)
 
-return the list of windows that have current values for this rule-version location
-
-=head2 filename_data(directory, revision)
-
-return the data filename for this directory and revision
-
-=head2 filename(directory, revision)
-
-return the formatted filename for this directory and revision
+return the list of windows that have CURRENT revision values for this rule-version location
 
 =head2 directory(idkey)
 
-return the directory appropriate for this key
+return the node appropriate for this key
 
 =head2 delete_latest_revision(idkey)
 
-Remove the current report for this location
+Remove the current report for this key
 
 =head2 store(part=(delivery|summary|globsummary), idkey, data=[...], formatted)
 
@@ -332,7 +312,7 @@ part is one of 'delivery', 'summary', 'globsummary'
 
 data is an array reference
 
-save to our filesystem, this data and optionally the formatted information.
+save to our memory tree, this data and optionally the formatted information.
 
 if data is empty, purge the indicated storage slot.
 
@@ -340,21 +320,23 @@ if it isn't, write the data to the data file and formatted to the formatted file
 
 =head2 lock(directory)
 
-lock so other workers don't modify this file path
+lock so other workers don't modify this node
 
 =head2 unlock(directory)
 
-unlock so other workers can modify this file path
+unlock so other workers can modify this node
 
 =head2 freeze($idkey)
 
-enact the freeze logic for filesystem
+enact the freeze logic for memory
 
 =head1 AUTHOR
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
 =head1 BUGS
+
+Locking is not implimented, but for testing in memory it shouldn't be important
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'
@@ -439,84 +421,55 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 1;
 
-=head1 STORAGE ENGINE MODEL ASSUMPTIONS
+=head1 REPORT ENGINE MODEL ASSUMPTIONS
 
 IdKey: object that indicates all the axis of selection for the data requested
-Atom: defined by the rule being processed; storage engine shouldn't care about it.
+Data: an array reference defined returned by the reporting functions of the rule being processed
+Formatted: treated with no interpolation - some sort of blob that means something to the user
 
-STATE DOCUMENT GENERAL TO STORAGE ENGINE
+STATE DOCUMENT GENERAL TO REPORT ENGINE
 
-inbox: [ Array of Atoms ] - freshly arrived atoms are stored here.
-canonical: [ Array of Atoms ] - the current reduced 
-canonSignature: q(SIGNATURE) - a sanity check to see if this canonical has been mucked with
-Timeblocks: [ Array of input timeblock names ]
-Ruleversions: [ Array of objects like { name: <rulename>, version: <ruleversion> } ]
+CURRENT - the current or latest revision, if any. gets overwritten on update
+WRITABLE - the revision that we can write to, exists even if there is no current report
 
 STATE DOCUMENT SPECIFIC TO THIS IMPLIMENTATION
 
-db is determined by idkey->ruleversion
-collection is determined by idkey->collection
-idkey is determined by idkey->cubby
+REVISIONS - all of the revisions are inside here.
+REVISIONS->##->DATA - the data structure for revision ##
+REVISIONS->##->FORMATTED - the blob scalar for revision ##
 
-desktop: [ Array of Atoms ] - the previously arrived atoms that are currently being processed
-locked: q(SIGNATURE) - if this is set, only a worker who knows the signature may update this
-lockExpireEpoch: TIMEINT - used in case of processing timeout to unlock the record
-
-STATE TRANSITIONS IN THIS IMPLEMENTATION 
-
-checkout
-
-rename inbox to desktop so that any new absorbs don't get confused with what is being processed
-
-=head1 STORAGE ENGINE IMPLIMENTATION METHODS 
+=head1 REPORT ENGINE IMPLIMENTATION METHODS 
 
 =head2 (state) = retrieve ( idkey )
 
 Unconditionally return the entire state record 
 
-=head2 (success) = absorb ( idkey, message, meta )
+=head2 (revision|undef) = current ( idkey )
 
-Insert a new atom into the indicated state
+if there is a valid current report for this key, return the number.
 
-=head2 (uuid, state) = checkout ( idkey, timeout )
+otherwise return undefined to indicate 404
 
-if the record is locked already
-  if the lock is expired
-    lock with a new uuid
-      revert the state by reabsorbing the desktop to the inbox
-      clear desktop
-      clear lock
-      clear expire time
-  else 
-    return nothing
-else
-  lock the record atomically so no other processes may lock it with a uuid
-    move inbox to desktop
-    return the uuid and the new state
+=head2 delete_latest_revision ( idkey )
 
-=head2 revert  ( idkey, uuid )
+Remove the current revision from the report store.
 
-if the record is locked with this uuid
-  if the lock is not expired
-    lock the record with a new uuid
-      reabsorb the atoms in desktop
-      clear desktop
-      clear lock
-      clear expire time
-  else 
-    return nothing, this isn't available for reverting
-else 
-  return nothing, this isn't available for reverting
+This implies that the entire node of the report tree should be
+destroyed if there are no frozen versions in it!
 
-=head2 checkin ( idkey, uuid, state )
+throw an exception if there's an error
 
-if the record is locked, (expiration agnostic)
-  update the record with the new state
-  clear desktop
-  clear lock
-  clear expire time
-else
-  return nothing, we aren't allowed to do this
+it is not an error if there is no current/latest revision
+
+=head2 store( idkey, data=[...], formatted)
+
+store this data and formatted blob at this idkey for later retrieval
+
+This always stores in the latest report revision!
+
+throw an exception if there is an error
+
+=head2 
 
 =cut
 

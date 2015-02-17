@@ -106,27 +106,27 @@ sub run {
     $quitting = 0;
 
     $self->clock;
-    carp q(SIGQUIT will stop loop);
+    carp q(SIGQUIT will stop loop) if $ENV{DEBUG_REPLAY_TEST};;
     local $SIG{QUIT} = sub {
         return if $quitting++;
         $self->stop;
         $self->clear;
-        carp('shutdownBySIGQUIT');
+        carp('shutdownBySIGQUIT') if $ENV{DEBUG_REPLAY_TEST};;
     };
-    carp q(SIGINT will stop loop);
+    carp q(SIGINT will stop loop) if $ENV{DEBUG_REPLAY_TEST};;
     local $SIG{INT} = sub {
         return if $quitting++;
         $self->stop;
         $self->clear;
-        carp('shutdownBySIGINT');
+        carp('shutdownBySIGINT') if $ENV{DEBUG_REPLAY_TEST};;
     };
 
     if ($self->config->{timeout}) {
         $self->{stoptimer} = AnyEvent->timer(
             after => $self->config->{timeout},
-            cb    => sub { carp q(Timeout triggered.); $self->stop }
+            cb    => sub { carp q(Timeout triggered.) if $ENV{DEBUG_REPLAY_TEST};; $self->stop }
         );
-        carp q(Setting loop timeout to ) . $self->config->{timeout};
+        carp q(Setting loop timeout to ) . $self->config->{timeout} if $ENV{DEBUG_REPLAY_TEST};;
     }
 
     $self->{polltimer} = AnyEvent->timer(
@@ -136,14 +136,14 @@ sub run {
             $self->poll();
         }
     );
-    carp q(Event loop startup now);
+    carp q(Event loop startup now) if $ENV{DEBUG_REPLAY_TEST};;
     EV::loop;
     return;
 }
 
 sub stop {
     my ($self) = @_;
-    carp q(Event loop shutdown by request);
+    carp q(Event loop shutdown by request) if $ENV{DEBUG_REPLAY_TEST};;
     EV::unloop;
     return;
 }
@@ -205,14 +205,14 @@ sub poll {
 sub clock {
     my $self             = shift;
     my $last_seen_minute = time - time % $SECS_IN_MINUTE;
-    carp q(Clock tick started);
+    carp q(Clock tick started) if $ENV{DEBUG_REPLAY_TEST};;
     $self->{clock} = AnyEvent->timer(
         after    => 0.25,
         interval => 0.25,
         cb       => sub {
             my $this_minute = time - time % $SECS_IN_MINUTE;
             return if $last_seen_minute == $this_minute;
-            carp "Clock tick on minute $this_minute";
+            carp "Clock tick on minute $this_minute" if $ENV{DEBUG_REPLAY_TEST};;
             $last_seen_minute = $this_minute;
             my ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst)
                 = localtime time;

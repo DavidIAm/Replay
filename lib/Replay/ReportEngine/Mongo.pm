@@ -55,9 +55,6 @@ sub retrieve {
         my $e = { $self->idkey_where_doc($idkey), REVISION => $revision, },
         { ($structured ? (DATA => 1) : ()), ($structured ? () : (FORMATTED => 1)) }
     );
-    use JSON;
-    warn "EMPTY ON SEARCH PATH ON THIS RETRIEVE WAS " . to_json $e
-        unless defined $r;
     return { EMPTY => 1 } unless defined $r;
     delete $r->{_id};
     $r->{EMPTY} = 0;
