@@ -21,7 +21,8 @@ sub a_replay_config : Test(startup) {
         stage         => 'testscript-01-' . $ENV{USER},
         EventSystem   => { Mode => 'Null' },
         StorageEngine => { Mode => 'Memory' },
-        ReportEngine  => { Mode => 'Memory' }
+        Defaults      => { ReportEngine => 'Memory' },
+        ReportEngines => { Memory => { Mode => 'Memory' } },
     };
 }
 

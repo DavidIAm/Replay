@@ -7,8 +7,10 @@ use Carp qw/croak carp cluck/;
 use MongoDB;
 use MongoDB::OID;
 
-with(qw(Replay::BaseReportEngine Replay::Role::MongoDB));
+with(qw(Replay::Role::ReportEngine Replay::Role::MongoDB));
 our $VERSION = q(0.03);
+
+has '+mode' => ( default => 'Mongo' );
 
 sub _build_mongo {
     my ($self) = @_;
@@ -100,7 +102,7 @@ sub delete_latest_revision {
 
 #Api
 sub store {
-    my ($self, $part, $idkey, $reportdata, $formatted) = @_;
+    my ($self, $idkey, $reportdata, $formatted) = @_;
     confess "WHUT DATA" if scalar @{$reportdata} && !defined $reportdata->[0];
     my $revision = $self->revision($idkey) || 0;
     my $r = $self->collection($idkey)->update(

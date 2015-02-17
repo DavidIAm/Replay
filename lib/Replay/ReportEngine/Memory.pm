@@ -12,12 +12,14 @@ use Readonly;
 use Storable qw/store_fd thaw/;
 use IO::Dir;
 
-with 'Replay::BaseReportEngine';
+with 'Replay::Role::ReportEngine';
 
 our $VERSION = q(0.03);
 
 Readonly my $CURRENTFILE  => 'CURRENT';
 Readonly my $WRITABLEFILE => 'WRITABLE';
+
+has '+mode' => ( default => 'Memory' );
 
 my $store = {};
 
@@ -141,7 +143,7 @@ sub delete_latest_revision {
 }
 
 sub store {
-    my ($self, $part, $idkey, $data, $formatted) = @_;
+    my ($self, $idkey, $data, $formatted) = @_;
     confess
         "first return value from delivery/summary/globsummary function does not appear to be an array ref"
         unless 'ARRAY' eq ref $data;

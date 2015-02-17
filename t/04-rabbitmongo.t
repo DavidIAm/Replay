@@ -28,8 +28,8 @@ sub a_replay_config : Test(startup => 2) {
         stage         => 'testscript-04-' . $ENV{USER},
         StorageEngine => {
             Mode      => 'Mongo',
-            MongoUser => 'replayuser',
-            MongoPass => 'replaypass',
+            User => 'replayuser',
+            Pass => 'replaypass',
         },
         EventSystem => {
             Mode     => 'RabbitMQ',
@@ -52,7 +52,8 @@ sub a_replay_config : Test(startup => 2) {
                 },
             },
         },
-        ReportEngine  => { Mode => 'Memory' }
+        Defaults      => { ReportEngine => 'Memory' },
+        ReportEngines => { Memory => { Mode => 'Memory' } },
     };
 }
 

@@ -153,6 +153,8 @@ sub _build_sqs {    ## no critic (ProhibitUnusedPrivateSubroutines)
 sub _build_sns {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     my $config = $self->config;
+    croak q(No access key?).Dumper $config if not $config->{EventSystem}{awsIdentity}{access};
+    croak q(No secret key?) if not $config->{EventSystem}{awsIdentity}{secret};
     my $sns    = Amazon::SNS->new(
         {   key    => $config->{EventSystem}{awsIdentity}{access},
             secret => $config->{EventSystem}{awsIdentity}{secret}

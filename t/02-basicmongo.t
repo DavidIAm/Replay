@@ -19,11 +19,12 @@ sub a_replay_config : Test(startup) {
         stage         => 'testscript-02-' . $ENV{USER},
         StorageEngine => {
             Mode      => 'Mongo',
-            MongoUser => 'replayuser',
-            MongoPass => 'replaypass',
+            User => 'replayuser',
+            Pass => 'replaypass',
         },
         EventSystem   => { Mode => 'Null' },
-        ReportEngine  => { Mode => 'Memory' }
+        Defaults      => { ReportEngine => 'Memory' },
+        ReportEngines => { Memory => { Mode => 'Memory' } },
     };
 }
 

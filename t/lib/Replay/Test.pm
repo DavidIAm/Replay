@@ -81,38 +81,38 @@ sub compare {
 
 sub reduce {
     my ($self, $emitter, @state) = @_;
-    warn __FILE__ . ": REDUCE HIT" . to_json [@state] if $ENV{DEBUG_REPLAY_TEST};;
-    warn __FILE__ . ": PURGE FOUND" if grep { $_ eq 'purge' } @state;
-    return                          if grep { $_ eq 'purge' } @state;
+    warn __FILE__ . ": REDUCE HIT" . to_json [@state] if $ENV{DEBUG_REPLAY_TEST};
+    warn __FILE__ . ": PURGE FOUND" if grep { $_ eq 'purge' } grep { defined $_ } @state && $ENV{DEBUG_REPLAY_TEST};
+    return                          if grep { $_ eq 'purge' } grep { defined $_ } @state;
     return List::Util::reduce { $a + $b } @state;
 }
 
 sub delivery {
     my ($self, @state) = @_;
     use Data::Dumper;
-    warn __FILE__ . ": DELIVERY HIT" . to_json [@state] if $ENV{DEBUG_REPLAY_TEST};;
-    return [@state], to_json [@state];
+    warn __FILE__ . ": DELIVERY HIT" . to_json [@state] if $ENV{DEBUG_REPLAY_TEST};
+    return [map { $_.'' } @state], to_json [@state];
 }
 
 sub summary {
     my ($self, %deliverydatas) = @_;
     my @state
-        = keys %deliverydatas
+        = map { $_ . '' } keys %deliverydatas
         ? List::Util::reduce { $a + $b }
     map { @{ $deliverydatas{$_} } } keys %deliverydatas
         : ();
-    warn __FILE__ . ": SUMMARY HIT" . to_json [@state] if $ENV{DEBUG_REPLAY_TEST};;;
+    warn __FILE__ . ": SUMMARY HIT" . to_json [@state] if $ENV{DEBUG_REPLAY_TEST};
     return [@state], to_json [@state];
 }
 
 sub globsummary {
     my ($self, %summarydatas) = @_;
     my @state
-        = keys %summarydatas
+        = map { $_ . '' } keys %summarydatas
         ? List::Util::reduce { $a + $b }
     map { @{ $summarydatas{$_} } } keys %summarydatas
         : ();
-    warn __FILE__ . ": GLOBSUMMARY HIT" . to_json [@state] if $ENV{DEBUG_REPLAY_TEST};;;
+    warn __FILE__ . ": GLOBSUMMARY HIT" . to_json [@state] if $ENV{DEBUG_REPLAY_TEST};
     return [@state], to_json [@state];
 }
 
@@ -192,16 +192,16 @@ sub a_testruleoperation : Test(no_plan) {
     is_deeply [ $rule->summary() ], [ [], '[]' ], 'summary verify empty';
     is_deeply [
         $rule->summary(a => [5], b => [4], c => [3], d => [2], e => [1]) ],
-        [ [15], '[15]' ], 'summary verify';
+        [ [15], '["15"]' ], 'summary verify';
     is_deeply [ $rule->globsummary() ], [ [], '[]' ], 'globsummary verify empty';
     is_deeply [
         $rule->globsummary(f => [5], g => [4], h => [3], i => [2], j => [1]) ],
-        [ [15], '[15]' ], 'summary verify';
+        [ [15], '["15"]' ], 'summary verify';
 
 }
 
 sub m_replay_construct : Test(startup => 1) {
-  warn "REPLAY CONSTRUCT" if $ENV{DEBUG_REPLAY_TEST};;
+  warn "REPLAY CONSTRUCT" if $ENV{DEBUG_REPLAY_TEST};
   my $self = shift;
     return "out of replay context" unless $self->{config};
 
@@ -228,9 +228,9 @@ sub testreporter : Test(no_plan) {
 
     isa_ok $engine, 'Replay::ReportEngine';
 
-    my $reporter = $engine->engine;
+    my $reporter = $engine->engine(Replay::IdKey->new( name => 'TESTRULE', version => 1 ));
 
-    $reporter->does('Replay::BaseReportEngine');
+    $reporter->does('Replay::Role::ReportEngine');
 
     ok $reporter->can('delivery'),    'api check delivery';
     ok $reporter->can('summary'),     'api check summary';
@@ -342,7 +342,7 @@ sub testloop : Test(no_plan) {
             # Get a formatted summary for window early
             # (the key part is ignored in this idkey!)
             is_deeply [ $replay->reportEngine->summary($keyA) ],
-                [ { FORMATTED => '[55]', EMPTY => 0 } ], "A summary proper";;
+                [ { FORMATTED => '["55"]', EMPTY => 0 } ], "A summary proper";
 
             $replay->eventSystem->control->subscribe(
                 sub {
@@ -355,7 +355,7 @@ sub testloop : Test(no_plan) {
                     return             if $secglobsumcount;
                     return if $purgecount;
 
-                    warn __FILE__ . ": PROPER STOP ( $secglobsumcount, $purgecount )" if $ENV{DEBUG_REPLAY_TEST};;
+                    warn __FILE__ . ": PROPER STOP ( $secglobsumcount, $purgecount )" if $ENV{DEBUG_REPLAY_TEST};
                     $replay->eventSystem->stop;
                 }
             );
@@ -389,7 +389,7 @@ sub testloop : Test(no_plan) {
     is_deeply [ $replay->reportEngine->summary($keyT) ],
         [ { EMPTY => 0, FORMATTED => '["150"]' } ], 'expected summary';
     is_deeply [ $replay->reportEngine->globsummary($keyT) ],
-        [ { EMPTY => 0, FORMATTED => '[180]' } ], 'expected globsummary';
+        [ { EMPTY => 0, FORMATTED => '["180"]' } ], 'expected globsummary';
 
 }
 

@@ -14,9 +14,8 @@ sub t_environment_reset : Test(startup) {
         config => {
             ReportEngine => {
                 Mode      => 'Mongo',
-                Mode      => 'Mongo',
-                MongoUser => 'replayuser',
-                MongoPass => 'replaypass',
+                User => 'replayuser',
+                Pass => 'replaypass',
             },
         },
         rule => []
@@ -55,7 +54,8 @@ sub a_replay_config : Test(startup) {
             },
         },
         StorageEngine => { Mode => 'Memory' },
-        ReportEngine  => { Mode => 'Memory' },
+        Defaults      => { ReportEngine => 'Memory' },
+        ReportEngines => { Memory => { Mode => 'Memory' } },
     };
 }
 

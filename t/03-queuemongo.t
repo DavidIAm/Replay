@@ -28,8 +28,8 @@ sub a_replay_config : Test(startup => 2) {
         stage         => 'testscript-03-' . $ENV{USER},
         StorageEngine => {
             Mode      => 'Mongo',
-            MongoUser => 'replayuser',
-            MongoPass => 'replaypass',
+            User => 'replayuser',
+            Pass => 'replaypass',
         },
         EventSystem => {
             Mode        => 'AWSQueue',
@@ -37,7 +37,8 @@ sub a_replay_config : Test(startup => 2) {
             snsService  => 'https://sns.us-east-1.amazonaws.com',
             sqsService  => 'https://sqs.us-east-1.amazonaws.com',
         },
-        ReportEngine  => { Mode => 'Memory' }
+        Defaults      => { ReportEngine => 'Memory' },
+        ReportEngines => { Memory => { Mode => 'Memory' } },
     };
 }
 

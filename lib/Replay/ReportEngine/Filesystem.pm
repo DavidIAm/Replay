@@ -12,20 +12,23 @@ use Readonly;
 use Storable qw/store_fd/;
 use IO::Dir;
 
-with 'Replay::BaseReportEngine';
+with 'Replay::Role::ReportEngine';
 
 our $VERSION = q(0.03);
 
 Readonly my $CURRENTFILE  => 'CURRENT';
 Readonly my $WRITABLEFILE => 'WRITABLE';
 
+has '+mode' => ( default => 'Filesystem' );
+
 my $store = {};
 
 sub BUILD {
     my $self = shift;
-    mkpath $self->config->{reportFilesystemRoot};
-    confess "no report filesystem root"
-        unless -d $self->config->{ReportEngine}->{reportFilesystemRoot};
+    mkpath $self->config->{ReportEngines}->{$self->mode}->{reportFilesystemRoot};
+    use JSON;
+    confess "no report filesystem root" . to_json $self->config
+        unless -d $self->config->{ReportEngines}->{$self->mode}->{reportFilesystemRoot};
 }
 
 sub retrieve {
@@ -145,7 +148,7 @@ sub filename {
 sub directory {
     my ($self, $idkey) = @_;
     return catdir(
-        $self->config->{ReportEngine}->{reportFilesystemRoot},
+        $self->config->{ReportEngines}->{$self->mode}->{reportFilesystemRoot},
         $idkey->name,
         $idkey->version,
         ($idkey->window ? ($idkey->window) : ()),
@@ -172,8 +175,9 @@ sub delete_latest_revision {
 
 sub store {
     my ($self, $idkey, $data, $formatted) = @_;
+use Data::Dumper;
     confess
-        "first return value from delivery/summary/globsummary function does not appear to be an array ref"
+        "first return value from delivery/summary/globsummary function does not appear to be an array ref"  . Dumper $data
         unless 'ARRAY' eq ref $data;
     my $directory = $self->directory($idkey);
     return $self->delete_latest_revision($idkey) unless scalar @{$data};
