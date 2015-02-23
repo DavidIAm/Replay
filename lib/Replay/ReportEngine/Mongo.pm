@@ -21,22 +21,22 @@ sub _build_mongo {
 
 sub _build_dbpass {
     my $self = shift;
-    return $self->config->{Pass};
+    return $self->config->{ReportEngine}{Pass};
 }
 
 sub _build_dbuser {
     my $self = shift;
-    return $self->config->{User};
+    return $self->config->{ReportEngine}{User};
 }
 
 sub _build_dbauthdb {
     my $self = shift;
-    return $self->config->{AuthDB} || 'admin';
+    return $self->config->{ReportEngine}{AuthDB} || 'admin';
 }
 
 sub _build_dbname {
     my $self = shift;
-    return $self->config->{Name}
+    return $self->config->{ReportEngine}{Name}
         || $self->config->{stage} . "-report-" . '-replay';
 }
 
