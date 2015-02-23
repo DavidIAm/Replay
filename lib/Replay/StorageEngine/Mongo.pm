@@ -39,9 +39,8 @@ override retrieve => sub {
 
 override absorb => sub {
     my ($self, $idkey, $atom, $meta) = @_;
-    use JSON;
     my $r = $self->db->run_command(
-        [   findAndModify => $idkey->collection(),
+        [   findAndModify => $self->collection_name($idkey),
             query         => { idkey => $idkey->cubby },
             update        => {
                 q^$^ . 'push' => { inbox => $atom },
@@ -170,114 +169,6 @@ sub relock {
 
     return $unlockresult;
 }
-
-=pod
-# Locking states
-# 1. unlocked ( lock does not exist )
-# 2. locked unexpired ( lock set to a signature, lockExpired epoch in future )
-# 3. locked expired ( lock est to a signature, lockExpired epoch in past )
-# checkout allowed when in states (1) and sometimes (2) when we supply the
-# signature it is currently locked with
-# if is in state 2 and we don't have the signature, lock is unavailable
-# if it is in state 3, we lock it with a temporary signature as an expired
-# lock, revert its desktop to the inbox, then try to relock it with a new
-# signature  If it relocks we are in state-2-with-signature and are able to
-# check it out
-override checkout => sub {
-    my ($self, $idkey, $timeout) = @_;
-    $timeout ||= $self->timeout;
-    my $uuid = $self->generate_uuid;
-
-    my $signature = $self->state_signature($idkey, [$uuid]);
-    my $lockresult = $self->checkout_record($idkey, $signature, $timeout);
-
-    if (defined $lockresult) {
-        super();
-        return $uuid, $lockresult;
-    }
-
-    # if it failed, check to see if we can relock an expired record
-    my $unluuid       = $self->generate_uuid;
-    my $unlsignature  = $self->state_signature($idkey, [$unluuid]);
-    my $expire_relock = $self->tttttttttttttt($idkey, $unlsignature, $timeout);
-
-    # If it didn't relock, give up.  Its locked by somebody else.
-    if (not defined $expire_relock) {
-        carp
-            q(Unable to obtain lock because the current one is locked and unexpired ())
-            . $idkey->cubby
-            . qq(\)\n);
-        $self->eventSystem->emit('control',
-                Replay::Message::NoLock->new($idkey->marshall),
-        );
-        return;
-    }
-
-    # Oh my, we did. Well then, we should...
-    $self->revert_this_record($idkey, $unlsignature, $expire_relock);
-
-    # Get a new signature to use for the relocked record
-    my $newuuid = $self->generate_uuid;
-    my $newsignature = $self->state_signature($idkey, [$newuuid]);
-
-    # move the lock from teh temp reverting lock to the new one
-    my $relockresult
-        = $self->relock($idkey, $unlsignature, $newsignature, $timeout);
-
-    $self->eventSystem->emit(
-        'control',
-            Replay::Message::NoLockPostRevert->new($idkey->marshall),
-    );
-    if (not defined $relockresult) {
-        carp "Unable to relock after revert ($unlsignature)? "
-            . $idkey->checkstring . qq(\n);
-        return;
-    }
-
-    # check out the r
-    my $checkresult = $self->checkout_record($idkey, $newsignature, $timeout);
-
-    if (defined $checkresult) {
-        super();
-        return $newuuid, $lockresult;
-    }
-
-    $self->eventSystem->emit(
-        'control',
-            Replay::Message::NoLockPostRevertRelock->new($idkey->marshall),
-    );
-    carp q(checkout after revert and relock failed.  Look in COLLECTION \()
-        . $idkey->collection
-        . q(\) IDKEY \()
-        . $idkey->cubby . q(\));
-};
-=cut
-
-sub relock_i_match_with {
-    my ($self, $idkey, $oldsignature, $newsignature) = @_;
-    my $unluuid      = $self->generate_uuid;
-    my $unlsignature = $self->state_signature($idkey, [$unluuid]);
-    my $state        = $self->collection($idkey)->find_and_modify(
-        {   query  => { idkey => $idkey->cubby, locked => $oldsignature, },
-            update => {
-                      q^$^
-                    . 'set' =>
-                    { locked => $unlsignature, lockExpireEpoch => time + $self->timeout, },
-            },
-            upsert => 0,
-            new    => 1,
-        }
-    );
-    carp q(tried to do a revert but didn't have a lock on it) if not $state;
-    $self->eventSystem->emit(
-        'control',
-            Replay::Message::NoLockDuringRevert->new($idkey->marshall),
-    );
-    return if not $state;
-    $self->revert_this_record($idkey, $unlsignature, $state);
-    my $result = $self->unlock($idkey, $unluuid, $state);
-    return defined $result;
-};
 
 sub lockreport {
     my ($self, $idkey) = @_;
@@ -419,10 +310,14 @@ sub _build_db {          ## no critic (ProhibitUnusedPrivateSubroutines)
     return $db;
 }
 
+sub collection_name {
+    my ($self, $idkey) = @_;
+    return join '-', $idkey->rule_spec(), $idkey->collection();
+}
+
 sub collection {
     my ($self, $idkey) = @_;
-    my $name = $idkey->collection();
-    return $self->db->get_collection($name);
+    return $self->db->get_collection($self->collection_name($idkey));
 }
 
 sub document {
@@ -470,9 +365,46 @@ Replay::StorageEngine::Mongo->new( ruleSoruce => $rs, eventSystem => $es, config
 
 =head2 window_all - get documents for a particular window
 
+=head1 SUBROUTINES/METHODS
+
 =head2 find_keys_need_reduce - find all the keys that look like they might need reduction
 
-=head1 SUBROUTINES/METHODS
+=head2 _build_dbpass {    ## no critic (ProhibitUnusedPrivateSubroutines)
+
+Extract the db password from the config
+
+=head2 _build_dbuser {    ## no critic (ProhibitUnusedPrivateSubroutines)
+
+Extract the db username from the config
+
+=head2 _build_dbauthdb {    ## no critic (ProhibitUnusedPrivateSubroutines)
+
+Extract the db name used for authentication from the config
+
+=head2 _build_dbname {      ## no critic (ProhibitUnusedPrivateSubroutines)
+
+Extract the db name to use from the config
+
+=head2 collection_name( idkey )
+
+transform the idkey into the collection name we'll be writing to
+
+=head2 collection( idkey )
+
+return the collection handle for mongo operations for this idkey
+
+=head2 document( idkey )
+
+return the state document for this idkey
+
+=head2 generate_uuid {
+
+provide a new uuid
+
+=head2 lockreport ( idkey )
+
+For debugging purposes - returns a string that shows the current state
+of the lock on this record
 
 =head2 revert_this_record
 
@@ -497,10 +429,6 @@ get the object for the db client that indicates the collection this document is 
 =head2 document
 
 return the document indicated by the idkey
-
-=head2 generate_uuid
-
-create and return a new uuid
 
 =head2 checkout_record(idkey, signature)
 
@@ -630,8 +558,8 @@ Ruleversions: [ Array of objects like { name: <rulename>, version: <ruleversion>
 
 STATE DOCUMENT SPECIFIC TO THIS IMPLIMENTATION
 
-db is determined by idkey->ruleversion
-collection is determined by idkey->collection
+db is determined by the stage 
+collection is determined by idkey->rule_spec . '-' . idkey->collection
 idkey is determined by idkey->cubby
 
 desktop: [ Array of Atoms ] - the previously arrived atoms that are currently being processed
@@ -693,11 +621,6 @@ if the record is locked, (expiration agnostic)
   clear expire time
 else
   return nothing, we aren't allowed to do this
-
-=head2 lockreport ( idkey )
-
-For debugging purposes - returns a string that shows the current state
-of the lock on this record
 
 =cut
 

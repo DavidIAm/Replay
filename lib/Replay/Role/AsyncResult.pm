@@ -97,8 +97,8 @@ sub window {
 
 sub attempt_is_success {
 	my ($self, $key, $message) = @_;
-	$self->emit('origin', Replay::Message::ClearingMachine->new( key => $key, );
-	$self->on_success($message);
+	$self->emit('origin', Replay::Message::ClearingMachine->new( key => $key, ),
+	$self->on_success($message));
 }
 sub attempt_is_error {
 	my ($self, $message) = @_;
@@ -120,8 +120,8 @@ sub key_value_set {
         uuid      => $message->{UUID},
         } if $self->initial_match($message);
 
-        if $message->{MessageType} eq 'ClearingMachine';
-        if $message->{MessageType} eq 'ClearingMachineResult';
+        #if $message->{MessageType} eq 'ClearingMachine';
+        #if $message->{MessageType} eq 'ClearingMachineResult';
 
     # the only other type we should see is our initial type
     my $counter = 1;
@@ -137,16 +137,16 @@ sub reduce {
 #requires qw/key_for_set initial_match attempt on_error on_exception on_success value_set/;
 # atdomain message
 
-inital match <M>
-attempt <M->ER/EX/SU>
+#inital match <M>
+#attempt <M->ER/EX/SU>
 
 # requested is zero
 if ($_->{MessageType} eq 'ClearingMachine') {
 }
-elsif ($_->{MessageType} eq 'ClearingMachineAttempt' {
+elsif ($_->{MessageType} eq 'ClearingMachineAttempt') {
 }
 
-    return @atoms_to_keep;
+    return my @atoms_to_keep;
 }
 
 1;
@@ -176,53 +176,17 @@ Each
 
 =head1 SUBROUTINES/METHODS
 
-=head2 bool = match(message)
-
-returns true if message type is 'SendMessageAt' or 'SendMessageNow'
-
-=head2 list (key, value, key, ...) = key_value_set(message)
-
-in case of SendMessageAt 
-
-key = specified domain
-value = PENDING_TYPE: ( message, window, domain, and required ) 
-
-in case of SendMessageNow
-
-key = specified domain
-value = TRANSMIT_TYPE: ( atdomain epoch )
-
-=head2 window = window(message)
-
-set the appropriate window using epoch_to_window on the 'sendat' field
-for SendMessageAt and the specified window for SendMessageNow
-
-=head2 -1|0|1 = compare(message)
-
-sorts events by their send time
-
-=head2 newstatelist = reduce(emitter, statelist)
-
-maintains requests
-
-If it finds a PENDING_TYPE  with requested not set in the state list
-transmits an derived message 'SendMessageWhen' with the window, domain,
-and actuation time, and sets 'requested'
-
-transmits messages
-
-It selects the TRANSMIT_TYPE in the list with the latest send time
-
-if it has a send time, it looks through the state list to find all of
-the entries whose send time is equal to or less than the indicated time,
-transmits them, removes from state, and emits a SentMessageAt message
-to origin
-
-=head2 windowID = epoch_to_window(epoch)
-
-current implimentation just divides the epoch time by 1000, so every 1000
-minutes will have its own state set.  Hopefully this is small enough.
-Used by both 'window' and 'key_value_set'.
+=head2 retry_next_at
+=head2 window_size_seconds
+=head2 compare
+=head2 match
+=head2 effective_to_window
+=head2 window
+=head2 attempt_is_success
+=head2 attempt_is_error
+=head2 attempt_is_exception
+=head2 key_value_set
+=head2 reduce
 
 =head1 AUTHOR
 

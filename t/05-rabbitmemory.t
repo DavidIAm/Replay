@@ -66,4 +66,4 @@ my ($self) = @_;
     $self->{replay}->eventSystem->control->purge();
 }
 
-Test::Class->runtests();
+__PACKAGE__->runtests();

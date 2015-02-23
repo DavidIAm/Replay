@@ -22,6 +22,7 @@ sub getreplay : Test(setup) {
     $replay->worm;
     $replay->reducer;
     $replay->mapper;
+    $replay->reporter;
 
     $self->{replay} = $replay;
 }
@@ -69,7 +70,8 @@ sub key_value_set {
             push @keyvalues, $key, $_;
         }
     }
-    warn __FILE__ . ": KEYVALUESET HIT" . to_json [@keyvalues] if $ENV{DEBUG_REPLAY_TEST};
+    warn __FILE__ . ": KEYVALUESET HIT" . to_json [@keyvalues]
+        if $ENV{DEBUG_REPLAY_TEST};
     return @keyvalues;
 }
 
@@ -82,22 +84,26 @@ sub compare {
 sub reduce {
     my ($self, $emitter, @state) = @_;
     warn __FILE__ . ": REDUCE HIT" . to_json [@state] if $ENV{DEBUG_REPLAY_TEST};
-    warn __FILE__ . ": PURGE FOUND" if grep { $_ eq 'purge' } grep { defined $_ } @state && $ENV{DEBUG_REPLAY_TEST};
-    return                          if grep { $_ eq 'purge' } grep { defined $_ } @state;
+    warn __FILE__ . ": PURGE FOUND"
+        if grep { $_ eq 'purge' }
+        grep { defined $_ } @state && $ENV{DEBUG_REPLAY_TEST};
+    return if grep { $_ eq 'purge' } grep { defined $_ } @state;
     return List::Util::reduce { $a + $b } @state;
 }
 
 sub delivery {
     my ($self, @state) = @_;
     use Data::Dumper;
-    warn __FILE__ . ": DELIVERY HIT" . to_json [@state] if $ENV{DEBUG_REPLAY_TEST};
-    return [map { $_.'' } @state], to_json [@state];
+    warn __FILE__ . ": DELIVERY HIT" . to_json [@state]
+        if $ENV{DEBUG_REPLAY_TEST};
+    return [ map { $_ . '' } @state ], to_json [@state];
 }
 
 sub summary {
     my ($self, %deliverydatas) = @_;
     my @state
-        = map { $_ . '' } keys %deliverydatas
+        = map { $_ . '' }
+        keys %deliverydatas
         ? List::Util::reduce { $a + $b }
     map { @{ $deliverydatas{$_} } } keys %deliverydatas
         : ();
@@ -108,12 +114,33 @@ sub summary {
 sub globsummary {
     my ($self, %summarydatas) = @_;
     my @state
-        = map { $_ . '' } keys %summarydatas
+        = map { $_ . '' }
+        keys %summarydatas
         ? List::Util::reduce { $a + $b }
     map { @{ $summarydatas{$_} } } keys %summarydatas
         : ();
-    warn __FILE__ . ": GLOBSUMMARY HIT" . to_json [@state] if $ENV{DEBUG_REPLAY_TEST};
+    warn __FILE__ . ": GLOBSUMMARY HIT" . to_json [@state]
+        if $ENV{DEBUG_REPLAY_TEST};
     return [@state], to_json [@state];
+}
+
+package EMPTYREPORTDATA;
+
+use Moose;
+extends qw(TESTRULE);
+
+has '+name' => (default => __PACKAGE__,);
+
+sub delivery {
+    return [], 'dog';
+}
+
+sub summary {
+    return [];
+}
+
+sub globsummary {
+    return [];
 }
 
 package Replay::Test;
@@ -200,35 +227,45 @@ sub a_testruleoperation : Test(no_plan) {
 
 }
 
-sub m_replay_construct : Test(startup => 1) {
-  warn "REPLAY CONSTRUCT" if $ENV{DEBUG_REPLAY_TEST};
-  my $self = shift;
-    return "out of replay context" unless $self->{config};
+sub m_replay_construct : Test(startup => 2) {
+    warn "REPLAY CONSTRUCT" if $ENV{DEBUG_REPLAY_TEST};
+    my $self = shift;
+    return "out of replay context" unless defined $self->{config};
 
     use_ok 'Replay';
 
-    $self->{replay} = Replay->new(config => $self->{config}, rules => [ new TESTRULE ]);
+    ok defined(
+        $self->{replay} = Replay->new(
+            config => $self->{config},
+            rules  => [ new TESTRULE, new EMPTYREPORTDATA ]
+        )
+    );
 
 }
 
-sub y_replay_initialize : Test(startup) {
-  my $self = shift;
-    return "out of replay context" unless $self->{replay};
-  my $replay = $self->{replay};
+sub y_replay_initialize : Test(startup => 1) {
+    warn "REPLAY INITIALIZE" if $ENV{DEBUG_REPLAY_TEST};
+    my $self = shift;
+    return "out of replay context" unless defined $self->{config};
+    ok $self->{replay}, 'have replay';
+    my $replay = $self->{replay};
     $replay->worm;
     $replay->reducer;
     $replay->mapper;
     $replay->reporter;
 }
-sub testreporter : Test(no_plan) {
-  my $self = shift;
-  my $replay = $self->{replay};
-  return "out of replay context" unless $replay;
+
+sub r_testreporter : Test(6) {
+    my $self   = shift;
+    my $replay = $self->{replay};
+    return "out of replay context" unless $replay;
+    ok $self->{replay}, 'have replay';
     my $engine = $replay->reportEngine;
 
     isa_ok $engine, 'Replay::ReportEngine';
 
-    my $reporter = $engine->engine(Replay::IdKey->new( name => 'TESTRULE', version => 1 ));
+    my $reporter
+        = $engine->engine(Replay::IdKey->new(name => 'TESTRULE', version => 1));
 
     $reporter->does('Replay::Role::ReportEngine');
 
@@ -238,70 +275,54 @@ sub testreporter : Test(no_plan) {
     ok $reporter->can('freeze'),      'api check freeze';
 }
 
-sub testworm : Test(no_plan) {
-  my $self = shift;
-  my $replay = $self->{replay};
-  return "out of replay context" unless $replay;
+sub c_testworm : Test(no_plan) {
+    my $self   = shift;
+    my $replay = $self->{replay};
+    return "out of replay context" unless $replay;
 }
 
-sub testreducer : Test(no_plan) {
-  my $self = shift;
-  my $replay = $self->{replay};
-  return "out of replay context" unless $replay;
+sub e_testreducer : Test(no_plan) {
+    my $self   = shift;
+    my $replay = $self->{replay};
+    return "out of replay context" unless $replay;
 }
 
-sub testmapper : Test(no_plan) {
-  my $self = shift;
-  my $replay = $self->{replay};
-  return "out of replay context" unless $replay;
+sub d_testmapper : Test(no_plan) {
+    my $self   = shift;
+    my $replay = $self->{replay};
+    return "out of replay context" unless $replay;
 }
 
-sub teststorage : Test(no_plan) {
-  my $self = shift;
-  my $replay = $self->{replay};
-  return "out of replay context" unless $replay;
+sub f_teststorage : Test(no_plan) {
+    my $self   = shift;
+    my $replay = $self->{replay};
+    return "out of replay context" unless $replay;
 }
 
-sub testloop : Test(no_plan) {
-  my $self = shift;
-  my $replay = $self->{replay};
-  return "out of replay context" unless $replay;
+sub m_testloop : Test(8) {
+    my $self   = shift;
+    my $replay = $self->{replay};
+    return "out of replay context" unless defined $self->{config};
+    ok $self->{replay}, 'have replay';
 
     # automatically stop once we get both new canonicals
-    my $globsumcount    = -3;
-    my $secglobsumcount = -2;
-    my $purgecount      = -1;
-    use Scalar::Util;
-    $replay->eventSystem->origin->subscribe(
-        sub {
-            my ($message) = @_;
-
-#            warn __FILE__
-#                . ": This is a origin message of type "
-#                . $message->{MessageType} . "\n";
-        }
-    );
-    $replay->eventSystem->derived->subscribe(
-        sub {
-            my ($message) = @_;
-
-#            warn __FILE__
-#                . ": This is a derived message of type "
-#                . $message->{MessageType} . "\n";
-        }
-    );
+    my $globsumcount    = -6;
+    my $secglobsumcount = -1;
+    $self->{purgecount} = -2;
 
     # We regulate our operations by watching the control channel
     # Once we know the proper things have happened we can emit
     # more or stop the test.
-    my $keyA = Replay::IdKey->new(
+    $self->{keyA} = Replay::IdKey->new(
         { name => 'TESTRULE', version => 1, window => 'early', key => 'a' });
-    my $keyC = Replay::IdKey->new(
+    $self->{keyC} = Replay::IdKey->new(
         { name => 'TESTRULE', version => 1, window => 'early', key => 'c' });
-    my $keyT = Replay::IdKey->new(
+    $self->{keyT} = Replay::IdKey->new(
         { name => 'TESTRULE', version => 1, window => 'late', key => 't' });
-    my $keyX = Replay::IdKey->new(
+    $self->{keyX} = Replay::IdKey->new(
         { name => 'TESTRULE', version => 1, window => 'late', key => 'x' });
+
+    my $ee; # scope for loop terminator timer;
     $replay->eventSystem->control->subscribe(
         sub {
             my ($message) = @_;
@@ -310,9 +331,9 @@ sub testloop : Test(no_plan) {
             return if $message->{MessageType} eq 'Fetched';
 
             # so the tester can watch them fly by
-#            warn __FILE__
-#                . ": This is a control message of type "
-#                . $message->{MessageType} . "\n";
+            #            warn __FILE__
+            #                . ": This is a control message of type "
+            #                . $message->{MessageType} . "\n";
 
             # The behavior of this return plus the globsumcount increment is that
             # it will keep letting things run until it sees the third
@@ -322,41 +343,54 @@ sub testloop : Test(no_plan) {
 
             # Assertions for our middle of running state.
             # Is the canonical state as expected for the key a?
-            is_deeply [ $replay->storageEngine->fetch_canonical_state($keyA) ], [15];
+            is_deeply [ $replay->storageEngine->fetch_canonical_state($self->{keyA}) ],
+                [15];
 
             # Is the canonical state as expected for the window early?
-            is_deeply $replay->storageEngine->window_all($keyA),
+            is_deeply $replay->storageEngine->window_all($self->{keyA}),
                 { a => [15], c => [40] }, "windowall returns all early";
 
             # Is the canonical state as expected for the window late?
-            is_deeply $replay->storageEngine->window_all($keyT), { t => [150] },
+            is_deeply $replay->storageEngine->window_all($self->{keyT}), { t => [150] },
                 "windowall returns all late";
 
             # Get a pointer to a report that does not exist, and see that it does not.
-            is_deeply [ $replay->reportEngine->delivery($keyX) ], [ { EMPTY => 1 } ], "X report proper";
+            is_deeply [ $replay->reportEngine->delivery($self->{keyX}) ],
+                [ { EMPTY => 1 } ], "X report proper";
 
             # Get a report for key a
-            is_deeply [ $replay->reportEngine->delivery($keyA) ],
+            is_deeply [ $replay->reportEngine->delivery($self->{keyA}) ],
                 [ { FORMATTED => '["15"]', EMPTY => 0 } ], "A delivery proper";
 
             # Get a formatted summary for window early
             # (the key part is ignored in this idkey!)
-            is_deeply [ $replay->reportEngine->summary($keyA) ],
+            is_deeply [ $replay->reportEngine->summary($self->{keyA}) ],
                 [ { FORMATTED => '["55"]', EMPTY => 0 } ], "A summary proper";
 
+            my $once = -1;
             $replay->eventSystem->control->subscribe(
                 sub {
                     my ($message) = @_;
 
-                    #warn "SUBSEQUENT: " . $message->{MessageType};
-                    return             if $message->{MessageType} eq 'Fetched';
-                    $purgecount++      if $message->{MessageType} eq 'ReportPurgedDelivery';
-                    $secglobsumcount++ if $message->{MessageType} eq 'ReportNewGlobSummary';
-                    return             if $secglobsumcount;
-                    return if $purgecount;
+                    return                if $message->{MessageType} eq 'Fetched';
+                    $self->{purgecount}++ if $message->{MessageType} eq 'ReportPurgedDelivery';
+                    $secglobsumcount++    if $message->{MessageType} eq 'ReportNewGlobSummary';
+                    return                if $secglobsumcount;
+                    return                if $self->{purgecount};
 
-                    warn __FILE__ . ": PROPER STOP ( $secglobsumcount, $purgecount )" if $ENV{DEBUG_REPLAY_TEST};
-                    $replay->eventSystem->stop;
+                    warn __FILE__ . ": PROPER STOP ( $secglobsumcount, $self->{purgecount} )"
+                        if $ENV{DEBUG_REPLAY_TEST};
+
+                    # shut down the system in one second
+                    return if ++$once;
+                    ok 1, "EVENT SYSTEM STOP GOOD " . $message->{MessageType};
+
+                    $ee = AnyEvent->timer(
+                        after => 1,
+                        cb    => sub {
+                            $replay->eventSystem->stop;
+                        }
+                    );
                 }
             );
 
@@ -378,18 +412,83 @@ sub testloop : Test(no_plan) {
 
     $replay->eventSystem->run;
 
-    ok !$purgecount, "we did get a purge when expected";
+    ok $globsumcount >= 0, 'exit condition initial ' . $globsumcount;
+    ok $secglobsumcount >= 0, 'exit condition second ' . $secglobsumcount;
+    ok $self->{purgecount} >= 0, 'exit condition cseond ' . $self->purgecount;
+}
 
-    is_deeply [ $replay->reportEngine->delivery($keyA) ],
+sub n_testloop_report : Test(10) {
+    my $self = shift;
+
+    my $replay = $self->{replay};
+    return "out of replay context" unless defined $self->{config};
+    ok $self->{replay}, 'have replay';
+
+    is $self->{purgecount}, 0,
+        "we did get a purge when expected $self->{purgecount}";
+
+    is_deeply [ $replay->reportEngine->delivery_data($self->{keyA}) ],
+        [ { DATA => ["30"], EMPTY => 0 } ], 'data doubled on extra insert';
+
+    is_deeply [ $replay->reportEngine->delivery_data($self->{keyC}) ],
+        [ { EMPTY => 1 } ], 'purged data returns empty serialization';
+
+    is_deeply [ $replay->reportEngine->summary_data($self->{keyT}) ],
+        [ { EMPTY => 0, DATA => ["150"] } ], 'data expected summary';
+
+    is_deeply [ $replay->reportEngine->globsummary_data($self->{keyT}) ],
+        [ { EMPTY => 0, DATA => ["180"] } ], 'data expected globsummary';
+
+    is_deeply [ $replay->reportEngine->delivery($self->{keyA}) ],
         [ { FORMATTED => '["30"]', EMPTY => 0 } ], 'doubled on extra insert';
 
-    is_deeply [ $replay->reportEngine->delivery($keyC) ], [ { EMPTY => 1 } ],
-        'purged data returns empty serialization';
+    is_deeply [ $replay->reportEngine->delivery($self->{keyC}) ],
+        [ { EMPTY => 1 } ], 'purged data returns empty serialization';
 
-    is_deeply [ $replay->reportEngine->summary($keyT) ],
+    is_deeply [ $replay->reportEngine->summary($self->{keyT}) ],
         [ { EMPTY => 0, FORMATTED => '["150"]' } ], 'expected summary';
-    is_deeply [ $replay->reportEngine->globsummary($keyT) ],
+
+    is_deeply [ $replay->reportEngine->globsummary($self->{keyT}) ],
         [ { EMPTY => 0, FORMATTED => '["180"]' } ], 'expected globsummary';
+
+}
+
+sub o_testloop_report_empty : Test(9) {
+    my $self   = shift;
+    my $replay = $self->{replay};
+    return "out of replay context" unless defined $self->{config};
+    ok $self->{replay}, 'have replay';
+
+    $self->{keyEC} = Replay::IdKey->new(
+        { name => 'EMPTYREPORTDATA', version => 1, window => 'early', key => 'c' });
+    $self->{keyET} = Replay::IdKey->new(
+        { name => 'EMPTYREPORTDATA', version => 1, window => 'early', key => 't' });
+    $self->{keyEA} = Replay::IdKey->new(
+        { name => 'EMPTYREPORTDATA', version => 1, window => 'early', key => 'a' });
+
+    is_deeply [ my $e = $replay->reportEngine->delivery_data($self->{keyEA}) ],
+        [ { EMPTY => 1 } ], 'empty because no data saved';
+
+    is_deeply [ $replay->reportEngine->delivery_data($self->{keyEC}) ],
+        [ { EMPTY => 1 } ], 'purged data returns empty serialization';
+
+    is_deeply [ $replay->reportEngine->summary_data($self->{keyET}) ],
+        [ { EMPTY => 1 } ], 'expected no summary';
+
+    is_deeply [ $replay->reportEngine->globsummary_data($self->{keyET}) ],
+        [ { EMPTY => 1 } ], 'expected no globsummary';
+
+    is_deeply [ $replay->reportEngine->delivery($self->{keyEA}) ],
+        [ { FORMATTED => 'dog', EMPTY => 0 } ], 'doubled on extra insert';
+
+    is_deeply [ $replay->reportEngine->delivery($self->{keyEC}) ],
+        [ { EMPTY => 1 } ], 'purged data returns empty serialization';
+
+    is_deeply [ $replay->reportEngine->summary($self->{keyET}) ],
+        [ { EMPTY => 1 } ], 'expected no summary';
+
+    is_deeply [ $replay->reportEngine->globsummary($self->{keyET}) ],
+        [ { EMPTY => 1 } ], 'expected no globsummary';
 
 }
 

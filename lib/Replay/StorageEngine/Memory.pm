@@ -86,6 +86,11 @@ sub purge {
     return delete $self->collection($idkey)->{ $idkey->cubby };
 }
 
+sub reset {
+  my ($self) = @_;
+  %{$store} = ();
+}
+
 sub exists {
     my ($self, $idkey) = @_;
     return exists $self->collection($idkey)->{ $idkey->cubby };
@@ -196,10 +201,10 @@ sub update_and_unlock {
 
 sub collection {
     my ($self, $idkey) = @_;
+    my $rv = $idkey->rule_spec();
     my $name = $idkey->collection();
     use Data::Dumper;
-    warn "POSTIION NAME" . $name . " - " . $idkey->cubby if $self->{debug};
-    return $store->{$name} ||= {};
+    return $store->{$rv}{$name} ||= {};
 }
 
 1;
@@ -223,6 +228,18 @@ Replay::StorageEngine::Memory->new( ruleSoruce => $rs, eventSystem => $es, confi
 Stores the entire storage partition in package memory space.  Anybody in
 this process can access it as if it is a remote storage solution... only
 faster.
+
+=head1 SUBROUTINES/METHODS
+
+=head2 checkout_record
+=head2 relock
+=head2 purge
+=head2 reset
+=head2 exists
+=head2 relock_expired
+=head2 revert_this_record
+=head2 update_and_unlock
+=head2 collection
 
 =head1 OVERRIDES
 
@@ -342,7 +359,7 @@ Ruleversions: [ Array of objects like { name: <rulename>, version: <ruleversion>
 
 STATE DOCUMENT SPECIFIC TO THIS IMPLIMENTATION
 
-db is determined by idkey->ruleversion
+db is determined by idkey->rule_spec
 collection is determined by idkey->collection
 idkey is determined by idkey->cubby
 

@@ -148,13 +148,13 @@ sub store {
         "first return value from delivery/summary/globsummary function does not appear to be an array ref"
         unless 'ARRAY' eq ref $data;
     my $directory = $self->directory($idkey);
-    return $self->delete_latest_revision($idkey) unless scalar @{$data};
+    return $self->delete_latest_revision($idkey) unless scalar @{$data} || defined $formatted;
     $self->lock($directory);
 
     $directory->{WRITABLE} = $self->writable_revision($directory);
     $directory->{CURRENT}  = $self->writable_revision($directory);
 
-    $directory->{REVISIONS}{ $self->writable_revision($directory) }{DATA} = $data;
+    $directory->{REVISIONS}{ $self->writable_revision($directory) }{DATA} = $data if scalar @{$data};
 
     if (defined $formatted) {
         $directory->{REVISIONS}{ $self->writable_revision($directory) }{FORMATTED}

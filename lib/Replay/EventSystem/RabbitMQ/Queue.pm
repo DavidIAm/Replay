@@ -221,6 +221,10 @@ Send the specified message on the topic for this channel
 
 Gets new messages and calls the subscribed hooks with them
 
+=head2 purge()
+
+Blows the contents of the queue - FOR TESTING ONLY
+
 =head2 DEMOLISH
 
 Makes sure to properly clean up and disconnect from queues

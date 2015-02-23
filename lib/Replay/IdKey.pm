@@ -49,11 +49,6 @@ has revision => (
 
 with Storage('format' => 'JSON');
 
-sub BUILD {
-    my $self = shift;
-    confess "WTF" if $self->has_revision && !defined $self->revision;
-}
-
 around BUILDARGS => sub {
     my $orig  = shift;
     my $class = shift;
@@ -145,6 +140,15 @@ sub hash_list {
     );
 }
 
+sub stringify {
+  my ($self) = @_;
+  my %h = $self->hash_list;
+  return "IDKEY:{N:".$self->name.",V:".$self->version.
+   ($self->has_window ? ",W:".$self->window.'' : ()).
+   ($self->has_key ? ",K:".$self->key.'' : ()).
+   ($self->has_revision ? ",R:".$self->revision.'' : ());
+}
+
 1;
 
 __END__
@@ -220,7 +224,10 @@ Clips the key for summary mode - no key mentioned
 
 Clips the key for global summary mode - no window or key mentioned
 
-=cut
+=head2 stringify
+
+For debug purposes sometimes we want a stringification of the key. This 
+provides it.
 
 =head1 AUTHOR
 

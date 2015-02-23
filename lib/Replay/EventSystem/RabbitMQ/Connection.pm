@@ -96,11 +96,14 @@ Replay::EventSystem::AWSQueue::Connection->new(
 
 =head1 SUBROUTINES/METHODS
 
+=head2 channel_open
 
+opens a new channel on the rabbitmq connection and returns the identifier of it
+for later reference
 
 =head2 DEMOLISH
 
-Makes sure to properly clean up and disconnect from queues
+Makes sure to properly clean up by closing all the channels
 
 =head1 AUTHOR
 

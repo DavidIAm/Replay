@@ -79,10 +79,11 @@ sub delete_latest {
 sub update {
     my ($self, $part, $idkey, @state) = @_;
     my $rule = $self->rule($idkey);
-    return unless $rule->can($part);
+    my $code = $rule->can($part);
+    return unless defined $code;
     return $self->delete_latest($idkey, $part)
         if 0 == scalar @state && defined $self->current($idkey);
-    $self->store($idkey, $rule->can($part)->($rule, @state));
+    $self->store($idkey, $code->($rule, @state));
     $self->notify_new($idkey, $part);
 }
 
@@ -223,6 +224,29 @@ This is the base class for the implimentation specific parts of the Replay syste
         ruleSource  => $self->ruleSource,
         eventSystem => $self->eventSystem,
     );
+
+=head1 SUBROUTINES/METHODS
+
+=head2 rule
+=head2 notify_purge
+=head2 notify_new
+=head2 delete_latest
+=head2 update
+=head2 update_delivery
+=head2 update_summary
+=head2 update_globsummary
+=head2 delivery
+=head2 summary
+=head2 globsummary
+=head2 delivery_data
+=head2 summary_data
+=head2 globsummary_data
+=head2 do_retrieve
+=head2 revision
+=head2 notify_freeze
+=head2 notify_copydomain
+=head2 checkpoint
+=head2 delay_to_do_once
 
 =head1 REQUIRED ROLE IMPLIMENTATION METHODS
 

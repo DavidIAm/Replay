@@ -3,7 +3,7 @@ package Replay::Role::BusinessRule;
 use Moose::Role;
 use Moose::Util::TypeConstraints;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 has eventSystem => (is => 'ro', isa => 'Replay::EventSystem',);
 has reportEngine=> (is => 'ro', isa => 'Str',);
@@ -16,6 +16,11 @@ has name => (is => 'ro', required => 1,);
 has version => (is => 'ro', isa => 'Str', default => '1',);
 
 requires qw/match key_value_set window compare reduce/;
+
+# optional methods
+# sub delivery
+# sub summary
+# sub globsummary
 
 has report_disposition => (is => 'ro', default => 0);
 
@@ -39,9 +44,6 @@ has fullDiff => (is => 'ro', isa => 'CodeRef', required => 0,);
 # [formatted Report] function delivery ( rule, [ keyA => arrayrefOfMessage, ... ] )
 # [formatted summary] function summary ( rule, [ keyA => arrayrefOfMessage, ... ] )
 # [formatted globsummary] function globsummary ( rule, [ keyA => arrayrefOfMessage, ... ] )
-#has delivery => (is => 'ro', isa => 'CodeRef', required => 0,);
-#has summary  => (is => 'ro', isa => 'CodeRef', required => 0,);
-#has globsummary  => (is => 'ro', isa => 'CodeRef', required => 0,);
 
 1;
 

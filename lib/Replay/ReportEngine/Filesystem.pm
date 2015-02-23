@@ -19,16 +19,18 @@ our $VERSION = q(0.03);
 Readonly my $CURRENTFILE  => 'CURRENT';
 Readonly my $WRITABLEFILE => 'WRITABLE';
 
-has '+mode' => ( default => 'Filesystem' );
+has '+mode' => (default => 'Filesystem');
 
 my $store = {};
 
 sub BUILD {
     my $self = shift;
-    mkpath $self->config->{ReportEngines}->{$self->mode}->{reportFilesystemRoot};
+    mkpath $self->config->{ReportEngines}->{ $self->mode }
+        ->{reportFilesystemRoot};
     use JSON;
     confess "no report filesystem root" . to_json $self->config
-        unless -d $self->config->{ReportEngines}->{$self->mode}->{reportFilesystemRoot};
+        unless -d $self->config->{ReportEngines}->{ $self->mode }
+        ->{reportFilesystemRoot};
 }
 
 sub retrieve {
@@ -148,7 +150,7 @@ sub filename {
 sub directory {
     my ($self, $idkey) = @_;
     return catdir(
-        $self->config->{ReportEngines}->{$self->mode}->{reportFilesystemRoot},
+        $self->config->{ReportEngines}->{ $self->mode }->{reportFilesystemRoot},
         $idkey->name,
         $idkey->version,
         ($idkey->window ? ($idkey->window) : ()),
@@ -175,12 +177,14 @@ sub delete_latest_revision {
 
 sub store {
     my ($self, $idkey, $data, $formatted) = @_;
-use Data::Dumper;
+    use Data::Dumper;
     confess
-        "first return value from delivery/summary/globsummary function does not appear to be an array ref"  . Dumper $data
+        "first return value from delivery/summary/globsummary function does not appear to be an array ref"
+        . Dumper $data
         unless 'ARRAY' eq ref $data;
     my $directory = $self->directory($idkey);
-    return $self->delete_latest_revision($idkey) unless scalar @{$data};
+    return $self->delete_latest_revision($idkey)
+        unless scalar @{$data} || defined $formatted;
     mkpath $directory unless -d $directory;
     $self->lock($directory);
 
@@ -206,8 +210,13 @@ use Data::Dumper;
     {
         my $datafilename
             = $self->filename_data($directory, $self->writable_revision($directory));
-        my $dfh = IO::File->new($datafilename, 'w');
-        store_fd $data, $dfh or confess "NO DATA $$ $? $! PRINT " . to_json $data;
+        if (scalar @{$data}) {
+            my $dfh = IO::File->new($datafilename, 'w');
+            store_fd $data, $dfh or confess "NO DATA $$ $? $! PRINT " . to_json $data;
+        }
+        else {
+            unlink $datafilename if -f $datafilename;
+        }
     }
 
     if (defined $formatted) {

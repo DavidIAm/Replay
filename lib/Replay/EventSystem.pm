@@ -124,7 +124,9 @@ sub run {
     if ($self->config->{timeout}) {
         $self->{stoptimer} = AnyEvent->timer(
             after => $self->config->{timeout},
-            cb    => sub { carp q(Timeout triggered.) if $ENV{DEBUG_REPLAY_TEST};; $self->stop }
+            cb    => sub { 
+              $self->config->{timeoutcb}->() if $self->config->{timeoutcb};
+              carp q(Timeout triggered.) if $ENV{DEBUG_REPLAY_TEST};; $self->stop }
         );
         carp q(Setting loop timeout to ) . $self->config->{timeout} if $ENV{DEBUG_REPLAY_TEST};;
     }

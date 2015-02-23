@@ -95,65 +95,33 @@ __END__
 
 =head1 NAME
 
-Replay::EventSystem::RabbitMQ - RabbitMQ Exchange/Queue implimentation
+Replay::EventSystem::RabbitMQ::Message - Class for handling messages through
+the rabbitmq system
 
 =head1 VERSION
 
 Version 0.01
 
-head1 SYNOPSIS
+=head1 SYNOPSIS
 
-This is an Event System implimentation module targeting the RabbitMQ service
-If you were to instantiate it independently, it might 
-look like this.
-
-my $cv = AnyEvent->condvar;
-
-Replay::EventSystem::AWSQueue->new(
-    purpose => $purpose,
-    config  => {
-        stage    => 'test',
-        RabbitMQ => {
-            host    => 'localhost',
-            port    => '5672',
-            user    => 'replay',
-            pass    => 'replaypass',
-            vhost   => 'replay',
-            timeout => 5,
-            tls     => 1,
-            tune    => { heartbeat => 5, channel_max => 100, frame_max => 1000 },
-        },
-    }
-);
-
-$cv->recv;
-
-
-Utilizers should expect the object instance to be a singleton per each $purpose.
-
-The account provided is expected to have the permissions to create exchanges and queues on the indicated virtualhost.
-
-It will create SNS topic for the indicated purpose named <stage>-replay-<purpose>
-
-It will create distinct SQS queues for the instance, named <stage>-replay-<purpose>-<uuid>
-
-It will also subscribe the queue to the topic.
+When a RabbitMQ message is come in, it is handed to this class.  It provides
+the ability to acknowledge or reject the message without already knowing the
+particulars of the message structure.
 
 =head1 SUBROUTINES/METHODS
 
-=head2 subscribe( sub { my $message = shift; ... } )
+=head2 ack
 
-each code reference supplied is called with each message received, each time
-the message is received.  This is how applications insert their hooks into 
-the channel to get notified of the arrival of messages.
+Call when the message is succesfully processed to mark it accepted remotely
 
-=head2 emit( $message )
+=head2 nack
 
-Send the specified message on the topic for this channel
+Call when the message throws an exception during processing to mark it 
+rejected remotely
 
-=head2 poll()
+=head2 BUILDARGS
 
-Gets new messages and calls the subscribed hooks with them
+attempts to decode the body out of the message frame automagically
 
 =head2 DEMOLISH
 

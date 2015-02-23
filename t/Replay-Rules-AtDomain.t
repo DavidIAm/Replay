@@ -325,6 +325,7 @@ $e->mock('emit');
         my $mm = $m->{Message};
         is_deeply $mm, { sendtime => 5, atdomain => 'adomain', window => 1000 },
             'submessage emitted is as expected';
+        delete $m->{EffectiveTime};
         delete $m->{CreatedTime};
         delete $m->{Message};
         delete $m->{Replay};

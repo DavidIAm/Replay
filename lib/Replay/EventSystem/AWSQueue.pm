@@ -312,6 +312,10 @@ Gets new messages and calls the subscribed hooks with them
 
 Makes sure to properly clean up and disconnect from queues
 
+=head2 done()
+
+do any cleanup necessary because we are done processing events in this process
+
 =head1 AUTHOR
 
 David Ihnen, C<< <davidihnen at gmail.com> >>

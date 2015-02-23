@@ -29,4 +29,4 @@ sub a_replay_config : Test(startup) {
 sub alldone : Test(teardown) {
 }
 
-Test::Class->runtests();
+__PACKAGE__->runtests();

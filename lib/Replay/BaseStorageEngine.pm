@@ -567,6 +567,14 @@ within a short period of time, only one piece of code (distinguished by name)
 is executed.  It just uses the AnyEvent timer delaying for a second at this 
 point
 
+=head2 generate_uuid
+
+return a new uuid
+
+=head2 unlock
+
+Initiate the unlocking function
+
 =head1 AUTHOR
 
 David Ihnen, C<< <davidihnen at gmail.com> >>

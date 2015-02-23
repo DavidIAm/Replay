@@ -107,8 +107,8 @@ sub poll {
             }
             catch {
                 $message->nack;
-                carp q(There was an exception while processing message through subscriber )
-                    . $_;
+#                carp q(There was an exception while processing message through subscriber )
+#                    . $_;
             };
         }
     }
@@ -222,6 +222,10 @@ Gets new messages and calls the subscribed hooks with them
 =head2 DEMOLISH
 
 Makes sure to properly clean up and disconnect from queues
+
+=head2 done()
+
+do any cleanup necessary because we are done processing events in this process
 
 =head1 AUTHOR
 

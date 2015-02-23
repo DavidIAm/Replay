@@ -1,5 +1,7 @@
 
 use Test::Most qw/no_plan bail/;
+use Test::MockModule;
+use Test::MockObject::Extends;
 
 use_ok 'Replay';
 
@@ -46,6 +48,7 @@ ok $es->derivedsniffer->does('Replay::EventSystem::Base');
 is $es->derived->purpose, 'derived';
 
 use Data::Dumper;
+use Test::MockObject::Extends;
 
 foreach ($es->origin, $es->derived, $es->control) {
     ok $_->can('emit'),      'can emit';
@@ -53,14 +56,21 @@ foreach ($es->origin, $es->derived, $es->control) {
     ok $_->can('poll'),      'can poll';
     ok $_->can('rabbit'),    'can rabbit';
     ok defined $_->rabbit, "rabbit is defined " . $_->purpose;
-    my $pre  = 0;
-    my $post = 0;
-    $_->subscribe(sub { $pre++ });
-    $_->subscribe(sub { die 'exceptioncase' });
-    $_->subscribe(sub { $post++ });
-    $_->emit(Replay::Message->new(MessageType => 'bark', dog => 'woof'));
-    $_->poll();
-    ok $pre,  'presubscribe called';
-    ok $post, 'postsubscribe called';
+    my ($ack, $nack) = (0,0);
+    my $specialpoller = Test::MockObject::Extends->new( $_ );
+    $specialpoller->mock('_receive', sub { 
+        my $e = Test::MockObject->new();
+        $e->mock('ack', sub { $ack++ }); 
+        $e->mock('nack', sub { $nack++ }); 
+        $e->mock('body', sub { {} });
+        return $e;
+      } );
+    $specialpoller->subscribe(sub { 1 });
+    $specialpoller->subscribe(sub { die 'exceptioncase' });
+    $specialpoller->subscribe(sub { 0 });
+    $specialpoller->emit(Replay::Message->new(MessageType => 'bark', dog => 'woof'));
+    $specialpoller->poll();
+    is $ack,  2, 'ack called';
+    is $nack, 1, 'nack called';
 }
 

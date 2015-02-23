@@ -65,12 +65,16 @@ sub checkout_record {
     return $lockresult;
 }
 
+sub collection_name {
+    my ($self, $idkey) = @_;
+    return join q(-), $idkey->rule_spec, $idkey->collection;
+}
+
 sub collection {
     my ($self, $idkey) = @_;
     use Carp qw/confess/;
     confess "WHAT IS THIS $idkey " unless ref $idkey;
-    my $name = $idkey->collection();
-    return $self->db->get_collection($name);
+    return $self->db->get_collection($self->collection_name);
 }
 
 sub document {
@@ -136,33 +140,6 @@ sub relock_expired {
     return $unlockresult;
 }
 
-sub relock_i_match_with {
-    my ($self, $idkey, $oldsignature, $newsignature) = @_;
-    my $unluuid      = $self->generate_uuid;
-    my $unlsignature = $self->state_signature($idkey, [$unluuid]);
-    my $state        = $self->collection($idkey)->find_and_modify(
-        {   query  => { idkey => $idkey->cubby, locked => $oldsignature, },
-            update => {
-                      q^$^
-                    . 'set' =>
-                    { locked => $unlsignature, lockExpireEpoch => time + $self->timeout, },
-            },
-            upsert => 0,
-            new    => 1,
-        }
-    );
-    carp q(tried to do a revert but didn't have a lock on it) if not $state;
-    $self->eventSystem->emit(
-        'control',
-        MessageType => 'NoLockDuringRevert',
-        $idkey->hash_list,
-    );
-    return if not $state;
-    $self->revert_this_record($idkey, $unlsignature, $state);
-    my $result = $self->unlock($idkey, $unluuid, $state);
-    return defined $result;
-}
-
 sub revert_this_record {
     my ($self, $idkey, $signature, $document) = @_;
 
@@ -219,7 +196,7 @@ sub update_and_unlock {
 
 =head1 NAME
 
-Replay::Role::MongoDBt - Get Mongo up wituout duplication code
+Replay::Role::MongoDB - Get Mongo up without duplication code
 
 =head1 VERSION
 
@@ -229,10 +206,49 @@ Version 0.01
 
 =head1 DESCRIPTION
 
-Each
+Provides interface to Mongo for more than one type of engine within Replay
 
 =head1 SUBROUTINES/METHODS
 
+=head2 checkout_record
+
+lock the record against other checkouts, return the current atom list
+
+=head2 collection_name
+
+return the name of the collection appropriate to write to for this idkey
+
+=head2 collection
+
+return the collection object appropriate to write to for this idkey
+
+=head2 document
+
+return the whole document for this idkey
+
+=head2 generate_uuid
+
+return a new uuid
+
+=head2 lockreport
+
+get information on the locking of this key
+
+=head2 relock
+
+Given a key, relock a record so that no others can unlock it.
+
+=head2 relock_expired
+
+if its expired, try to lock it again
+
+=head2 revert_this_record
+
+undo the chnages we made, revert this to a ready to process document
+
+=head2 update_and_unlock
+
+having delivered proper changes, commit and unlock
 
 =head1 AUTHOR
 

@@ -3,7 +3,7 @@ package Replay::ReportEngine;
 use Replay::ReportEngine::Selector;
 use Moose;
 use Try::Tiny;
-use Carp qw/croak/;
+use Carp qw/croak confess/;
 use English qw/-no_match_vars/;
 
 our $VERSION = '0.03';
@@ -114,8 +114,10 @@ sub checkpoint {
 
 sub engine {
     my ($self, $idkey) = @_;
-confess "No idkey, can't choose engine" unless defined $idkey;
-    my $disposition = $self->ruleSource->by_idkey($idkey)->report_disposition;
+    confess "No idkey, can't choose engine" unless defined $idkey;
+    my $rule = $self->ruleSource->by_idkey($idkey);
+    confess "No rule loaded that matches idkey " . $idkey->stringify unless blessed $rule;
+    my $disposition = $rule->report_disposition;
     return $self->reportEngineSelector->select($disposition);
 }
 
@@ -349,10 +351,6 @@ delegate to the engine checkpoint
 
 delegate to the engine copyDomain
 
-=head2 _build_engine
-
-create the appropriate engine (Replay::ReportEngine::MODE)
-
 =head2 delivery_data ( idkey )
 
 delegate to engine delivery_data
@@ -382,7 +380,7 @@ delegate to engine update_globsummary
 use engine delivery_keys to get a list of relevant keys, and return a
 hash list with each key and the array ref of corresponding data
 
-=head2 get_all_summary_data {
+=head2 get_all_summary_data ( idkey )
 
 use engine summary_keys to get a list of relevant keys, and return a
 hash list with each key and the array ref of corresponding data
@@ -391,7 +389,10 @@ hash list with each key and the array ref of corresponding data
 
 delegate to engine freeze
 
-=cut
+=head2 engine ( idkey )
+
+return the appropriate engine for the rule being processed, given the 
+disposition and the report engine selector object
 
 =head1 AUTHOR
 
