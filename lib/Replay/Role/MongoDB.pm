@@ -74,7 +74,7 @@ sub collection {
     my ($self, $idkey) = @_;
     use Carp qw/confess/;
     confess "WHAT IS THIS $idkey " unless ref $idkey;
-    return $self->db->get_collection($self->collection_name);
+    return $self->db->get_collection($self->collection_name($idkey));
 }
 
 sub document {
