@@ -22,39 +22,44 @@ Readonly my $SECS_IN_MINUTE => 60;
 my $quitting = 0;
 
 has control => (
-    is      => 'ro',
-    isa     => 'Object',
-    builder => '_build_control',
-    lazy    => 1,
-    clearer => 'clear_control',
+    is        => 'ro',
+    isa       => 'Object',
+    builder   => '_build_control',
+    predicate => 'has_control',
+    lazy      => 1,
+    clearer   => 'clear_control',
 );
 has derived => (
-    is      => 'rw',
-    isa     => 'Object',
-    builder => '_build_derived',
-    lazy    => 1,
-    clearer => 'clear_derived',
+    is        => 'rw',
+    isa       => 'Object',
+    builder   => '_build_derived',
+    predicate => 'has_derived',
+    lazy      => 1,
+    clearer   => 'clear_derived',
 );
 has origin => (
-    is      => 'rw',
-    isa     => 'Object',
-    builder => '_build_origin',
-    lazy    => 1,
-    clearer => 'clear_origin',
+    is        => 'rw',
+    isa       => 'Object',
+    builder   => '_build_origin',
+    predicate => 'has_origin',
+    lazy      => 1,
+    clearer   => 'clear_origin',
 );
 has originsniffer => (
-    is      => 'rw',
-    isa     => 'Object',
-    builder => '_build_origin_sniffer',
-    lazy    => 1,
-    clearer => 'clear_origin_sniffer',
+    is        => 'rw',
+    isa       => 'Object',
+    builder   => '_build_origin_sniffer',
+    predicate => 'has_origin_sniffer',
+    lazy      => 1,
+    clearer   => 'clear_origin_sniffer',
 );
 has derivedsniffer => (
-    is      => 'rw',
-    isa     => 'Object',
-    builder => '_build_derived_sniffer',
-    lazy    => 1,
-    clearer => 'clear_derived_sniffer',
+    is        => 'rw',
+    isa       => 'Object',
+    builder   => '_build_derived_sniffer',
+    predicate => 'has_derived_sniffer',
+    lazy      => 1,
+    clearer   => 'clear_derived_sniffer',
 );
 has mode => (
     is       => 'ro',
@@ -69,8 +74,9 @@ has domain => (is => 'ro');    # placeholder
 sub BUILD {
     my ($self) = @_;
     if (not $self->config->{EventSystem}->{Mode}) {
-      use Data::Dumper;
-        confess q(NO EventSystem Mode CONFIG!?  Make sure its in the locale files).Dumper $self->config;
+        use Data::Dumper;
+        confess q(NO EventSystem Mode CONFIG!?  Make sure its in the locale files)
+            . Dumper $self->config;
     }
     $self->{stop} = AnyEvent->condvar(cb => sub {exit});
     return;
@@ -100,27 +106,29 @@ sub run {
     $quitting = 0;
 
     $self->clock;
-    carp q(SIGQUIT will stop loop);
+    carp q(SIGQUIT will stop loop) if $ENV{DEBUG_REPLAY_TEST};;
     local $SIG{QUIT} = sub {
         return if $quitting++;
         $self->stop;
         $self->clear;
-        carp('shutdownBySIGQUIT');
+        carp('shutdownBySIGQUIT') if $ENV{DEBUG_REPLAY_TEST};;
     };
-    carp q(SIGINT will stop loop);
+    carp q(SIGINT will stop loop) if $ENV{DEBUG_REPLAY_TEST};;
     local $SIG{INT} = sub {
         return if $quitting++;
         $self->stop;
         $self->clear;
-        carp('shutdownBySIGINT');
+        carp('shutdownBySIGINT') if $ENV{DEBUG_REPLAY_TEST};;
     };
 
     if ($self->config->{timeout}) {
         $self->{stoptimer} = AnyEvent->timer(
             after => $self->config->{timeout},
-            cb    => sub { carp q(Timeout triggered.); $self->stop }
+            cb    => sub { 
+              $self->config->{timeoutcb}->() if $self->config->{timeoutcb};
+              carp q(Timeout triggered.) if $ENV{DEBUG_REPLAY_TEST};; $self->stop }
         );
-        carp q(Setting loop timeout to ) . $self->config->{timeout};
+        carp q(Setting loop timeout to ) . $self->config->{timeout} if $ENV{DEBUG_REPLAY_TEST};;
     }
 
     $self->{polltimer} = AnyEvent->timer(
@@ -130,14 +138,14 @@ sub run {
             $self->poll();
         }
     );
-    carp q(Event loop startup now);
+    carp q(Event loop startup now) if $ENV{DEBUG_REPLAY_TEST};;
     EV::loop;
     return;
 }
 
 sub stop {
     my ($self) = @_;
-    carp q(Event loop shutdown by request);
+    carp q(Event loop shutdown by request) if $ENV{DEBUG_REPLAY_TEST};;
     EV::unloop;
     return;
 }
@@ -149,7 +157,7 @@ sub clear {
     $self->clear_origin;
     $self->clear_derived_sniffer;
     $self->clear_origin_sniffer;
-    my $class = 'Replay::EventSystem::'.$self->config->{EventSystem}->{Mode};
+    my $class = 'Replay::EventSystem::' . $self->config->{EventSystem}->{Mode};
     $class->done;
     return;
 }
@@ -175,7 +183,13 @@ use EV;
 sub poll {
     my ($self, @purposes) = @_;
     if (0 == scalar @purposes) {
-        @purposes = qw/origin derived control derivedsniffer originsniffer/;
+        @purposes = (
+            ($self->has_origin          ? qw(origin)         : ()),
+            ($self->has_control         ? qw(control)        : ()),
+            ($self->has_derived         ? qw(derived)        : ()),
+            ($self->has_derived_sniffer ? qw(derivedsniffer) : ()),
+            ($self->has_origin_sniffer  ? qw(originsniffer)  : ()),
+        );
     }
     my $activity = 0;
     foreach my $purpose (@purposes) {
@@ -193,14 +207,14 @@ sub poll {
 sub clock {
     my $self             = shift;
     my $last_seen_minute = time - time % $SECS_IN_MINUTE;
-    carp q(Clock tick started);
+    carp q(Clock tick started) if $ENV{DEBUG_REPLAY_TEST};;
     $self->{clock} = AnyEvent->timer(
         after    => 0.25,
         interval => 0.25,
         cb       => sub {
             my $this_minute = time - time % $SECS_IN_MINUTE;
             return if $last_seen_minute == $this_minute;
-            carp "Clock tick on minute $this_minute";
+            carp "Clock tick on minute $this_minute" if $ENV{DEBUG_REPLAY_TEST};;
             $last_seen_minute = $this_minute;
             my ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst)
                 = localtime time;

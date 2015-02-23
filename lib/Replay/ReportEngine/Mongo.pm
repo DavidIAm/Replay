@@ -7,8 +7,10 @@ use Carp qw/croak carp cluck/;
 use MongoDB;
 use MongoDB::OID;
 
-with(qw(Replay::BaseReportEngine Replay::Role::MongoDB));
+with(qw(Replay::Role::ReportEngine Replay::Role::MongoDB));
 our $VERSION = q(0.03);
+
+has '+mode' => ( default => 'Mongo' );
 
 sub _build_mongo {
     my ($self) = @_;
@@ -19,22 +21,22 @@ sub _build_mongo {
 
 sub _build_dbpass {
     my $self = shift;
-    return $self->config->{ReportEngine}->{MongoPass};
+    return $self->config->{Pass};
 }
 
 sub _build_dbuser {
     my $self = shift;
-    return $self->config->{ReportEngine}->{MongoUser};
+    return $self->config->{User};
 }
 
 sub _build_dbauthdb {
     my $self = shift;
-    return $self->config->{ReportEngine}->{MongoAuthDB} || 'admin';
+    return $self->config->{AuthDB} || 'admin';
 }
 
 sub _build_dbname {
     my $self = shift;
-    return $self->config->{ReportEngine}->{Name}
+    return $self->config->{Name}
         || $self->config->{stage} . "-report-" . '-replay';
 }
 
@@ -51,14 +53,11 @@ sub retrieve {
     my ($self, $idkey, $structured) = @_;
 
     my $revision = $self->revision($idkey) || 0;
-    my $r = $self->collection($idkey)->find_one(
-        my $e = { $self->idkey_where_doc($idkey), REVISION => $revision, },
-        { ($structured ? (DATA => 1) : ()), ($structured ? () : (FORMATTED => 1)) }
-    );
-    use JSON;
-    warn "EMPTY ON SEARCH PATH ON THIS RETRIEVE WAS " . to_json $e
-        unless defined $r;
-    return { EMPTY => 1 } unless defined $r;
+    my $keysought = $structured ? 'DATA' : 'FORMATTED';
+    my $r = $self->collection($idkey)
+        ->find_one({ $self->idkey_where_doc($idkey), REVISION => $revision, },
+        { $keysought => 1 });
+    return { EMPTY => 1 } unless defined $r && exists $r->{$keysought};
     delete $r->{_id};
     $r->{EMPTY} = 0;
     return $r;
@@ -103,12 +102,22 @@ sub delete_latest_revision {
 
 #Api
 sub store {
-    my ($self, $part, $idkey, $reportdata, $formatted) = @_;
-    confess "WHUT DATA" if scalar @{$reportdata} && !defined $reportdata->[0];
+    my ($self, $idkey, $reportdata, $formatted) = @_;
+    confess
+        "first return value from delivery/summary/globsummary function does not appear to be an array ref"
+        unless 'ARRAY' eq ref $reportdata;
     my $revision = $self->revision($idkey) || 0;
+    return $self->delete_latest_revision($idkey)
+        unless scalar @{$reportdata} || defined $formatted;
+
+    # this one is the DATA HOLDING document
     my $r = $self->collection($idkey)->update(
         { idkey => $idkey->cubby, REVISION => $revision },
-        {   q^$^ . 'set' => { FORMATTED => $formatted, DATA => $reportdata, },
+        {   q^$^
+                . 'set' => {
+                (defined $formatted    ? (FORMATTED => $formatted)  : ()),
+                (scalar @{$reportdata} ? (DATA      => $reportdata) : ()),
+                },
             q^$^
                 . 'setOnInsert' => {
                 idkey    => $idkey->cubby,
@@ -118,6 +127,8 @@ sub store {
         },
         { upsert => 1, multiple => 0 },
     );
+
+    # this one is the REVISION STATE document
     $self->collection($idkey)->update(
         { idkey => $idkey->cubby, NEXT_REVISION => { q/$/ . 'exists' => 1 }, },
         {   q^$^
@@ -261,19 +272,91 @@ Stores the entire storage partition in package memory space.  Anybody in
 this process can access it as if it is a remote storage solution... only
 faster.
 
-=head1 OVERRIDES
+=head1 SUBROUTINES/METHODS
 
-=head2 retrieve - get document
+=head2 _build_mongo
 
-=head2 absorb - add atom
+the mongo connection
 
-=head2 checkout - lock and return document
+=head2 _build_dbpass
 
-=head2 revert - revert and unlock document
+the db password
 
-=head2 checkin - update and unlock document
+=head2 _build_dbuser
 
-=head2 window_all - get documents for a particular window
+the db username
+
+=head2 _build_dbauthdb
+
+the authentication db within the mongo server
+
+=head2 _build_dbname
+
+the name of the db we'll be readding/writing with
+
+=head2 _build_db
+
+the handle to the db
+
+=head2 retrieve( idkey, isStructured? )
+
+return the indicated revision, in the indicated form, as a hashref which
+looks like one of these.  isStructured selects the DATA instead of the 
+FORMATTED
+
+{ EMPTY => 0, DATA => [] }
+{ EMPTY => 0, FORMATTED => [] }
+{ EMPTY => 1 }
+
+=head2 latest( idkey )
+
+return the latest revision we can write to for an idkey
+
+=head2 delete_latest_revision( idkey )
+
+delete the latest revision, making it entirely unavailable
+
+=head2 store( idkey, [data], $formatted )
+
+store this data array and maybe this formatted data at this idkey in the 
+latest revision (the only writable revision)
+
+=head2 delivery_keys( idkey )
+
+return an enumeration of all of the keys within a window which have current 
+versions. used when creating summaries. not all of these keys necessarily 
+have structured information available!
+
+=head2 summary_keys( idkey )
+
+return an enumeration of all of the keys within a rule-version which have 
+current versions. used when creating summaries. not all of these keys 
+necessarily have structured information available!
+
+=head2 idkey_where_doc( idkey )
+
+returns the basic where or query block for retrieving a document
+
+=head2 current( idkey )
+
+returns the current version for a report (if it exists) or empty/undef 
+otherwise
+
+=head2 freeze_delivery( idkey )
+
+initiate the freezing of a delivery-content level summary
+
+=head2 freeze_summary( idkey )
+
+initiate the freezing of a summary-content level summary
+
+=head2 freeze_globsummary( idkey )
+
+initiate the freezing of a global-summary-content level summary
+
+=head2 freeze( idkey )
+
+initiate the freezing at the level indicated in the idkey
 
 =head1 AUTHOR
 
@@ -359,89 +442,6 @@ CONTRIBUTOR WILL BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, OR
 CONSEQUENTIAL DAMAGES ARISING IN ANY WAY OUT OF THE USE OF THE PACKAGE,
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-
-=cut
-
-1;
-
-=head1 STORAGE ENGINE MODEL ASSUMPTIONS
-
-IdKey: object that indicates all the axis of selection for the data requested
-Atom: defined by the rule being processed; storage engine shouldn't care about it.
-
-STATE DOCUMENT GENERAL TO STORAGE ENGINE
-
-inbox: [ Array of Atoms ] - freshly arrived atoms are stored here.
-canonical: [ Array of Atoms ] - the current reduced 
-canonSignature: q(SIGNATURE) - a sanity check to see if this canonical has been mucked with
-Timeblocks: [ Array of input timeblock names ]
-Ruleversions: [ Array of objects like { name: <rulename>, version: <ruleversion> } ]
-
-STATE DOCUMENT SPECIFIC TO THIS IMPLIMENTATION
-
-db is determined by idkey->ruleversion
-collection is determined by idkey->collection
-idkey is determined by idkey->cubby
-
-desktop: [ Array of Atoms ] - the previously arrived atoms that are currently being processed
-locked: q(SIGNATURE) - if this is set, only a worker who knows the signature may update this
-lockExpireEpoch: TIMEINT - used in case of processing timeout to unlock the record
-
-STATE TRANSITIONS IN THIS IMPLEMENTATION 
-
-checkout
-
-rename inbox to desktop so that any new absorbs don't get confused with what is being processed
-
-=head1 STORAGE ENGINE IMPLIMENTATION METHODS 
-
-=head2 (state) = retrieve ( idkey )
-
-Unconditionally return the entire state record 
-
-=head2 (success) = absorb ( idkey, message, meta )
-
-Insert a new atom into the indicated state
-
-=head2 (uuid, state) = checkout ( idkey, timeout )
-
-if the record is locked already
-  if the lock is expired
-    lock with a new uuid
-      revert the state by reabsorbing the desktop to the inbox
-      clear desktop
-      clear lock
-      clear expire time
-  else 
-    return nothing
-else
-  lock the record atomically so no other processes may lock it with a uuid
-    move inbox to desktop
-    return the uuid and the new state
-
-=head2 revert  ( idkey, uuid )
-
-if the record is locked with this uuid
-  if the lock is not expired
-    lock the record with a new uuid
-      reabsorb the atoms in desktop
-      clear desktop
-      clear lock
-      clear expire time
-  else 
-    return nothing, this isn't available for reverting
-else 
-  return nothing, this isn't available for reverting
-
-=head2 checkin ( idkey, uuid, state )
-
-if the record is locked, (expiration agnostic)
-  update the record with the new state
-  clear desktop
-  clear lock
-  clear expire time
-else
-  return nothing, we aren't allowed to do this
 
 =cut
 

@@ -139,6 +139,9 @@ sub _build_sqs {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     my $config = $self->config;
     croak q(No sqs service?) if not $config->{EventSystem}{sqsService};
+    use Data::Dumper;
+    croak q(No access key?).Dumper $config if not $config->{EventSystem}{awsIdentity}{access};
+    croak q(No secret key?) if not $config->{EventSystem}{awsIdentity}{secret};
     my $sqs = Amazon::SQS::Simple->new(
         $config->{EventSystem}{awsIdentity}{access},
         $config->{EventSystem}{awsIdentity}{secret},
@@ -150,6 +153,8 @@ sub _build_sqs {    ## no critic (ProhibitUnusedPrivateSubroutines)
 sub _build_sns {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     my $config = $self->config;
+    croak q(No access key?).Dumper $config if not $config->{EventSystem}{awsIdentity}{access};
+    croak q(No secret key?) if not $config->{EventSystem}{awsIdentity}{secret};
     my $sns    = Amazon::SNS->new(
         {   key    => $config->{EventSystem}{awsIdentity}{access},
             secret => $config->{EventSystem}{awsIdentity}{secret}
@@ -161,9 +166,9 @@ sub _build_sns {    ## no critic (ProhibitUnusedPrivateSubroutines)
 
 sub _build_queue {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    carp q(BUILDING QUEUE ) . $self->queueName;
+    carp q(BUILDING QUEUE ) . $self->queueName if $ENV{DEBUG_REPLAY_TEST};;
     my $queue = $self->sqs->CreateQueue($self->queueName);
-    carp q(SETTING QUEUE POLICY ) . $self->queueName;
+    carp q(SETTING QUEUE POLICY ) . $self->queueName if $ENV{DEBUG_REPLAY_TEST};;
     $queue->SetAttribute(
         'Policy',
         to_json(
@@ -180,7 +185,7 @@ sub _build_queue {    ## no critic (ProhibitUnusedPrivateSubroutines)
             }
         )
     );
-    carp q(SUBSCRIBING TO QUEUE ) . $self->queueName;
+    carp q(SUBSCRIBING TO QUEUE ) . $self->queueName if $ENV{DEBUG_REPLAY_TEST};;
     $self->{subscriptionARN} = $self->sns->dispatch(
         {   Action   => 'Subscribe',
             Endpoint => $self->queuearn,
@@ -217,7 +222,7 @@ sub _build_topic_name {    ## no critic (ProhibitUnusedPrivateSubroutines)
 sub _build_topic {         ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     my $topic;
-    carp q(BUILDING TOPIC ) . $self->topicName;
+    carp q(BUILDING TOPIC ) . $self->topicName if $ENV{DEBUG_REPLAY_TEST};;
     if ($self->has_topicarn) {
         $topic = $self->sns->GetTopic($self->topicarn);
     }
@@ -306,6 +311,10 @@ Gets new messages and calls the subscribed hooks with them
 =head2 DEMOLISH
 
 Makes sure to properly clean up and disconnect from queues
+
+=head2 done()
+
+do any cleanup necessary because we are done processing events in this process
 
 =head1 AUTHOR
 

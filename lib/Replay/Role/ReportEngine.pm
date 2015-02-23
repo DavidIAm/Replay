@@ -1,4 +1,4 @@
-package Replay::BaseReportEngine;
+package Replay::Role::ReportEngine;
 
 use Moose::Role;
 use Digest::MD5 qw/md5_hex/;
@@ -33,6 +33,8 @@ has ruleSource => (is => 'ro', isa => 'Replay::RuleSource', required => 1);
 
 has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
 
+has mode => ( is => 'ro', isa => 'Str', required => 1 );
+
 # accessor - how to get the rule for an idkey
 sub rule {
     my ($self, $idkey) = @_;
@@ -40,6 +42,7 @@ sub rule {
     croak "No such rule $idkey->rule_spec" if not defined $rule;
     return $rule;
 }
+
 
 sub notify_purge {
     my ($self, $idkey, $part) = @_;
@@ -76,10 +79,11 @@ sub delete_latest {
 sub update {
     my ($self, $part, $idkey, @state) = @_;
     my $rule = $self->rule($idkey);
-    return unless $rule->can($part);
+    my $code = $rule->can($part);
+    return unless defined $code;
     return $self->delete_latest($idkey, $part)
         if 0 == scalar @state && defined $self->current($idkey);
-    $self->store($part, $idkey, $rule->can($part)->($rule, @state));
+    $self->store($idkey, $code->($rule, @state));
     $self->notify_new($idkey, $part);
 }
 
@@ -162,16 +166,16 @@ sub revision {
     return $self->current($idkey);
 }
 
-sub freeze {
-    my ($self, $idkey) = @_;
+sub notify_freeze {
+    my ($self, $idkey, $part) = @_;
     return $self->eventSystem->control->emit(
         Replay::Message::Report::Freeze->new($idkey->marshall));
 }
 
-sub copydomain {
-    my ($self, $idkey) = @_;
+sub notify_copydomain {
+    my ($self) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Report::CopyDomain->new($idkey->marshall));
+        Replay::Message::Report::CopyDomain->new());
 }
 
 sub checkpoint {
@@ -205,11 +209,11 @@ __END__
 
 =head1 NAME
 
-Replay::BaseReportEngine - wrappers for the storage engine implimentation
+Replay::Role::ReportEngine - wrappers for the storage engine implimentation
 
 =head1 VERSION
 
-Version 0.01
+Version 0.03
 
 =head1 SYNOPSIS
 
@@ -220,6 +224,29 @@ This is the base class for the implimentation specific parts of the Replay syste
         ruleSource  => $self->ruleSource,
         eventSystem => $self->eventSystem,
     );
+
+=head1 SUBROUTINES/METHODS
+
+=head2 rule
+=head2 notify_purge
+=head2 notify_new
+=head2 delete_latest
+=head2 update
+=head2 update_delivery
+=head2 update_summary
+=head2 update_globsummary
+=head2 delivery
+=head2 summary
+=head2 globsummary
+=head2 delivery_data
+=head2 summary_data
+=head2 globsummary_data
+=head2 do_retrieve
+=head2 revision
+=head2 notify_freeze
+=head2 notify_copydomain
+=head2 checkpoint
+=head2 delay_to_do_once
 
 =head1 REQUIRED ROLE IMPLIMENTATION METHODS
 
@@ -363,92 +390,42 @@ report system when the specified time factor is reached.
   - None
 
 
-=head1 STORAGE ENGINE IMPLIMENTATION METHODS 
-
-These methods must be overridden by the specific implimentation
-
-They should call super() to cause the emit of control messages when they succeed
+=head1 REPORT ENGINE IMPLIMENTATION METHODS 
 
 =head2 (state) = retrieve ( idkey )
 
-Unconditionally return the entire state document 
+Unconditionally return the entire state record 
 
-This includes all the components of the document model and is usually used internally
+=head2 (revision|undef) = current ( idkey )
 
-This is expected to be something like:
+if there is a valid current report for this key, return the number.
 
-{ Timeblocks => [ ... ]
-, Ruleversions => [ { ...  }, { ... }, ... ]
-, Windows => [ ... ]
-, inbox => [ <unprocessed atoms> ]
-, desktop => [ <atoms in processing ]
-, canonical => [ a
-, locked => signature of a secret uuid with the idkey required to unlock.  presence indicates record is locked.
-, lockExpireEpoch => epoch time after which the lock has expired.  not presnet when not locked
-} 
+otherwise return undefined to indicate 404
 
-=head2 (success) = absorb ( idkey, message, meta )
+=head2 delete_latest_revision ( idkey )
 
-Insert a new atom into the indicated state, with metadata
+Remove the current revision from the report store.
 
-append the new atom atomically to the 'inbox' in the state document referenced
-ensure the meta->{Windows} member are in the 'Windows' set in the state document referenced
-ensure the meta->{Ruleversions} members are in the 'Ruleversions' set in the state document referenced
-ensure the meta->{Timeblocks} members are in the 'Timeblocks' set in the state document referenced
+This implies that the entire node of the report tree should be
+destroyed if there are no frozen versions in it!
 
+throw an exception if there's an error
 
-=head2 (uuid, state) = checkout ( idkey, timeout )
+it is not an error if there is no current/latest revision
 
-if the record is locked already
-  if the lock is expired
-    lock with a new uuid
-      revert the state by reabsorbing the desktop to the inbox
-      clear desktop
-      clear lock
-      clear expire time
-  else 
-    return nothing
-else
-  lock the record atomically so no other processes may lock it with a uuid
-    move inbox to desktop
-    return the uuid and the new state
+=head2 store( idkey, data=[...], formatted)
 
-=head2 revert  ( idkey, uuid )
+store this data and formatted blob at this idkey for later retrieval
 
-if the record is locked with this uuid
-  if the lock is not expired
-    lock the record with a new uuid
-      reabsorb the atoms in desktop
-      clear desktop
-      clear lock
-      clear expire time
-      return success
-  else 
-    return nothing, this isn't available for reverting
-else 
-  return nothing, this isn't available for reverting
+This always stores in the latest report revision!
 
-=head2 checkin ( idkey, uuid, state )
-
-if the record is locked, (expiration agnostic)
-  update the record with the new state
-  clear desktop
-  clear lock
-  clear expire time
-else
-  return nothing, we aren't allowed to do this
-
+throw an exception if there is an error
 
 =head1 INTERNAL METHODS
 
 =head2 rule(idkey)
 
 accessor to grab the rule object for a particular idkey
-
-=head2 stringtouch(structure)
-
-Attempts to concatenate q() with any non-references to make them strings so that
-the signature will be more canonical.
 
 =head2 delay_to_do_once(name, code)
 

@@ -60,8 +60,6 @@ sub done {
 
 1;
 
-__END__
-
 =pod
 
 =head1 NAME
@@ -89,6 +87,10 @@ add the specified callback to the list of subscribed coderefs
 =head2 emit(message)
 
 add the specified message to our list of events to process
+
+=head2 done()
+
+do any cleanup necessary because we are done processing events in this process
 
 =head1 AUTHOR
 
@@ -176,7 +178,3 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 =cut
 
 1;    # End of Replay
-
-1;
-1;
-1;

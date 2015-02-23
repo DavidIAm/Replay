@@ -239,6 +239,11 @@ Accessor for the current time
 
 Builder for instantiating the uuid object that creates new UUIDs
 
+=head2 assume_effective_time
+
+This is the logic that is used to make the assumption about what the effective
+time should be when its not specified
+
 =head1 AUTHOR
 
 David Ihnen, C<< <davidihnen at gmail.com> >>

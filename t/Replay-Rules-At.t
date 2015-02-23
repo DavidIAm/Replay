@@ -199,12 +199,13 @@ $e->mock('emit');
         is $name, 'emit', 'emit is called';
         my $m  = $args->[2]->marshall;
         my $mm = $m->{Message};
-        is_deeply $mm, { atdomain => 'adomain', window => 2000 }, 'submessage emitted is as expected';
+        is_deeply $mm, { atdomain => 'adomain', window => 2000 , newmax => 1005, newmin => 1005}, 'submessage emitted is as expected';
         delete $m->{CreatedTime};
         delete $m->{Replay};
         delete $m->{UUID};
         delete $m->{ReceivedTime};
-        is_deeply $m, { MessageType => 'SendMessageWhen', Message => { atdomain => 'adomain', window => '2000' } },
+        delete $m->{EffectiveTime};
+        is_deeply $m, { MessageType => 'SendMessageWhen', Message => { atdomain => 'adomain', window => '2000', newmin => 1005, newmax => 1005 } },
             'it emits a SendMessageWhen message';
     }{
         my ($name, $args) = $e->next_call;
@@ -257,6 +258,7 @@ $e->mock('emit');
         delete $m->{Replay};
         delete $m->{UUID};
         delete $m->{ReceivedTime};
+        delete $m->{EffectiveTime};
         is_deeply $m, { MessageType => 'SURELY', Message => { surely => 'yes', } },
             'it emits a SURELY message';
     }
@@ -269,6 +271,7 @@ $e->mock('emit');
         delete $m->{Replay};
         delete $m->{UUID};
         delete $m->{ReceivedTime};
+        delete $m->{EffectiveTime};
         ok delete $mm->{actual},   'actual was set';
         ok delete $mm->{sentuuid}, 'sentuuid was set';
         is_deeply $m,

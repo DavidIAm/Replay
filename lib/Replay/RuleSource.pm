@@ -1,19 +1,21 @@
 package Replay::RuleSource;
 
 use Moose;
+with qw/Replay::Role::RuleSource/;
+
 use Replay::Message::RulesReady;
 use Scalar::Util qw/blessed/;
 use Replay::Types;
 
-our $VERSION = q(0.02);
+our $VERSION = q(0.03);
 
-# this is the default implimentation that is simple.  This needs to be
-# different later.  The point of this layer is to instantiate and handle the
+# this is the default implimentation that is simple.  
+# 
+# The point of this layer is to instantiate and handle the
 # various execution environments for a particular rule version.
 has rules => (is => 'ro', isa => 'ArrayRef[BusinessRule]',);
 
 has index => (is => 'rw', default => 0,);
-has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
 
 sub next {    ## no critic (ProhibitBuiltinHomonyms)
     my ($self) = @_;

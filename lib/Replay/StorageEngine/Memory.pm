@@ -43,7 +43,9 @@ override absorb => sub {
     }
     $state->{Ruleversions} = [ values %ruleversions ];
     push @{ $state->{inbox} ||= [] }, $atom;
-    super();
+    my $already = $state->{reducable_emitted};
+    $state->{reducable_emitted} = 1;
+    super() unless $already;
     return 1;
 };
 
@@ -54,12 +56,14 @@ sub checkout_record {
     my $state = $self->retrieve($idkey);
     use Data::Dumper;
     warn "PRECHECKOUT STATE" . $state if $self->{debug};
-    return if exists $state->{desktop};
-    return if exists $state->{locked};
-    $state->{locked}          = $signature;
-    $state->{lockExpireEpoch} = time + $timeout;
+    return                            if exists $state->{desktop};
+    return                            if exists $state->{locked};
+    $state->{locked}            = $signature;
+    $state->{lockExpireEpoch}   = time + $timeout;
     $state->{desktop}           = delete $state->{inbox} || [];
+    $state->{reducable_emitted} = 0;
     warn "POSTCHECKOUT STATE" . $state if $self->{debug};
+
 #    warn "POSTCHECKOUT STATE" . Dumper $self->collection($idkey) if $self->{debug};
     return $state;
 }
@@ -71,20 +75,27 @@ sub relock {
     my $state = $self->retrieve($idkey);
     return unless $state;
     return unless $state->{locked} eq $current_signature;
-    $state->{locked} = $new_signature;
+    $state->{locked}          = $new_signature;
     $state->{lockExpireEpoch} = time + $timeout;
 
-    return $state
+    return $state;
 }
 
 sub purge {
     my ($self, $idkey) = @_;
-    return delete $self->collection($idkey)->{$idkey->cubby};
+    return delete $self->collection($idkey)->{ $idkey->cubby };
 }
+
+sub reset {
+  my ($self) = @_;
+  %{$store} = ();
+}
+
 sub exists {
     my ($self, $idkey) = @_;
-    return exists $self->collection($idkey)->{$idkey->cubby};
+    return exists $self->collection($idkey)->{ $idkey->cubby };
 }
+
 sub relock_expired {
     my ($self, $idkey, $signature, $timeout) = @_;
 
@@ -93,31 +104,34 @@ sub relock_expired {
     my $state = $self->retrieve($idkey);
     return $state if $state->{locked} eq $signature;
     warn "NOT LOCKED" unless exists $state->{locked};
-    warn "NO EPOCH" unless exists $state->{lockExpireEpoch};
-    warn "UNEXPIRED ( $state->{lockExpireEpoch})" if $state->{lockExpireEpoch} > time;
+    warn "NO EPOCH"   unless exists $state->{lockExpireEpoch};
+    warn "UNEXPIRED ( $state->{lockExpireEpoch})"
+        if $state->{lockExpireEpoch} > time;
     return unless exists $state->{locked};
-    return if exists $state->{lockExpireEpoch} && $state->{lockExpireEpoch} >= time;
-    $state->{locked} = $signature;
+    return
+        if exists $state->{lockExpireEpoch} && $state->{lockExpireEpoch} >= time;
+    $state->{locked}          = $signature;
     $state->{lockExpireEpoch} = time + $timeout;
 
     return $state;
 }
 
-
 override checkin => sub {
     my ($self, $idkey, $uuid, $state) = @_;
 
     my $result = $self->update_and_unlock($idkey, $uuid, $state);
+
     # if any of these three exist, we maintain state
     return $result if exists $result->{inbox};
     return $result if exists $result->{desktop};
     return $result if exists $result->{canonical};
+
     # otherwise we clear it entirely
     $self->purge($idkey);
 
-        $self->eventSystem->emit('control',
-                Replay::Message::ClearedState->new( $idkey->hash_list ),
-        );
+    $self->eventSystem->emit('control',
+        Replay::Message::ClearedState->new($idkey->hash_list),
+    );
 
     super();
     return;
@@ -126,13 +140,8 @@ override checkin => sub {
 override window_all => sub {
     my ($self, $idkey) = @_;
     my $collection = $self->collection($idkey);
-    return {
-        map {
-            $collection->{$_}{idkey}{key} =>
-                $collection->{$_}{canonical}
-            } grep { 0 == index $_, $idkey->window_prefix }
-            keys %{ $collection }
-    };
+    return { map { $collection->{$_}{idkey}{key} => $collection->{$_}{canonical} }
+            grep { 0 == index $_, $idkey->window_prefix } keys %{$collection} };
 };
 
 override revert => sub {
@@ -144,7 +153,7 @@ override revert => sub {
     if (exists $state->{locked} && $state->{locked} ne $signature) {
         carp q(tried to do a revert but didn't have a lock on it);
         $self->eventSystem->emit('control',
-            Replay::Message::NoLockDuringRevert->new( $idkey->hash_list),
+            Replay::Message::NoLockDuringRevert->new($idkey->hash_list),
         );
     }
 
@@ -172,17 +181,18 @@ sub revert_this_record {
     # and clear the desktop state
     my $desktop = delete $state->{desktop};
     return $desktop;
-};
+}
 
 sub update_and_unlock {
     my ($self, $idkey, $uuid, $state) = @_;
     my $signature = $self->state_signature($idkey, [$uuid]);
     return unless exists $state->{locked};
-    warn "LOCKED" .$state->{locked} if $self->debug;
+    warn "LOCKED" . $state->{locked} if $self->debug;
     return unless $state->{locked} eq $signature;
     delete $state->{desktop};            # there is no more desktop on checkin
     delete $state->{lockExpireEpoch};    # there is no more expire time on checkin
     delete $state->{locked};    # there is no more locked signature on checkin
+
     if (@{ $state->{canonical} || [] } == 0) {
         delete $state->{canonical};
     }
@@ -191,10 +201,10 @@ sub update_and_unlock {
 
 sub collection {
     my ($self, $idkey) = @_;
+    my $rv = $idkey->rule_spec();
     my $name = $idkey->collection();
     use Data::Dumper;
-    warn "POSTIION NAME" . $name . " - " . $idkey->cubby if $self->{debug};
-    return $store->{ $name } ||= {};
+    return $store->{$rv}{$name} ||= {};
 }
 
 1;
@@ -218,6 +228,18 @@ Replay::StorageEngine::Memory->new( ruleSoruce => $rs, eventSystem => $es, confi
 Stores the entire storage partition in package memory space.  Anybody in
 this process can access it as if it is a remote storage solution... only
 faster.
+
+=head1 SUBROUTINES/METHODS
+
+=head2 checkout_record
+=head2 relock
+=head2 purge
+=head2 reset
+=head2 exists
+=head2 relock_expired
+=head2 revert_this_record
+=head2 update_and_unlock
+=head2 collection
 
 =head1 OVERRIDES
 
@@ -337,7 +359,7 @@ Ruleversions: [ Array of objects like { name: <rulename>, version: <ruleversion>
 
 STATE DOCUMENT SPECIFIC TO THIS IMPLIMENTATION
 
-db is determined by idkey->ruleversion
+db is determined by idkey->rule_spec
 collection is determined by idkey->collection
 idkey is determined by idkey->cubby
 

@@ -1,4 +1,4 @@
-package Replay::Rules::ClearingBase;
+package Replay::Role::ClearingBase;
 
 # This is the general logic that will be used by the traditional clearing
 # pattern:
@@ -45,7 +45,7 @@ use Replay::Message::At::SentMessageAt 0.02;
 use Replay::Message::At::SendMessageWhen 0.02;
 use Replay::Message 0.02;
 use Readonly;
-extends 'Replay::BusinessRule';
+with 'Replay::Role::BusinessRule';
 requires qw/initial_match on_error on_exception on_success/;
 
 our $VERSION = q(2);
@@ -168,7 +168,7 @@ sub reduce {
 
 =head1 NAME
 
-Replay::Rules::At - A rule that helps us manage emitting events later
+Replay::Role::ClearingBase - A rule that helps us manage emitting events later
 
 =head1 VERSION
 
@@ -189,53 +189,13 @@ Each
 
 =head1 SUBROUTINES/METHODS
 
-=head2 bool = match(message)
-
-returns true if message type is 'SendMessageAt' or 'SendMessageNow'
-
-=head2 list (key, value, key, ...) = key_value_set(message)
-
-in case of SendMessageAt 
-
-key = specified domain
-value = PENDING_TYPE: ( message, window, domain, and required ) 
-
-in case of SendMessageNow
-
-key = specified domain
-value = TRANSMIT_TYPE: ( atdomain epoch )
-
-=head2 window = window(message)
-
-set the appropriate window using epoch_to_window on the 'sendat' field
-for SendMessageAt and the specified window for SendMessageNow
-
-=head2 -1|0|1 = compare(message)
-
-sorts events by their send time
-
-=head2 newstatelist = reduce(emitter, statelist)
-
-maintains requests
-
-If it finds a PENDING_TYPE  with requested not set in the state list
-transmits an derived message 'SendMessageWhen' with the window, domain,
-and actuation time, and sets 'requested'
-
-transmits messages
-
-It selects the TRANSMIT_TYPE in the list with the latest send time
-
-if it has a send time, it looks through the state list to find all of
-the entries whose send time is equal to or less than the indicated time,
-transmits them, removes from state, and emits a SentMessageAt message
-to origin
-
-=head2 windowID = epoch_to_window(epoch)
-
-current implimentation just divides the epoch time by 1000, so every 1000
-minutes will have its own state set.  Hopefully this is small enough.
-Used by both 'window' and 'key_value_set'.
+=head2 retries
+=head2 match
+=head2 epoch_to_window
+=head2 window
+=head2 compare
+=head2 key_value_set
+=head2 reduce
 
 =head1 AUTHOR
 

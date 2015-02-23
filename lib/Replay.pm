@@ -16,6 +16,7 @@ use Replay::Reducer 0.02;
 use Replay::Mapper 0.02;
 use Replay::Types 0.02;
 use Replay::WORM 0.02;
+use Carp qw/croak/;
 
 has rules => (is => 'ro', isa => 'ArrayRef[BusinessRule]', required => 1,);
 

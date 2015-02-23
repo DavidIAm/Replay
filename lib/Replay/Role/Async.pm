@@ -97,7 +97,7 @@ sub window {
 
 sub attempt_is_success {
 	my ($self, $key, $message) = @_;
-	$self->emit('origin', Replay::Message::Async->new( key => $key, );
+	$self->emit('origin', Replay::Message::Async->new( key => $key, ));
 	$self->on_success($message);
 }
 sub attempt_is_error {
@@ -120,8 +120,8 @@ sub key_value_set {
         uuid      => $message->{UUID},
         } if $self->initial_match($message);
 
-        if $message->{MessageType} eq 'Async';
-        if $message->{MessageType} eq 'Async';
+#        if $message->{MessageType} eq 'Async';
+#        if $message->{MessageType} eq 'Async';
 
     # the only other type we should see is our initial type
     my $counter = 1;
@@ -137,16 +137,16 @@ sub reduce {
 #requires qw/key_for_set initial_match attempt on_error on_exception on_success value_set/;
 # atdomain message
 
-inital match <M>
-attempt <M->ER/EX/SU>
-
+#inital match <M>
+#attempt <M->ER/EX/SU>
+    #
 # requested is zero
 if ($_->{MessageType} eq 'ClearingMachine') {
 }
-elsif ($_->{MessageType} eq 'ClearingMachineAttempt' {
+elsif ($_->{MessageType} eq 'ClearingMachineAttempt') {
 }
 
-    return @atoms_to_keep;
+    return my @atoms_to_keep;
 }
 
 1;
@@ -155,7 +155,7 @@ elsif ($_->{MessageType} eq 'ClearingMachineAttempt' {
 
 =head1 NAME
 
-Replay::Rules::At - A rule that helps us manage emitting events later
+Replay::Role::Async - A role for rules that help us manage asynchronous events
 
 =head1 VERSION
 
@@ -163,66 +163,26 @@ Version 0.01
 
 =head1 SYNOPSIS
 
-Sometimes we want to trigger an event to be sent at a later time, a backoff 
-mechanism for retrying is such a candidate
-
-This is only half the state preservation for this logic - there is also a
-AtDomain rule which stores the list of domain/windows that need to be activated
-to scale more effectively.  
+many times we have something which we have initiated, and a result will 
+arrive later.  This is to help track the state of those things until they return
 
 =head1 DESCRIPTION
 
-Each
+
 
 =head1 SUBROUTINES/METHODS
 
-=head2 bool = match(message)
-
-returns true if message type is 'SendMessageAt' or 'SendMessageNow'
-
-=head2 list (key, value, key, ...) = key_value_set(message)
-
-in case of SendMessageAt 
-
-key = specified domain
-value = PENDING_TYPE: ( message, window, domain, and required ) 
-
-in case of SendMessageNow
-
-key = specified domain
-value = TRANSMIT_TYPE: ( atdomain epoch )
-
-=head2 window = window(message)
-
-set the appropriate window using epoch_to_window on the 'sendat' field
-for SendMessageAt and the specified window for SendMessageNow
-
-=head2 -1|0|1 = compare(message)
-
-sorts events by their send time
-
-=head2 newstatelist = reduce(emitter, statelist)
-
-maintains requests
-
-If it finds a PENDING_TYPE  with requested not set in the state list
-transmits an derived message 'SendMessageWhen' with the window, domain,
-and actuation time, and sets 'requested'
-
-transmits messages
-
-It selects the TRANSMIT_TYPE in the list with the latest send time
-
-if it has a send time, it looks through the state list to find all of
-the entries whose send time is equal to or less than the indicated time,
-transmits them, removes from state, and emits a SentMessageAt message
-to origin
-
-=head2 windowID = epoch_to_window(epoch)
-
-current implimentation just divides the epoch time by 1000, so every 1000
-minutes will have its own state set.  Hopefully this is small enough.
-Used by both 'window' and 'key_value_set'.
+=head2 retry_next_at
+=head2 window_size_seconds
+=head2 compare
+=head2 match
+=head2 effective_to_window
+=head2 window
+=head2 attempt_is_success
+=head2 attempt_is_error
+=head2 attempt_is_exception
+=head2 key_value_set
+=head2 reduce
 
 =head1 AUTHOR
 

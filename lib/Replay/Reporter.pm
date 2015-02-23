@@ -293,13 +293,16 @@ event channel so it will know when to act.
 
 accessor for finding a rule by key
 
-=head2 reduce_wrapper
+=head2 report_wrapper
 
-this wraps around the individual business rule's reduce function, taking
-care of the business logic of retrieving the state, calling the reduce
-function, storing the result, and conditionally emitting the buffered events.
+this wraps around the individual business rule's reporting functions, taking
+care of the business logic of retrieving the state, calling the appropriate
+function, storing the result, and emitting the control events.
 
-=cut
+=head2 extract_idkey
+
+Go through the contortions necessary to reliably extract an IdKey object from
+the message we have been presented
 
 =head1 AUTHOR
 

@@ -14,14 +14,16 @@ use JSON;
 use Scalar::Util qw/blessed/;
 use Carp qw/confess/;
 
-has config => (is => 'ro', isa => 'HashRef[Item]', required => 1);
+has config => (is => 'ro', isa => 'HashRef[Defined]', required => 1);
 
 has rabbit => (
     is       => 'ro',
     isa      => 'Net::RabbitMQ',
     required => 1,
     builder  => '_build_rabbit',
-    handles => [ qw( exchange_declare queue_declare queue_bind publish get ack reject channel_close ) ],
+    handles  => [
+        qw( exchange_declare queue_declare queue_bind publish get ack reject channel_close )
+    ],
     lazy => 1,
 );
 
@@ -39,17 +41,22 @@ sub channel_open {
     return $channel;
 }
 
+use Data::Dumper;
+
 sub _build_rabbit {
     my ($self) = @_;
     my $rabbit = Net::RabbitMQ->new;
+    return $rabbit unless defined $self->config;
     $rabbit->connect($self->config->{host}, $self->config->{options});
     return $rabbit;
 }
 
 sub DEMOLISH {
-  my ($self) = @_;
-  my $number = $self->last_allocated_channel;
-  $self->rabbit->channel_close($number--) while $number > 0;
+    my ($self) = @_;
+    my $number = $self->last_allocated_channel;
+    if (ref $self->rabbit) {
+        $self->rabbit->channel_close($number--) while $number||0 > 0;
+    }
 }
 
 1;
@@ -89,11 +96,14 @@ Replay::EventSystem::AWSQueue::Connection->new(
 
 =head1 SUBROUTINES/METHODS
 
+=head2 channel_open
 
+opens a new channel on the rabbitmq connection and returns the identifier of it
+for later reference
 
 =head2 DEMOLISH
 
-Makes sure to properly clean up and disconnect from queues
+Makes sure to properly clean up by closing all the channels
 
 =head1 AUTHOR
 

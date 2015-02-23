@@ -54,7 +54,7 @@ has topic => (
     required => 1,
 );
 
-has passive => (is => 'ro', isa => 'Bool', default => 1,);
+has passive => (is => 'ro', isa => 'Bool', default => 0,);
 
 has durable => (is => 'ro', isa => 'Bool', default => 1,);
 
@@ -80,7 +80,8 @@ sub _new_channel {
 sub _receive {
     my ($self, $message) = @_;
 
-    my $frame = $self->bound_queue->get($self->channel, $self->queue_name, { no_ack => $self->no_ack } );
+    my $frame = $self->bound_queue->get($self->channel, $self->queue_name,
+        { no_ack => $self->no_ack });
     return unless defined $frame;
     use Data::Dumper;
     my $rmes = Replay::EventSystem::RabbitMQ::Message->new(
@@ -101,10 +102,15 @@ sub _receive {
     return $rmes;
 }
 
+sub purge {
+    my ($self) = @_;
+    $self->rabbit->rabbit->rabbit->purge($self->channel, $self->queue_name);
+}
+
 sub _build_bound_queue {
     my ($self) = @_;
     $self->queue->queue_bind($self->channel, $self->queue_name,
-        $self->topic->topic_name, '*');
+        $self->topic->topic->topic_name, '*');
     return $self;
 }
 
@@ -214,6 +220,10 @@ Send the specified message on the topic for this channel
 =head2 poll()
 
 Gets new messages and calls the subscribed hooks with them
+
+=head2 purge()
+
+Blows the contents of the queue - FOR TESTING ONLY
 
 =head2 DEMOLISH
 

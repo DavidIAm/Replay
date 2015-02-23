@@ -49,11 +49,6 @@ has revision => (
 
 with Storage('format' => 'JSON');
 
-sub BUILD {
-    my $self = shift;
-    confess "WTF" if $self->has_revision && !defined $self->revision;
-}
-
 around BUILDARGS => sub {
     my $orig  = shift;
     my $class = shift;
@@ -124,35 +119,34 @@ sub globsummary {
     );
 }
 
-sub hash_list {
+sub marshall {
     my ($self) = @_;
-    return %{ $self->marshall };
-}
-
-sub checkstring {
-    my ($self) = @_;
-    $self->name($self->name . q());
-    $self->version($self->version . q());
-    $self->window($self->window . q());
-    $self->key($self->key . q());
-    return;
+    return { $self->hash_list };
 }
 
 sub hash {
     my ($self) = @_;
-    $self->checkstring;
-    return md5_hex($self->freeze);
+    return md5_hex(join ':', $self->hash_list);
 }
 
-sub marshall {
+sub hash_list {
     my ($self) = @_;
-    return {
+    return (
         name    => $self->name . '',
         version => $self->version . '',
         ($self->has_window     ? (window     => $self->window . '')     : ()),
         ($self->has_key        ? (key        => $self->key . '')        : ()),
         ($self->has_revision   ? (revision   => $self->revision . '')   : ()),
-    };
+    );
+}
+
+sub stringify {
+  my ($self) = @_;
+  my %h = $self->hash_list;
+  return "IDKEY:{N:".$self->name.",V:".$self->version.
+   ($self->has_window ? ",W:".$self->window.'' : ()).
+   ($self->has_key ? ",K:".$self->key.'' : ()).
+   ($self->has_revision ? ",R:".$self->revision.'' : ());
 }
 
 1;
@@ -230,7 +224,10 @@ Clips the key for summary mode - no key mentioned
 
 Clips the key for global summary mode - no window or key mentioned
 
-=cut
+=head2 stringify
+
+For debug purposes sometimes we want a stringification of the key. This 
+provides it.
 
 =head1 AUTHOR
 
