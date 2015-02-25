@@ -37,7 +37,7 @@ sub _build_availableReportEngines
         $hash_of_engines->{$engine} = $self->mode_class($engine)->new(
             config => {
                 %{ $self->config },
-                StorageEngine => $self->config->{ReportEngines}{$engine}
+                ReportEngine => $self->config->{ReportEngines}{$engine}
             },
             ruleSource  => $self->ruleSource,
             eventSystem => $self->eventSystem,
