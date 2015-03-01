@@ -18,22 +18,7 @@ use Replay::Types 0.02;
 use Replay::WORM 0.02;
 use Carp qw/croak/;
 
-has rules => (is => 'ro', isa => 'ArrayRef[BusinessRule]', required => 1,);
-
-has ruleSource => (
-    is      => 'ro',
-    isa     => 'Replay::RuleSource',
-    builder => '_build_rule_source',
-    lazy    => 1,
-);
-
-sub _build_rule_source {    ## no critic (ProhibitUnusedPrivateSubroutines)
-    my $self = shift;
-    return Replay::RuleSource->new(
-        rules       => $self->rules,
-        eventSystem => $self->eventSystem
-    );
-}
+has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
 
 has eventSystem => (
     is      => 'ro',
@@ -47,6 +32,28 @@ sub _build_event_system {    ## no critic (ProhibitUnusedPrivateSubroutines)
     return Replay::EventSystem->new(config => $self->config);
 }
 
+has rules => (
+    is        => 'ro',
+    isa       => 'ArrayRef[Replay::Role::BusinessRule]',
+    predicate => 'has_rules',
+);
+
+has ruleSource => (
+    is      => 'ro',
+    isa     => 'Replay::RuleSource',
+    builder => '_build_rule_source',
+    lazy    => 1,
+);
+
+sub _build_rule_source {    ## no critic (ProhibitUnusedPrivateSubroutines)
+    my $self = shift;
+    confess 'rules required to have a rule source' unless $self->has_rules;
+    return Replay::RuleSource->new(
+        rules       => $self->rules,
+        eventSystem => $self->eventSystem
+    );
+}
+
 has reportEngine => (
     is      => 'ro',
     isa     => 'Replay::ReportEngine',
@@ -56,10 +63,11 @@ has reportEngine => (
 
 sub _build_report_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
+    confess 'rules required to have a report engine' unless $self->has_rules;
     return Replay::ReportEngine->new(
-        config      => $self->config,
-        eventSystem => $self->eventSystem,
-        ruleSource  => $self->ruleSource,
+        config        => $self->config,
+        eventSystem   => $self->eventSystem,
+        ruleSource    => $self->ruleSource,
         storageEngine => $self->storageEngine,
     );
 }
@@ -71,10 +79,9 @@ has storageEngine => (
     lazy    => 1,
 );
 
-has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
-
 sub _build_storage_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
+    confess 'rules required to have a storage engine' unless $self->has_rules;
     return Replay::StorageEngine->new(
         config      => $self->config,
         ruleSource  => $self->ruleSource,
@@ -91,6 +98,7 @@ has reducer => (
 
 sub _build_reducer {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
+    confess 'rules required to have a reducer' unless $self->has_rules;
     return Replay::Reducer->new(
         eventSystem   => $self->eventSystem,
         ruleSource    => $self->ruleSource,
@@ -107,6 +115,7 @@ has mapper => (
 
 sub _build_mapper {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
+    confess 'rules required to have a mapper' unless $self->has_rules;
     return Replay::Mapper->new(
         eventSystem   => $self->eventSystem,
         ruleSource    => $self->ruleSource,
@@ -131,11 +140,12 @@ has reporter => (
 
 sub _build_reporter {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
+    confess 'rules required to have a reporter' unless $self->has_rules;
     return Replay::Reporter->new(
         eventSystem   => $self->eventSystem,
         ruleSource    => $self->ruleSource,
         storageEngine => $self->storageEngine,
-        reportEngine => $self->reportEngine,
+        reportEngine  => $self->reportEngine,
     );
 }
 
