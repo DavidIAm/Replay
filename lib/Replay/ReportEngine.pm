@@ -56,7 +56,7 @@ sub globsummary_data {
 sub update_delivery {
     my ($self, $idkey) = @_;
     return $self->engine($idkey)->update_delivery($idkey,
-        $self->storageEngine->fetch_canonical_state($idkey));
+      $idkey->key => [ $self->storageEngine->fetch_canonical_state($idkey) ]);
 }
 
 sub update_summary {
@@ -161,12 +161,12 @@ my $storage = Replay::ReportEngine->new(
      },
      ReportEngine => { 
        Mode => 'Filesystem', 
-       reportFileSystemRoot => '/opt/reports/,
+       reportFilesystemRoot => '/opt/reports/,
      }
    } 
  );
 
-As of this writing 'FileSystem' and 'Mongo' modes are available.
+As of this writing 'Filesystem' and 'Mongo' modes are available.
 
 =head1 DESCRIPTION
 

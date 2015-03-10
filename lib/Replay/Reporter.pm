@@ -30,12 +30,6 @@ sub BUILD {
     return;
 }
 
-# accessor - how to get the rule for an idkey
-sub rule {
-    my ($self, $idkey) = @_;
-    return $self->ruleSource->by_idkey($idkey);
-}
-
 sub extract_idkey {
     my ($self, $envelope) = @_;
     my ($message, $idkey);

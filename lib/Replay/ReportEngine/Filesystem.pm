@@ -301,7 +301,7 @@ Version 0.03
 Replay::ReportEngine::Filesystem->new( 
         config      => 
         { ReportEngine => { 
-          Mode => FileSystem, 
+          Mode => Filesystem, 
           reportFilesystemRoot => $storedir, 
           },
         ruleSource  => $self->ruleSource,

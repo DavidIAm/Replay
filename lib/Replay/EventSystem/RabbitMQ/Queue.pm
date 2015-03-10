@@ -31,6 +31,11 @@ has queue => (
     lazy    => 1
 );
 
+has unique => (
+    is      => 'ro',
+    isa     => 'Num',
+);
+
 has bound_queue => (
     is      => 'ro',
     isa     => 'Replay::EventSystem::RabbitMQ::Queue',
@@ -83,7 +88,7 @@ sub _receive {
     my $frame = $self->bound_queue->get($self->channel, $self->queue_name,
         { no_ack => $self->no_ack });
     return unless defined $frame;
-    use Data::Dumper;
+    return if exists $frame->{frame_type} && $frame->{frame_type} eq 'heartbeat';
     my $rmes = Replay::EventSystem::RabbitMQ::Message->new(
         rabbit  => $self->rabbit,
         channel => $self->channel,
@@ -125,7 +130,7 @@ sub DEMOLISH {
 sub _build_queue_name {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     my $ug   = Data::UUID->new;
-    return join q(_), 'replay', $self->rabbit->config->{stage}, $self->purpose;
+    return join q(_), 'replay', $self->rabbit->config->{stage}, $self->purpose, ($self->unique ? $ug : ());
 }
 
 sub _build_queue {         ## no critic (ProhibitUnusedPrivateSubroutines)

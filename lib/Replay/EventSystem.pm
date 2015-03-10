@@ -259,7 +259,7 @@ sub _build_mode {    ## no critic (ProhibitUnusedPrivateSubroutines)
 }
 
 sub _build_queue {
-    my ($self, $purpose, $mode) = @_;
+    my ($self, $purpose, $mode, $unique) = @_;
     my $classname = $self->mode;
     try {
         try {
@@ -281,7 +281,8 @@ sub _build_queue {
     my $queue = $classname->new(
         purpose => $purpose,
         config  => $self->config,
-        mode    => $mode
+        mode    => $mode,
+        unique  => $unique||0,
     );
     return $queue;
 }
@@ -293,7 +294,7 @@ sub _build_control {    ## no critic (ProhibitUnusedPrivateSubroutines)
 
 sub _build_derived_sniffer {   ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    return $self->_build_queue('derived', 'fanout');
+    return $self->_build_queue('derived', 'topic', 1);
 }
 
 sub _build_derived {           ## no critic (ProhibitUnusedPrivateSubroutines)
@@ -308,7 +309,7 @@ sub _build_origin {            ## no critic (ProhibitUnusedPrivateSubroutines)
 
 sub _build_origin_sniffer {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    return $self->_build_queue('origin', 'fanout');
+    return $self->_build_queue('origin', 'topic', 1);
 }
 
 1;

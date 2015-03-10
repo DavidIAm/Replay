@@ -21,13 +21,13 @@ use Try::Tiny;
 use Data::UUID;
 use JSON;
 use Scalar::Util qw/blessed/;
-use Carp qw/confess/;
 
 has purpose => (is => 'ro', isa => 'Str', required => 1,);
 has subscribers => (is => 'ro', isa => 'ArrayRef', default => sub { [] },);
 
 has config => (is => 'ro', isa => 'HashRef[Item]', required => 1);
 
+has unique => (is => 'ro', isa => 'Num', required => 0,);
 has rabbit => (
     is      => 'ro',
     isa     => 'Replay::EventSystem::RabbitMQ::Connection',
@@ -83,7 +83,13 @@ sub _build_rabbit {
 sub emit {
     my ($self, $message) = @_;
 
+    if ('HASH' eq ref $message) {
+        use Data::Dumper;
+        confess "Not a good hash message" . Dumper $message
+            unless defined $message->{MessageType};
+    }
     $message = Replay::Message->new($message) unless blessed $message;
+
     # THIS MUST DOES A Replay::Envelope
     confess "Can only emit Replay::Envelope consumer"
         unless $message->does('Replay::Envelope');
@@ -107,8 +113,9 @@ sub poll {
             }
             catch {
                 $message->nack;
-#                carp q(There was an exception while processing message through subscriber )
-#                    . $_;
+
+                  carp q(There was an exception while processing message through subscriber )
+                      . $_;
             };
         }
     }
@@ -139,6 +146,7 @@ sub _build_queue {    ## no critic (ProhibitUnusedPrivateSubroutines)
         purpose       => $self->purpose,
         topic         => $self->topic,
         exchange_type => $self->mode,
+        unique        => $self->unique,
     );
 
 }

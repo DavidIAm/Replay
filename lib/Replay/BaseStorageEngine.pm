@@ -224,7 +224,7 @@ sub stringtouch {
                 $hsh->{$_} = $self->stringtouch($struct->{$_});
             }
             else {
-                $hsh->{$_} = $struct->{$_} . q();
+                $hsh->{$_} = ($struct->{$_}||'') . q();
             }
         }
         return $hsh;
@@ -305,8 +305,8 @@ sub fetch_canonical_state {
     my $e = $self->state_signature($idkey, $cubby->{canonical}) || q();
     if (($cubby->{canonSignature} || q()) ne ($e || q())) {
         use Data::Dumper;
-        carp "dump of idkey=" . Dumper($idkey);
-        carp "canonical corruption $cubby->{canonSignature} vs. " . $e;
+#        carp "dump of idkey=" . Dumper($idkey);
+#        carp "canonical corruption $cubby->{canonSignature} vs. " . $e;
     }
 #    $self->eventSystem->emit('control',
 #        Replay::Message::Fetched->new($idkey->marshall));

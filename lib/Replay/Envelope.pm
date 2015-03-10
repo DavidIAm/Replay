@@ -94,6 +94,7 @@ around BUILDARGS => sub {
 
     foreach (keys %args) {
         next if exists $attributes{$_};
+        next if $_ eq 'EXTRA';
 
         my $newattr = $class->meta->add_attribute(
             $_ => (
