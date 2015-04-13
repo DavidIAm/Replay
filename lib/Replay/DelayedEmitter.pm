@@ -43,7 +43,7 @@ sub origin {
 }
 
 sub emit {
-    my ($self, $channel, $message) = shift;
+    my ($channel, $message) = @_;
 
     #warn(" Replay::EventSystem::Null emit $message");
     # handle single argument construct
