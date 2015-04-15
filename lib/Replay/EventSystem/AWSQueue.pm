@@ -58,7 +58,8 @@ has queueName =>
     (is => 'ro', isa => 'Str', builder => '_build_queue_name', lazy => 1);
 
 sub emit {
-    my ($self, $message) = @_;
+    my $self = shift;
+    my ($message) = @_;
 
     $message = Replay::Message->new($message) unless blessed $message;
 
@@ -66,7 +67,7 @@ sub emit {
     confess "Can only emit Replay::Envelope consumer"
         unless $message->does('Replay::Envelope');
     my $uuid = $message->UUID;
-
+#warn("REPLAy AWS Que topic=". $self->topic);
     $self->topic->Publish(to_json $message->marshall) or return;
 
     return $uuid;
@@ -81,8 +82,8 @@ sub poll {
     foreach my $message ($self->_receive()) {
         $handled++;
 
-        #use Data::Dumper;
-        #warn("poll message=".Dumper($message));
+ #       use Data::Dumper;
+ #       warn("poll message=".Dumper($message));
         foreach my $subscriber (@{ $self->subscribers }) {
             try {
                 $subscriber->($message);

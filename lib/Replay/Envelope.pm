@@ -87,6 +87,7 @@ around BUILDARGS => sub {
     my $orig  = shift;
     my $class = shift;
     use Data::Dumper;
+   # warn("Evelope Build args $orig=".ref($orig).", class=$class args=".Dumper(\@_) );
     confess "Strange build of an envelope: ".Dumper [@_] if !ref $_[0] && scalar @_ % 2;
     my %args  = ref $_[0] ? %{ $_[0] } : @_;
     $class->meta->make_mutable;

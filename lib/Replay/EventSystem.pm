@@ -155,7 +155,11 @@ sub clear {
 }
 
 sub emit {
-    my ($self, $channel, $message) = @_;
+    my $self = shift;
+    my ($channel, $message) = @_;
+    use Data::Dumper;
+
+#    warn(" Replay::Eventsystem emit  $channel $message = ".Dumper($message));
 
     $message = Replay::Message->new($message) unless blessed $message;
 
@@ -166,6 +170,7 @@ sub emit {
     confess "Unknown channel $channel" unless $self->can($channel);
 
     $self->$channel->emit($message->marshall);
+    
     return $message->UUID;
 
 }
