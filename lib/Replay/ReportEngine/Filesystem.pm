@@ -23,9 +23,9 @@ my $store = {};
 
 sub BUILD {
     my $self = shift;
-    mkpath $self->config->{ReportEngine}->{reportFilesystemRoot};
+    mkpath $self->config->{ReportEngine}->{Root};
     confess "no report filesystem root"
-        unless -d $self->config->{ReportEngine}->{reportFilesystemRoot};
+        unless -d $self->config->{ReportEngine}->{Root};
 }
 
 sub retrieve {
@@ -145,7 +145,7 @@ sub filename {
 sub directory {
     my ($self, $idkey) = @_;
     return catdir(
-        $self->config->{ReportEngine}->{reportFilesystemRoot},
+        $self->config->{ReportEngine}->{Root},
         $idkey->name,
         $idkey->version,
         ($idkey->window ? ($idkey->window) : ()),
@@ -289,7 +289,7 @@ Replay::ReportEngine::Filesystem->new(
         config      => 
         { ReportEngine => { 
           Mode => FileSystem, 
-          reportFilesystemRoot => $storedir, 
+          Root => $storedir, 
           },
         ruleSource  => $self->ruleSource,
         eventSystem => $self->eventSystem,
@@ -303,7 +303,7 @@ Data structure follows the format of the idkey.
 
 The hierarchy names are joined together to form a path.
 
-.../REPORTFILESYSTEMROOT/RULENAME/VERSIONNUM/WINDOWNAME/KEYNAME/...
+.../ROOT/RULENAME/VERSIONNUM/WINDOWNAME/KEYNAME/...
 
 if a key or window isn't relevant (for summaries and globsummary) the directory is merely not present.
 
