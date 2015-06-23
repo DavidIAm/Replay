@@ -23,9 +23,10 @@ my $store = {};
 
 sub BUILD {
     my $self = shift;
-    mkpath $self->config->{ReportEngine}->{Root};
-    confess "no report filesystem root"
-        unless -d $self->config->{ReportEngine}->{Root};
+    mkpath $self->config->{ReportEngine}->{reportFilesystemRoot};
+    use Data::Dumper;
+    confess "no report filesystem root (" . Dumper($self->config). ")"
+        unless -d $self->config->{ReportEngine}->{reportFilesystemRoot};
 }
 
 sub retrieve {

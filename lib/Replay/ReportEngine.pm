@@ -136,7 +136,7 @@ sub _build_mode {      ## no critic (ProhibitUnusedPrivateSubroutines)
             or croak qq(error requiring class $class : ) . $EVAL_ERROR;
     }
     catch {
-        confess q(No such report engine mode available )
+        confess q(No such report engine mode available $_  )
             . $self->config->{ReportEngine}->{Mode}
             . " --> $_";
     };
@@ -219,14 +219,17 @@ to retrieve reports and summaries on something like:
 
 =head2 Resources for a key:
 
-GET /reports/DOMAIN/REPORTNAME/VERSION/WINDOW/KEY 302 Location:
-/reports/DOMAIN/REPORTNAME/VERSION/WINDOW/KEY/latest
+GET /reports/DOMAIN/REPORTNAME/VERSION/WINDOW/KEY 
+302 Location: /reports/DOMAIN/REPORTNAME/VERSION/WINDOW/KEY/latest
 
-GET /reports/DOMAIN/REPORTNAME/VERSION/WINDOW/KEY/latest 302 Location:
-/reports/DOMAIN/REPORTNAME/VERSION/WINDOW/KEY/REVISION
+GET /reports/DOMAIN/REPORTNAME/VERSION/WINDOW/KEY/latest 
+302 Location: /reports/DOMAIN/REPORTNAME/VERSION/WINDOW/KEY/REVISION
 
 GET /reports/DOMAIN/REPORTNAME/VERSION/WINDOW/KEY/revisionlist
-200 Content-type: application/json [ 'v20140728': { meta: {
+200 OK
+Content-type: application/json
+
+[ 'v20140728': { meta: {
 ruleversionwindows:[],timeblocks:[] }, frozen_at_time: 12345 } ,
 'v20140728': { meta: { ruleversionwindows:[],timeblocks:[] }, updated_time
 23456 } ]
@@ -234,39 +237,45 @@ ruleversionwindows:[],timeblocks:[] }, frozen_at_time: 12345 } ,
 GET /reports/DOMAIN/REPORTNAME/VERSION/WINDOW/KEY/REVISION 200
 Content-type: TheReportFormat
 
-POST /reports/DOMAIN/REPORTNAME/VERSION/WINDOW/KEY/freeze 302 Location:
-/reports/DOMAIN/REPORTNAME/VERSION/WINDOW/KEY/NEWFROZENREVISION
+POST /reports/DOMAIN/REPORTNAME/VERSION/WINDOW/KEY/freeze 
+302 Location: /reports/DOMAIN/REPORTNAME/VERSION/WINDOW/KEY/NEWFROZENREVISION
 
 =head2 Resources for a window - summary:
 
-GET /reports/DOMAIN/REPORTNAME/VERSION/WINDOW 302 Location:
-/reports/DOMAIN/REPORTNAME/VERSION/WINDOW/latest
+GET /reports/DOMAIN/REPORTNAME/VERSION/WINDOW 
+302 Location: /reports/DOMAIN/REPORTNAME/VERSION/WINDOW/latest
 
 GET /reports/DOMAIN/REPORTNAME/VERSION/WINDOW/REVISION 200 Content-type:
 TheReportFormat
 
-POST /reports/DOMAIN/REPORTNAME/VERSION/WINDOW/freeze 302 Location:
-/reports/DOMAIN/REPORTNAME/VERSION/WINDOW/NEWFROZENREVISION
+POST /reports/DOMAIN/REPORTNAME/VERSION/WINDOW/freeze 
+302 Location: /reports/DOMAIN/REPORTNAME/VERSION/WINDOW/NEWFROZENREVISION
 
 GET /reports/DOMAIN/REPORTNAME/VERSION/WINDOW/revisionlist
-200 Content-type: application/json [ 'v20140728': { meta: {
+200 OK
+Content-type: application/json
+
+[ 'v20140728': { meta: {
 ruleversionwindows:[],timeblocks:[] }, frozen_at_time: 12345 } ,
 'v20140728': { meta: { ruleversionwindows:[],timeblocks:[] }, updated_time
 23456 }
 
 =head2 Resources for a report - glob summary:
 
-GET /reports/DOMAIN/REPORTNAME/VERSION 302 Location:
-/reports/DOMAIN/REPORTNAME/VERSION/latest
+GET /reports/DOMAIN/REPORTNAME/VERSION 
+302 Location: /reports/DOMAIN/REPORTNAME/VERSION/latest
 
 GET /reports/DOMAIN/REPORTNAME/VERSION/REVISION 200 Content-type:
 TheReportFormat
 
-POST /reports/DOMAIN/REPORTNAME/VERSION/freeze 302 Location:
-/reports/DOMAIN/REPORTNAME/VERSION/NEWFROZENREVISION
+POST /reports/DOMAIN/REPORTNAME/VERSION/freeze 
+302 Location: /reports/DOMAIN/REPORTNAME/VERSION/NEWFROZENREVISION
 
-GET /reports/DOMAIN/REPORTNAME/VERSION/revisionlist 200
-Content-type: application/json [ 'v20140728': { meta: {
+GET /reports/DOMAIN/REPORTNAME/VERSION/revisionlist 
+200 OK
+Content-type: application/json 
+
+[ 'v20140728': { meta: {
 ruleversionwindows:[],timeblocks:[] }, frozen_at_time: 12345 } ,
 'v20140728': { meta: { ruleversionwindows:[],timeblocks:[] }, updated_time
 23456 }
