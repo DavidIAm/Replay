@@ -7,6 +7,7 @@ use Carp qw/croak carp cluck/;
 use JSON qw/to_json/;
 use File::Spec::Functions;
 use File::Path qw/mkpath/;
+use File::MimeInfo::Magic;
 use File::Slurp qw/read_file/;
 use Readonly;
 use Storable qw/store_fd/;
@@ -21,8 +22,11 @@ Readonly my $WRITABLEFILE => 'WRITABLE';
 
 my $store = {};
 
+use Cwd 'abs_path';
+
 sub BUILD {
     my $self = shift;
+$self->config->{ReportEngine}->{reportFilesystemRoot} = abs_path $self->config->{ReportEngine}->{reportFilesystemRoot};
     mkpath $self->config->{ReportEngine}->{reportFilesystemRoot};
     use Data::Dumper;
     confess "no report filesystem root (" . Dumper($self->config). ")"
@@ -33,6 +37,7 @@ sub retrieve {
     my ($self, $idkey, $structured) = @_;
     my $directory = $self->directory($idkey);
     my $revision  = $self->revision($idkey);
+    use Data::Dumper;
     return { EMPTY => 1 } unless defined $revision;    # CASE: NO CURRENT REPORT
     if ($structured) {
         my $dfile = $self->filename_data($directory, $self->revision($idkey));
@@ -40,7 +45,9 @@ sub retrieve {
         return { EMPTY => 1 };
     }
     my $ffile = $self->filename($directory, $self->revision($idkey));
-    return { EMPTY => 0, FORMATTED => read_file($ffile) } if -f $ffile;
+    return { EMPTY => 0,
+      TYPE => mimetype($ffile),
+      FORMATTED => join '',read_file($ffile) } if -f $ffile;
     return { EMPTY => 1 };
 }
 
@@ -89,6 +96,7 @@ sub subdirs {
             push @subdirs, $entry;
         }
     }
+    warn "SUBDIRS: @subdirs";
     return @subdirs;
 }
 
@@ -99,6 +107,31 @@ sub current_subdirs {
         grep { -f catfile $parentDir, $_, $CURRENTFILE }
         $self->subdirs($parentDir);
 }
+
+# retrieves all the valid keys in the list for the next layer down in the reports
+# rule-version-window-key
+sub subkeys {
+  my ($self, $key) = @_;
+    warn "directory is " . $self->directory($key);
+  if ($key->has_key) {
+    
+    my $dir = IO::Dir->new($self->directory($key));
+    
+    my @revisions;
+    if (defined $dir) {
+        my $entry;
+        while (defined($entry = $dir->read)) {
+          my( $revision)= $entry =~ /revision_(\d+).data/;
+          next unless defined $revision;
+          push @revisions, $revision;
+        }
+    }
+    return [ @revisions ];
+  } else { 
+    return [ $self->subdirs($self->directory($key)) ];
+  }
+}
+
 
 # retrieves all the keys that point to valid summaries in the current
 # rule-version
@@ -146,11 +179,12 @@ sub filename {
 sub directory {
     my ($self, $idkey) = @_;
     return catdir(
-        $self->config->{ReportEngine}->{Root},
-        $idkey->name,
-        $idkey->version,
-        ($idkey->window ? ($idkey->window) : ()),
-        ($idkey->key    ? ($idkey->key)    : ())
+        $self->config->{ReportEngine}->{reportFilesystemRoot},
+        ($idkey->has_domain ? ($idkey->domain) : ()),
+        ($idkey->has_name ? ($idkey->name) : ()),
+        ($idkey->has_version ? ($idkey->version) : ()),
+        ($idkey->has_window ? ($idkey->window) : ()),
+        ($idkey->has_key    ? ($idkey->key)    : ())
     );
 }
 
@@ -290,7 +324,7 @@ Replay::ReportEngine::Filesystem->new(
         config      => 
         { ReportEngine => { 
           Mode => FileSystem, 
-          Root => $storedir, 
+          reportFilesystemRoot => $storedir, 
           },
         ruleSource  => $self->ruleSource,
         eventSystem => $self->eventSystem,

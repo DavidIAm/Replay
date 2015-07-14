@@ -9,10 +9,20 @@ use Readonly;
 
 our $VERSION = '0.02';
 
+has domain => (
+    is          => 'rw',
+    isa         => 'Str',
+    required    => 0,
+    predicate   => 'has_domain',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
+
 has name => (
     is          => 'rw',
     isa         => 'Str',
     required    => 1,
+    predicate   => 'has_name',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'message' },
 );
@@ -20,6 +30,7 @@ has version => (
     is          => 'rw',
     isa         => 'Str',
     required    => 1,
+    predicate   => 'has_version',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'message' },
 );
@@ -87,6 +98,11 @@ sub window_prefix {
 sub cubby {
     my ($self) = @_;
     return $self->window_prefix . ($self->key || '');
+}
+
+sub full_spec {
+  my ($self) = @_;
+  return join q{-}, $self->domain, $self->rule_spec, $self->cubby, $self->revision;
 }
 
 sub rule_spec {
