@@ -1,28 +1,28 @@
 package Replay::StorageEngine::Memory;
 
 use Moose;
+with 'Replay::Role::StorageEngine';
 use Scalar::Util qw/blessed/;
 use Replay::Message::NoLockDuringRevert;
 use Replay::Message::ClearedState;
 use Replay::IdKey;
 use Carp qw/croak carp cluck/;
 
-extends 'Replay::BaseStorageEngine';
+
 
 has 'debug' => (is => 'rw');
 our $VERSION = q(0.02);
 
 my $store = {};
 
-override retrieve => sub {
+sub retrieve {
     my ($self, $idkey) = @_;
-    super();
     return $self->collection($idkey)->{ $idkey->cubby }
         ||= $self->new_document($idkey);
 };
 
 # State transition = add new atom to inbox
-override absorb => sub {
+sub absorb {
     my ($self, $idkey, $atom, $meta) = @_;
     $meta ||= {};
     my $state = $self->retrieve($idkey);
@@ -45,7 +45,6 @@ override absorb => sub {
     push @{ $state->{inbox} ||= [] }, $atom;
     my $already = $state->{reducable_emitted};
     $state->{reducable_emitted} = 1;
-    super() unless $already;
     return 1;
 };
 
@@ -111,7 +110,7 @@ sub relock_expired {
     return $state;
 }
 
-override checkin => sub {
+sub checkin  {
     my ($self, $idkey, $uuid, $state) = @_;
 
     my $result = $self->update_and_unlock($idkey, $uuid, $state);
@@ -128,18 +127,17 @@ override checkin => sub {
         Replay::Message::ClearedState->new($idkey->hash_list),
     );
 
-    super();
     return;
 };
 
-override window_all => sub {
+sub window_all  {
     my ($self, $idkey) = @_;
     my $collection = $self->collection($idkey);
     return { map { $collection->{$_}{idkey}{key} => $collection->{$_}{canonical} }
             grep { 0 == index $_, $idkey->window_prefix } keys %{$collection} };
 };
 
-override revert => sub {
+sub revert  {
     my ($self, $idkey, $uuid) = @_;
     my $signature    = $self->state_signature($idkey, [$uuid]);
     my $unluuid      = $self->generate_uuid;
