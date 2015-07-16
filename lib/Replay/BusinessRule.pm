@@ -1,9 +1,51 @@
 package Replay::BusinessRule;
-
-use Replay::BaseBusinessRule;
+use Carp qw/croak carp/;
 use Moose;
-extends 'Replay::BaseBusinessRule';
 with 'Replay::Role::BusinessRule';
+
+has eventSystem => (is => 'ro', isa => 'Replay::EventSystem',);
+has reportEngine=> (is => 'ro', isa => 'Str',);
+has delivery => (is => 'ro', isa => 'CodeRef', required => 0,);
+# mapper
+# [string]
+has name => (is => 'ro', required => 1,);
+
+# [string]
+has version => (is => 'ro', isa => 'Str', default => '1',);
+
+
+
+has report_disposition => (is => 'ro', default => 0);
+
+# [boolean] function match ( message )
+sub match {
+    croak 'stub, implement match';
+}
+
+# [timeWindowIdentifier] function window ( message )
+sub window {
+    my ($self, $message) = @_;
+
+    # probably going to do soemthing with ->effectiveTime or ->receivedTime
+    return 'alltime';
+}
+
+# [list of Key=>message pairs] function key_value_set ( message )
+sub key_value_set {
+    croak 'stub, implement key_value_set';
+}
+
+# storage
+# [ compareFlag(-1,0,1) ] function compare ( messageA, messageB )
+sub compare {
+    return 0;
+}
+
+# reducer
+# [arrayRef of messages] function reduce (key, arrayref of messages)
+sub reduce {
+    croak 'stub, implement reduce';
+}
 
 our $VERSION = '0.02';
 
