@@ -17,7 +17,7 @@ has storageEngine =>
 
 has availableReportEngines => (
     is      => 'ro',
-    isa     => 'HashRef[Replay::Role::ReportEngine]',
+    isa     => 'HashRef[Object]',
     builder => '_build_availableReportEngines',
     lazy    => 1,
 );
@@ -36,6 +36,11 @@ sub _build_availableReportEngines
 
     foreach my $engine (keys %{ $self->config->{ReportEngines} }) {
 
+   unless($classname->does('Replay::Role::ReportEngine')){
+       my  $classname = $self->mode_class($engine);
+        croak $classname.q( -->Must use the Replay::Role::ReportEngin 'Role' );
+        
+    }    
         $hash_of_engines->{$engine} = $self->mode_class($engine)->new(
             config      => $self->config,
             ruleSource  => $self->ruleSource,
