@@ -1,4 +1,4 @@
-package Replay::BaseReportEngine;
+package Replay::Role::ReportEngine;
 
 use Moose::Role;
 use Digest::MD5 qw/md5_hex/;
@@ -32,7 +32,7 @@ has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
 has ruleSource => (is => 'ro', isa => 'Replay::RuleSource', required => 1);
 
 has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
-
+has mode => ( is => 'ro', isa => 'Str', required => 1 );
 # accessor - how to get the rule for an idkey
 sub rule {
     my ($self, $idkey) = @_;

@@ -32,9 +32,7 @@ has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
 has ruleSource => (is => 'ro', isa => 'Replay::RuleSource', required => 1);
 
 has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
-
 has mode => ( is => 'ro', isa => 'Str', required => 1 );
-
 # accessor - how to get the rule for an idkey
 sub rule {
     my ($self, $idkey) = @_;
@@ -42,7 +40,6 @@ sub rule {
     croak "No such rule $idkey->rule_spec" if not defined $rule;
     return $rule;
 }
-
 
 sub notify_purge {
     my ($self, $idkey, $part) = @_;
@@ -82,8 +79,7 @@ sub update {
     return unless $rule->can($part);
     return $self->delete_latest($idkey, $part)
         if 0 == scalar @state && defined $self->current($idkey);
-
-    $self->store($idkey, $rule->can($part)->($rule, @state));
+    $self->store($part, $idkey, $rule->can($part)->($rule, @state));
     $self->notify_new($idkey, $part);
 }
 
@@ -166,16 +162,16 @@ sub revision {
     return $self->current($idkey);
 }
 
-sub notify_freeze {
-    my ($self, $idkey, $part) = @_;
+sub freeze {
+    my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
         Replay::Message::Report::Freeze->new($idkey->marshall));
 }
 
-sub notify_copydomain {
-    my ($self) = @_;
+sub copydomain {
+    my ($self, $idkey) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Report::CopyDomain->new());
+        Replay::Message::Report::CopyDomain->new($idkey->marshall));
 }
 
 sub checkpoint {
@@ -209,11 +205,11 @@ __END__
 
 =head1 NAME
 
-Replay::Role::ReportEngine - wrappers for the storage engine implimentation
+Replay::BaseReportEngine - wrappers for the storage engine implimentation
 
 =head1 VERSION
 
-Version 0.03
+Version 0.01
 
 =head1 SYNOPSIS
 
@@ -367,42 +363,92 @@ report system when the specified time factor is reached.
   - None
 
 
-=head1 REPORT ENGINE IMPLIMENTATION METHODS 
+=head1 STORAGE ENGINE IMPLIMENTATION METHODS 
+
+These methods must be overridden by the specific implimentation
+
+They should call super() to cause the emit of control messages when they succeed
 
 =head2 (state) = retrieve ( idkey )
 
-Unconditionally return the entire state record 
+Unconditionally return the entire state document 
 
-=head2 (revision|undef) = current ( idkey )
+This includes all the components of the document model and is usually used internally
 
-if there is a valid current report for this key, return the number.
+This is expected to be something like:
 
-otherwise return undefined to indicate 404
+{ Timeblocks => [ ... ]
+, Ruleversions => [ { ...  }, { ... }, ... ]
+, Windows => [ ... ]
+, inbox => [ <unprocessed atoms> ]
+, desktop => [ <atoms in processing ]
+, canonical => [ a
+, locked => signature of a secret uuid with the idkey required to unlock.  presence indicates record is locked.
+, lockExpireEpoch => epoch time after which the lock has expired.  not presnet when not locked
+} 
 
-=head2 delete_latest_revision ( idkey )
+=head2 (success) = absorb ( idkey, message, meta )
 
-Remove the current revision from the report store.
+Insert a new atom into the indicated state, with metadata
 
-This implies that the entire node of the report tree should be
-destroyed if there are no frozen versions in it!
+append the new atom atomically to the 'inbox' in the state document referenced
+ensure the meta->{Windows} member are in the 'Windows' set in the state document referenced
+ensure the meta->{Ruleversions} members are in the 'Ruleversions' set in the state document referenced
+ensure the meta->{Timeblocks} members are in the 'Timeblocks' set in the state document referenced
 
-throw an exception if there's an error
 
-it is not an error if there is no current/latest revision
+=head2 (uuid, state) = checkout ( idkey, timeout )
 
-=head2 store( idkey, data=[...], formatted)
+if the record is locked already
+  if the lock is expired
+    lock with a new uuid
+      revert the state by reabsorbing the desktop to the inbox
+      clear desktop
+      clear lock
+      clear expire time
+  else 
+    return nothing
+else
+  lock the record atomically so no other processes may lock it with a uuid
+    move inbox to desktop
+    return the uuid and the new state
 
-store this data and formatted blob at this idkey for later retrieval
+=head2 revert  ( idkey, uuid )
 
-This always stores in the latest report revision!
+if the record is locked with this uuid
+  if the lock is not expired
+    lock the record with a new uuid
+      reabsorb the atoms in desktop
+      clear desktop
+      clear lock
+      clear expire time
+      return success
+  else 
+    return nothing, this isn't available for reverting
+else 
+  return nothing, this isn't available for reverting
 
-throw an exception if there is an error
+=head2 checkin ( idkey, uuid, state )
+
+if the record is locked, (expiration agnostic)
+  update the record with the new state
+  clear desktop
+  clear lock
+  clear expire time
+else
+  return nothing, we aren't allowed to do this
+
 
 =head1 INTERNAL METHODS
 
 =head2 rule(idkey)
 
 accessor to grab the rule object for a particular idkey
+
+=head2 stringtouch(structure)
+
+Attempts to concatenate q() with any non-references to make them strings so that
+the signature will be more canonical.
 
 =head2 delay_to_do_once(name, code)
 
