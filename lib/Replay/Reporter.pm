@@ -22,7 +22,7 @@ has reportEngine =>
 
 sub BUILD {
     my $self = shift;
-    $self->eventSystem->control->subscribe(
+    $self->eventSystem->report->subscribe(
         sub {
             $self->report_wrapper(@_);
         }
@@ -91,8 +91,7 @@ sub report_wrapper {
         $meta = $self->reportEngine->update_globsummary($idkey)
             if $type eq 'ReportNewSummary';
 
-        $self->eventSystem->emit(
-            'control',
+        $self->eventSystem->control->emit(
             Replay::Message::Reported->new(
                 $idkey->hash_list,
                 inReactionToType => $type,
@@ -102,8 +101,7 @@ sub report_wrapper {
     }
     catch {
         carp "REPORTING EXCEPTION: $_";
-        $self->eventSystem->emit(
-            'control',
+        $self->eventSystem->control->emit(
             Replay::Message::ReporterException->new(
                 ($idkey ? $idkey->hash_list : ()),
                 exception => (blessed $_ && $_->can('trace') ? $_->trace->as_string : $_),
@@ -229,14 +227,14 @@ override reduce => sub {
     foreach my $index (0 .. $#atoms) {
         if (ruleState($index, [@atoms], 'NewStateA')) {
             $emitter->emit(
-                'derived',
+                'map',
                     MessageType => 'StateATypeOfMessage',
                     relayed => "data for state A" 
             );
         }
         if (ruleState($index, [@atoms], 'NewStateB')) {
             $emitter->emit(
-                'derived',
+                'map',
                     MessageType => 'StateBTypeOfMessage',
                     relayed => "data for state B"
             );

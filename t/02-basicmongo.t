@@ -7,7 +7,8 @@ use base qw/Replay::Test/;
 sub t_environment_reset : Test(startup) {
     my $self   = shift;
     my $replay = $self->{replay};
-    `rm -rf $self->storedir`;
+    warn "STOREDIR " . $self->{storedir};
+    `rm -rf $self->{storedir}`;
     $replay->storageEngine->engine->db->drop;
 }
 

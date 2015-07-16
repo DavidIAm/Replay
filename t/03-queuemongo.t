@@ -4,13 +4,14 @@ use lib 't/lib';
 
 use base qw/Replay::Test Test::Class/;
 use JSON;
+use YAML;
 use File::Slurp;
 use Test::Most;
 
 sub t_environment_reset : Test(startup => 2) {
     my $self   = shift;
     my $replay = $self->{replay};
-    `rm -rf $self->{storeYir}`;
+    `rm -rf $self->{storedir}`;
     ok !-d $self->{storedir};
     ok -f $self->{idfile};
     $replay->storageEngine->engine->db->drop;
@@ -18,7 +19,7 @@ sub t_environment_reset : Test(startup => 2) {
 
 sub a_replay_config : Test(startup => 2) {
     my $self = shift;
-    $self->{identity} = from_json read_file('/etc/cargotel/testidentity');
+    $self->{identity} = YAML::LoadFile('/etc/cargotel/testidentity');
     ok exists $self->{identity}{access};
     ok exists $self->{identity}{secret};
     $self->{idfile}   = '/etc/cargotel/testidentity';
@@ -28,8 +29,8 @@ sub a_replay_config : Test(startup => 2) {
         stage         => 'testscript-03-' . $ENV{USER},
         StorageEngine => {
             Mode      => 'Mongo',
-            MongoUser => 'replayuser',
-            MongoPass => 'replaypass',
+            User => 'replayuser',
+            Pass => 'replaypass',
         },
         EventSystem => {
             Mode        => 'AWSQueue',

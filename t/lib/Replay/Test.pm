@@ -50,11 +50,13 @@ has '+name' => (default => __PACKAGE__,);
 
 sub match {
     my ($self, $message) = @_;
+warn "Matching against " . $message->{MessageType};
     return $message->{MessageType} eq 'interesting';
 }
 
 sub window {
     my ($self, $message) = @_;
+warn "Window against " .substr((keys %{ $message->{Message} })[0], 0, 1);
     return 'early'
         if substr((keys %{ $message->{Message} })[0], 0, 1) =~ /[abcdefghijklm]/i;
     return 'late';
@@ -69,6 +71,7 @@ sub key_value_set {
             push @keyvalues, $key, $_;
         }
     }
+warn "KEYVALUESET @keyvalues";
     return @keyvalues;
 }
 
@@ -80,6 +83,7 @@ sub compare {
 
 sub reduce {
     my ($self, $emitter, @state) = @_;
+warn "REDUCING @state";
     warn __FILE__ . ": PURGE FOUND" if grep { $_ eq 'purge' } @state;
     return                          if grep { $_ eq 'purge' } @state;
     return List::Util::reduce { $a + $b } @state;
@@ -268,7 +272,6 @@ sub testloop : Test(no_plan) {
     # automatically stop once we get both new canonicals
     my $globsumcount    = -3;
     my $secglobsumcount = -2;
-    my $purgecount      = 0;
     use Scalar::Util;
     $replay->eventSystem->origin->subscribe(
         sub {
@@ -279,17 +282,26 @@ sub testloop : Test(no_plan) {
                 . $message->{MessageType} . "\n";
         }
     );
-    $replay->eventSystem->derived->subscribe(
+    $replay->eventSystem->map->subscribe(
         sub {
             my ($message) = @_;
 
             warn __FILE__
-                . ": This is a derived message of type "
+                . ": This is a map message of type "
+                . $message->{MessageType} . "\n";
+        }
+    );
+    $replay->eventSystem->reduce->subscribe(
+        sub {
+            my ($message) = @_;
+
+            warn __FILE__
+                . ": This is a reduce message of type "
                 . $message->{MessageType} . "\n";
         }
     );
 
-    # We regulate our operations by watching the control channel
+    # We regulate our operations by watching the report channel
     # Once we know the proper things have happened we can emit
     # more or stop the test.
     my $keyA = Replay::IdKey->new(
@@ -300,16 +312,13 @@ sub testloop : Test(no_plan) {
         { name => 'TESTRULE', version => 1, window => 'late', key => 't' });
     my $keyX = Replay::IdKey->new(
         { name => 'TESTRULE', version => 1, window => 'late', key => 'x' });
-    $replay->eventSystem->control->subscribe(
+
+    $replay->eventSystem->report->subscribe(
         sub {
             my ($message) = @_;
 
-            #This just suppresses noise, because there are many fetches
-            return if $message->{MessageType} eq 'Fetched';
-
-            # so the tester can watch them fly by
             warn __FILE__
-                . ": This is a control message of type "
+                . ": This is a report message of type "
                 . $message->{MessageType} . "\n";
 
             # The behavior of this return plus the globsumcount increment is that
@@ -335,19 +344,20 @@ sub testloop : Test(no_plan) {
 
             # Get a report for key a
             is_deeply [ $replay->reportEngine->delivery($keyA) ],
-                [ { FORMATTED => '["15"]', EMPTY => 0 } ];
+                [ { FORMATTED => '["15"]', TYPE => 'text/plain', EMPTY => 0 } ];
 
             # Get a formatted summary for window early
             # (the key part is ignored in this idkey!)
             is_deeply [ $replay->reportEngine->summary($keyA) ],
-                [ { FORMATTED => '[55]', EMPTY => 0 } ];
+                [ { FORMATTED => '[55]', TYPE => 'text/plain', EMPTY => 0 } ];
 
-            $replay->eventSystem->control->subscribe(
+            warn __FILE__ . ": Starting subscribe to report for finishup";
+
+            $replay->eventSystem->report->subscribe(
                 sub {
                     my ($message) = @_;
 
-                    return             if $message->{MessageType} eq 'Fetched';
-                    $purgecount++      if $message->{MessageType} eq 'ReportPurgedDelivery';
+                    warn "Final subscribe message type " . $message->{MessageType};
                     $secglobsumcount++ if $message->{MessageType} eq 'ReportNewGlobSummary';
                     return             if $secglobsumcount;
 
@@ -356,10 +366,11 @@ sub testloop : Test(no_plan) {
                 }
             );
 
-            $replay->eventSystem->derived->emit($self->{funMessage});
-            $replay->eventSystem->derived->emit($self->{purgeMessage});
+            $replay->eventSystem->map->emit($self->{funMessage});
+            $replay->eventSystem->map->emit($self->{purgeMessage});
         }
     );
+
 
     my $time = gettimeofday;
 
@@ -368,26 +379,24 @@ sub testloop : Test(no_plan) {
         cb    => sub {
             warn "EMITTING MESSAGES NOW";
 
-            $replay->eventSystem->derived->emit($self->{funMessage});
-            $replay->eventSystem->derived->emit($self->{secondMessage});
-            $replay->eventSystem->derived->emit($self->{lateMessage});
+            $replay->eventSystem->map->emit($self->{funMessage});
+            $replay->eventSystem->map->emit($self->{secondMessage});
+            $replay->eventSystem->map->emit($self->{lateMessage});
         }
     );
 
     $replay->eventSystem->run;
 
-    ok $purgecount, "we did get a purge when expected";
-
     is_deeply [ $replay->reportEngine->delivery($keyA) ],
-        [ { FORMATTED => '["30"]', EMPTY => 0 } ], 'doubled on extra insert';
+        [ { FORMATTED => '["30"]', TYPE => 'text/plain', EMPTY => 0 } ], 'doubled on extra insert';
 
     is_deeply [ $replay->reportEngine->delivery($keyC) ], [ { EMPTY => 1 } ],
         'purged data returns empty serialization';
 
     is_deeply [ $replay->reportEngine->summary($keyT) ],
-        [ { EMPTY => 0, FORMATTED => '["150"]' } ], 'expected summary';
+        [ { EMPTY => 0, TYPE => 'text/plain', FORMATTED => '["150"]' } ], 'expected summary';
     is_deeply [ $replay->reportEngine->globsummary($keyT) ],
-        [ { EMPTY => 0, FORMATTED => '[180]' } ], 'expected globsummary';
+        [ { EMPTY => 0, TYPE => 'text/plain', FORMATTED => '[180]' } ], 'expected globsummary';
 
 }
 

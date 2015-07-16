@@ -213,7 +213,7 @@ sub reduce {
                     || ())
                 {
                     $emitter->emit(
-                        'derived',
+                        'map',
                         Replay::Message::At::SendMessageNow->new(
                             sendtime => $time,
                             atdomain => $domain,

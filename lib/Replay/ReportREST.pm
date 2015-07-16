@@ -42,14 +42,14 @@ app->stash(
 
 under '/replay/reports';
 
-get '/:domain/:name/:version/:window/:key' => {
+get '/domain/:domain/rule/:name/version/:version/window/:window/key/:key/rev/:rev' => {
     domain  => 'empty',
     name    => 'empty',
     version => 'empty',
     window  => 'empty',
     key     => 'empty',
     rev     => 'empty'
-  } => sub {
+  } => my $reportgetter = sub {
     my $c = shift;
     $c->stash( 'rev', $c->req->query_params->param('rev')) if $c->req->query_params->param('rev');
     my $idkey = idkey_from_stash($c);
@@ -139,6 +139,15 @@ get '/:domain/:name/:version/:window/:key' => {
     );
 
   };
+
+get '/:domain/:name/:version/:window/:key' => {
+    domain  => 'empty',
+    name    => 'empty',
+    version => 'empty',
+    window  => 'empty',
+    key     => 'empty',
+    rev     => 'empty'
+  } => $reportgetter;
 
 sub idkey_from_stash {
     my $c = shift;

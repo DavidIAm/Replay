@@ -39,7 +39,7 @@ my $emitter = new Replay::DelayedEmitter(
 );
 
 $emitter->emit('origin',  q(new data));
-$emitter->emit('derived', q(derivative data));
+$emitter->emit('map', q(derivative data));
 
 if (success) {
     $emitter->release();
@@ -61,7 +61,7 @@ We didn't process this atom.  Give it back to the inbox.
 =head2 emit(message)
 =head2 emit(channel, message)
 
-Buffer up an emit for the appropriate channel (derived is default)
+Buffer up an emit for the appropriate channel (map is default)
 
 =head2 release
 

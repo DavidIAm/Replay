@@ -28,12 +28,26 @@ has control => (
     lazy    => 1,
     clearer => 'clear_control',
 );
-has derived => (
+has map => (
     is      => 'rw',
     isa     => 'Object',
-    builder => '_build_derived',
+    builder => '_build_map',
     lazy    => 1,
-    clearer => 'clear_derived',
+    clearer => 'clear_map',
+);
+has reduce => (
+    is      => 'rw',
+    isa     => 'Object',
+    builder => '_build_reduce',
+    lazy    => 1,
+    clearer => 'clear_reduce',
+);
+has report => (
+    is      => 'rw',
+    isa     => 'Object',
+    builder => '_build_report',
+    lazy    => 1,
+    clearer => 'clear_report',
 );
 has origin => (
     is      => 'rw',
@@ -49,12 +63,26 @@ has originsniffer => (
     lazy    => 1,
     clearer => 'clear_origin_sniffer',
 );
-has derivedsniffer => (
+has mapsniffer => (
     is      => 'rw',
     isa     => 'Object',
-    builder => '_build_derived_sniffer',
+    builder => '_build_map_sniffer',
     lazy    => 1,
-    clearer => 'clear_derived_sniffer',
+    clearer => 'clear_map_sniffer',
+);
+has reducesniffer => (
+    is      => 'rw',
+    isa     => 'Object',
+    builder => '_build_reduce_sniffer',
+    lazy    => 1,
+    clearer => 'clear_reduce_sniffer',
+);
+has reportsniffer => (
+    is      => 'rw',
+    isa     => 'Object',
+    builder => '_build_report_sniffer',
+    lazy    => 1,
+    clearer => 'clear_report_sniffer',
 );
 has mode => (
     is       => 'ro',
@@ -82,7 +110,9 @@ sub initialize {
     # initialize our channels
     $self->control->bound_queue;
     $self->origin->bound_queue;
-    $self->derived->bound_queue;
+    $self->map->bound_queue;
+    $self->reduce->bound_queue;
+    $self->report->bound_queue;
     return;
 }
 
@@ -145,9 +175,13 @@ sub stop {
 sub clear {
     my ($self) = @_;
     $self->clear_control;
-    $self->clear_derived;
+    $self->clear_map;
+    $self->clear_reduce;
+    $self->clear_report;
     $self->clear_origin;
-    $self->clear_derived_sniffer;
+    $self->clear_map_sniffer;
+    $self->clear_reduce_sniffer;
+    $self->clear_report_sniffer;
     $self->clear_origin_sniffer;
     my $class = 'Replay::EventSystem::'.$self->config->{EventSystem}->{Mode};
     $class->done;
@@ -180,7 +214,8 @@ use EV;
 sub poll {
     my ($self, @purposes) = @_;
     if (0 == scalar @purposes) {
-        @purposes = qw/origin derived control derivedsniffer originsniffer/;
+        @purposes = qw/origin map reduce report control mapsniffer
+        reducesniffer reportsniffer originsniffer/;
     }
     my $activity = 0;
     foreach my $purpose (@purposes) {
@@ -282,14 +317,34 @@ sub _build_control {    ## no critic (ProhibitUnusedPrivateSubroutines)
     return $self->_build_queue('control', 'fanout');
 }
 
-sub _build_derived_sniffer {   ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_reduce_sniffer {   ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    return $self->_build_queue('derived', 'fanout');
+    return $self->_build_queue('reduce', 'fanout');
 }
 
-sub _build_derived {           ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_report_sniffer {   ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    return $self->_build_queue('derived', 'topic');
+    return $self->_build_queue('report', 'fanout');
+}
+
+sub _build_map_sniffer {   ## no critic (ProhibitUnusedPrivateSubroutines)
+    my ($self) = @_;
+    return $self->_build_queue('map', 'fanout');
+}
+
+sub _build_map {           ## no critic (ProhibitUnusedPrivateSubroutines)
+    my ($self) = @_;
+    return $self->_build_queue('map', 'topic');
+}
+
+sub _build_reduce {           ## no critic (ProhibitUnusedPrivateSubroutines)
+    my ($self) = @_;
+    return $self->_build_queue('reduce', 'topic');
+}
+
+sub _build_report {           ## no critic (ProhibitUnusedPrivateSubroutines)
+    my ($self) = @_;
+    return $self->_build_queue('report', 'topic');
 }
 
 sub _build_origin {            ## no critic (ProhibitUnusedPrivateSubroutines)
@@ -328,7 +383,7 @@ The event system has three logical channels of events
 
  Origin - Original external events that are entering the system
  Control - Internal control messages usually about engine state transitions
- Derived - Events that express application state transitions
+ map - Events that express application state transitions
 
 =head1 Communication Channel API
 
@@ -411,9 +466,9 @@ call to clear all of the subscriptions from memory
 
 call to access the origin purpose channel
 
-=head2 derived
+=head2 map
 
-call to access the derived purpose channel
+call to access the map purpose channel
 
 =head2 emit( purpose, message )
 
@@ -488,7 +543,7 @@ Versions is governed by this Artistic License. By using, modifying or
 distributing the Package, you accept this license. Do not use, modify,
 or distribute the Package, if you do not accept this license.
 
-If your Modified Version has been derived from a Modified Version made
+If your Modified Version has been derived Modified Version made
 by someone other than you, you are nevertheless required to ensure that
 your Modified Version complies with the requirements of this license.
 

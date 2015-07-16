@@ -40,7 +40,7 @@ sub BUILD {
             catch {
                 carp q(unable to push timeblock on message?) . $message;
             };
-            $self->eventSystem->derived->emit($message);
+            $self->eventSystem->map->emit($message);
         }
     );
     return;

@@ -23,7 +23,7 @@ sub BUILD {
     if (not -d $self->directory) {
         mkdir $self->directory;
     }
-    return $self->eventSystem->control->subscribe(
+    return $self->eventSystem->report->subscribe(
         sub {
             my $message = shift;
 
@@ -85,7 +85,7 @@ report and summary processing
 
 =head2 BUILD
 
-subscribes to control channel
+subscribes to report channel
 
 =head2 deliver
 

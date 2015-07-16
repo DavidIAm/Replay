@@ -56,15 +56,31 @@ sub notify_purge {
 
 sub notify_new {
     my ($self, $idkey, $part) = @_;
-    return $self->eventSystem->control->emit(
+    $self->notify_new_report($idkey, $part);
+    $self->notify_new_control($idkey, $part);
+}
+
+sub notify_new_generic {
+    my ($self, $channel, $idkey, $part) = @_;
+    return $channel->emit(
         Replay::Message::Report::NewDelivery->new($idkey->marshall))
         if ($part eq 'delivery');
-    return $self->eventSystem->control->emit(
+    return $channel->emit(
         Replay::Message::Report::NewSummary->new($idkey->marshall))
         if ($part eq 'summary');
-    return $self->eventSystem->control->emit(
+    return $channel->emit(
         Replay::Message::Report::NewGlobSummary->new($idkey->marshall))
         if ($part eq 'globsummary');
+}
+
+sub notify_new_report {
+  my ($self, $idkey, $part) = @_;
+  $self->notify_new_generic($self->eventSystem->report, $idkey, $part);
+}
+sub notify_new_control {
+  my ($self, $idkey, $part) = @_;
+  $self->notify_new_generic($self->eventSystem->control, $idkey, $part);
+
 }
 
 sub delete_latest {

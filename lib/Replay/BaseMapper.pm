@@ -31,7 +31,7 @@ sub BUILD {
     my $self = shift;
     croak q(need either storageEngine or storageClass)
         if !$self->storageEngine && !$self->storageClass;
-    return $self->eventSystem->derived->subscribe(
+    return $self->eventSystem->map->subscribe(
         sub {
             $self->map(@_);
         }
@@ -126,7 +126,7 @@ adds to the set of Ruleversions as relevant
 
 =head2 BUILD
 
-subscribes to the derived channel
+subscribes to the map channel
 
 =head2 build_storage_sink
 

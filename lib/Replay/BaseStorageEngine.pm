@@ -93,8 +93,7 @@ sub checkout {
             q(Unable to obtain lock because the current one is locked and unexpired ())
             . $idkey->cubby
             . qq(\)\n);
-        $self->eventSystem->emit(
-            'control',
+        $self->eventSystem->control->emit(
             Replay::Message::NoLock->new( $idkey->marshall ),
         );
         return;
@@ -111,8 +110,7 @@ sub checkout {
     my $relockresult
         = $self->relock($idkey, $unlsignature, $newsignature, $timeout);
 
-    $self->eventSystem->emit(
-        'control',
+    $self->eventSystem->control->emit(
         Replay::Message::NoLockPostRevert->new($idkey->marshall),
     );
     if (not defined $relockresult) {
@@ -129,8 +127,7 @@ sub checkout {
         return $newuuid, $lockresult;
     }
 
-    $self->eventSystem->emit(
-        'control',
+    $self->eventSystem->control->emit(
         Replay::Message::NoLockPostRevertRelock->new($idkey->marshall),
     );
 
@@ -139,14 +136,14 @@ sub checkout {
         . q(\) IDKEY \()
         . $idkey->cubby . q(\));
 
-    $self->eventSystem->emit('control', 
+    $self->eventSystem->control->emit(
         Replay::Message::Locked->new($idkey->marshall));
     return;
 }
 
 sub checkin {
     my ($self, $idkey) = @_;
-    return $self->eventSystem->emit('control', 
+    return $self->eventSystem->control->emit(
         Replay::Message::Unlocked->new($idkey->marshall));
 }
 
@@ -157,25 +154,27 @@ sub revert {
     my $unlsignature = $self->state_signature($idkey, [$unluuid]);
     my $state = $self->relock($idkey, $signature, $unlsignature, $self->timeout);
     carp q(tried to do a revert but didn't have a lock on it) if not $state;
-    $self->eventSystem->emit('control',
+    $self->eventSystem->control->emit(
         Replay::Message::NoLockDuringRevert->new($idkey->marshall));
     return if not $state;
     $self->revert_this_record($idkey, $unlsignature, $state);
     my $result = $self->unlock($idkey, $unluuid, $state);
     return unless defined $result;
-    return $self->eventSystem->emit('control', 
+    return $self->eventSystem->control->emit(
         Replay::Message::Reverted->new($idkey->marshall));
 }
 
 sub retrieve {
     my ($self, $idkey) = @_;
-    return $self->eventSystem->emit('control',
+    return $self->eventSystem->control->emit(
         Replay::Message::Fetched->new($idkey->marshall));
 }
 
 sub absorb {
     my ($self, $idkey) = @_;
-    return $self->eventSystem->emit('control',
+    return $self->eventSystem->control->emit(
+        Replay::Message::Reducable->new($idkey->marshall));
+    return $self->eventSystem->reduce->emit(
         Replay::Message::Reducable->new($idkey->marshall));
 }
 
@@ -257,7 +256,7 @@ sub fetch_transitional_state {
     };
 
     # notify interested parties
-    $self->eventSystem->emit('control',
+    $self->eventSystem->control->emit(
         Replay::Message::Reducing->new($idkey->marshall));
 
     # return uuid and list
@@ -283,11 +282,13 @@ sub store_new_canonical_state {
     foreach my $atom (@{ $emitter->atomsToDefer }) {
         $self->absorb($idkey, $atom, {});
     }
-    $self->eventSystem->emit('control',
+    $self->eventSystem->report->emit(
+        Replay::Message::NewCanonical->new($idkey->marshall));
+    $self->eventSystem->control->emit(
         Replay::Message::NewCanonical->new($idkey->marshall));
     if (scalar @{ $newstate->{inbox} || [] })
     {    # renotify reducable if inbox has entries now
-        $self->eventSystem->emit('control',
+        $self->eventSystem->control->emit(
             Replay::Message::Reducable->new($idkey->marshall));
     }
     return $newstate;    # release pending messages
@@ -303,20 +304,20 @@ sub fetch_canonical_state {
         carp "dump of idkey=" . Dumper($idkey);
         carp "canonical corruption $cubby->{canonSignature} vs. " . $e;
     }
-    $self->eventSystem->emit('control',
+    $self->eventSystem->control->emit(
         Replay::Message::Fetched->new($idkey->marshall));
     return @{ $cubby->{canonical} || [] };
 }
 
 sub window_all {
     my ($self, $idkey) = @_;
-    return $self->eventSystem->emit('control',
+    return $self->eventSystem->control->emit(
         Replay::Message::WindowAll->new($idkey->marshall));
 }
 
 sub find_keys_need_reduce {
     my ($self, $idkey) = @_;
-    return $self->eventSystem->emit('control',
+    return $self->eventSystem->control->emit(
         Replay::Message::FoundKeysForReduce->new($idkey->marshall));
 }
 

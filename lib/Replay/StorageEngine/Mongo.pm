@@ -194,7 +194,7 @@ override checkout => sub {
             q(Unable to obtain lock because the current one is locked and unexpired ())
             . $idkey->cubby
             . qq(\)\n);
-        $self->eventSystem->emit('control',
+        $self->eventSystem->control->emit(
                 Replay::Message::NoLock->new($idkey->marshall),
         );
         return;
@@ -211,8 +211,7 @@ override checkout => sub {
     my $relockresult
         = $self->relock($idkey, $unlsignature, $newsignature, $timeout);
 
-    $self->eventSystem->emit(
-        'control',
+    $self->eventSystem->control->emit(
             Replay::Message::NoLockPostRevert->new($idkey->marshall),
     );
     if (not defined $relockresult) {
@@ -229,8 +228,7 @@ override checkout => sub {
         return $newuuid, $lockresult;
     }
 
-    $self->eventSystem->emit(
-        'control',
+    $self->eventSystem->control->emit(
             Replay::Message::NoLockPostRevertRelock->new($idkey->marshall),
     );
     carp q(checkout after revert and relock failed.  Look in COLLECTION \()
@@ -256,8 +254,7 @@ sub relock_i_match_with {
         }
     );
     carp q(tried to do a revert but didn't have a lock on it) if not $state;
-    $self->eventSystem->emit(
-        'control',
+    $self->eventSystem->control->emit(
             Replay::Message::NoLockDuringRevert->new($idkey->marshall),
     );
     return if not $state;
@@ -316,7 +313,7 @@ override checkin => sub {
         )
         )
     {
-        $self->eventSystem->emit('control',
+        $self->eventSystem->control->emit(
                 Replay::Message::ClearedState->new( $idkey->marshall ),
         );
     }

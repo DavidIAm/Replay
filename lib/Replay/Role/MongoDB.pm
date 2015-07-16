@@ -152,8 +152,7 @@ sub relock_i_match_with {
         }
     );
     carp q(tried to do a revert but didn't have a lock on it) if not $state;
-    $self->eventSystem->emit(
-        'control',
+    $self->eventSystem->control->emit(
         MessageType => 'NoLockDuringRevert',
         $idkey->hash_list,
     );

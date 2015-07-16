@@ -215,7 +215,7 @@ $replay->eventSystem->origin->subscribe(
             . $message->{MessageType} . "\n";
     }
 );
-$replay->eventSystem->derived->subscribe(
+$replay->eventSystem->map->subscribe(
     sub {
         my ($message) = @_;
 
@@ -243,8 +243,8 @@ use AnyEvent;
 my $e = AnyEvent->timer(
     after => 1,
     cb    => sub {
-        $replay->eventSystem->emit('derived', $funMessage);
-        $replay->eventSystem->emit('derived', $secondMessage);
+        $replay->eventSystem->map->emit($funMessage);
+        $replay->eventSystem->map->emit($secondMessage);
     }
 );
 $replay->eventSystem->run;

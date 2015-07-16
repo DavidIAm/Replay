@@ -7,7 +7,7 @@ requires(qw(emit subscribe poll));
 
 our $VERSION = '0.02';
 
-# purpose is the channel name, such as 'control', 'origin', or 'derived' but
+# purpose is the channel name, such as 'control', 'origin', or 'map' but
 # may be arbitrary
 has purpose => (is => 'ro', isa => 'Str', required => 1);
 

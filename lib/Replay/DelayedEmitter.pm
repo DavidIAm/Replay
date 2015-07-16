@@ -18,10 +18,26 @@ sub defer {
     return;
 }
 
-sub derived {
+sub map {
     my $self = shift;
     return Replay::DelayedEmitter::Channeled->new(
-        channel => 'derived',
+        channel => 'map',
+        emitter => $self
+    );
+}
+
+sub reduce {
+    my $self = shift;
+    return Replay::DelayedEmitter::Channeled->new(
+        channel => 'reduce',
+        emitter => $self
+    );
+}
+
+sub report {
+    my $self = shift;
+    return Replay::DelayedEmitter::Channeled->new(
+        channel => 'report',
         emitter => $self
     );
 }
@@ -50,7 +66,7 @@ sub emit {
     # handle single argument construct
     if (blessed $channel && $channel->isa('Replay::Message')) {
         $message = $channel;
-        $channel = 'derived';
+        $channel = 'map';
     }
  # warn(" Replay::DelayedEmitter emit $channel $message");
     $message = Replay::Message->new($message) unless blessed $message;
@@ -102,7 +118,7 @@ my $emitter = new Replay::DelayedEmitter(
 );
 
 $emitter->emit('origin',  "new data");
-$emitter->emit('derived', "derivative data");
+$emitter->emit('map', "derivative data");
 
 if (success) {
     $emitter->release();
@@ -124,9 +140,9 @@ on the next go around immediately
 
 =head2 emit(channel, message)
 
-=head2 derived
+=head2 map
 
-returns a similar object configured to send to the derived channel the message 
+returns a similar object configured to send to the map channel the message 
 passed to its ->emit method
 
 =head2 control
@@ -142,7 +158,7 @@ passed to its ->emit method
 =head2 emit(message)
 =head2 emit(channel, message)
 
-Buffer up an emit for the appropriate channel (derived is default)
+Buffer up an emit for the appropriate channel (map is default)
 
 =head2 release
 

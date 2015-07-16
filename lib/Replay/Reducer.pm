@@ -87,8 +87,7 @@ sub reduce_wrapper {
         carp "REDUCING EXCEPTION: $_";
         carp "Reverting state because there was a reduce exception\n";
         $self->storageEngine->revert($idkey, $uuid);
-        $self->eventSystem->emit(
-            'control',
+        $self->eventSystem->control->emit(
             Replay::Message::ReducerException->new(
                 $self->idkey->hash_list,
                 exception => (blessed $_ && $_->can('trace') ? $_->trace->as_string : $_),
@@ -214,7 +213,7 @@ override reduce => sub {
     foreach my $index (0 .. $#atoms) {
         if (ruleState($index, [@atoms], 'NewStateA')) {
             $emitter->emit(
-                'derived',
+                'map',
                     Replay::Message::StateATypeOfMessage->new(
                     relayed => "data for state A" 
                     ),
@@ -222,7 +221,7 @@ override reduce => sub {
         }
         if (ruleState($index, [@atoms], 'NewStateB')) {
             $emitter->emit(
-                'derived',
+                'map',
                     Replay::Message::StateBTypeOfMessage->new(
                     relayed => "data for state B"
                     ),

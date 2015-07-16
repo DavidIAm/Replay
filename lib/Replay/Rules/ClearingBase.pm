@@ -123,7 +123,7 @@ sub reduce {
             my $c = $atom->{class};
             $emitter->emit($atom->{channel}, my $sent = $c->new($atom->{payload}));
             $emitter->emit(
-                'derived',
+                'map',
                 Replay::Message::At::SentMessageAt->new(
                     requested => $atom->{sendat},
                     actual    => scalar(gettimeofday),
@@ -144,7 +144,7 @@ sub reduce {
         @atoms_to_keep)
     {
         $emitter->emit(
-            'derived',
+            'map',
             Replay::Message::At::SendMessageWhen->new(
                 newmin   => $newmin,
                 newmax   => $newmax,
@@ -214,7 +214,7 @@ sorts events by their send time
 maintains requests
 
 If it finds a PENDING_TYPE  with requested not set in the state list
-transmits an derived message 'SendMessageWhen' with the window, domain,
+transmits an map message 'SendMessageWhen' with the window, domain,
 and actuation time, and sets 'requested'
 
 transmits messages

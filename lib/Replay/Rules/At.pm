@@ -133,7 +133,7 @@ sub reduce {
             my $c = $atom->{class};
             $emitter->emit($atom->{channel}, my $sent = $c->new($atom->{payload}));
             $emitter->emit(
-                'derived',
+                'map',
                 Replay::Message::At::SentMessageAt->new(
                     requested => $atom->{sendat},
                     actual    => scalar(gettimeofday),
@@ -154,7 +154,7 @@ sub reduce {
         @atoms_to_keep)
     {
         $emitter->emit(
-            'derived',
+            'map',
             Replay::Message::At::SendMessageWhen->new(
                 newmin   => $newmin,
                 newmax   => $newmax,

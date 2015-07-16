@@ -202,7 +202,7 @@ Version 0.01
 
 =head1 SYNOPSIS
 
-This is a message data type envelop used for most messages on the derived channel
+This is a message data type envelop used for most messages on the map channel
 
 effectiveTime - the time this event refers to
 receivedTime - the time the message entered the system
