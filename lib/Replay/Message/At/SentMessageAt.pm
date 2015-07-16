@@ -6,7 +6,7 @@ use MooseX::MetaDescription::Meta::Trait;
 
 our $VERSION = '0.02';
 
-with(qw(Replay::Envelope));
+with(qw(Replay::Role::Envelope));
 
 has '+MessageType' => (default => 'SendMessageAt',);
 has 'requested' => (

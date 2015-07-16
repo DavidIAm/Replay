@@ -79,9 +79,11 @@ sub filehandle {
     return $self->filehandles->{ $self->timeblock }
         if exists $self->filehandles->{ $self->timeblock }
         && -f $self->filehandles->{ $self->timeblock };
+    my $current_umask = umask;
     umask $UMASK;    # not entirely sure why this works
     open $self->filehandles->{ $self->timeblock }, '>>', $self->path
         or confess q(Unable to open ) . $self->path . q( for append);
+    umask $current_umask;
     return $self->filehandles->{ $self->timeblock };
 }
 

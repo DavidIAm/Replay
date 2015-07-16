@@ -1,6 +1,6 @@
 package Replay::Message::Clearing::Error;
 use Moose;
-with qw/Replay::Envelope/;
+with qw/Replay::Role::Envelope/;
 has '+name'    => (default => 'Primera');
 has '+version' => (default => 1);
 has 'decided'  => (

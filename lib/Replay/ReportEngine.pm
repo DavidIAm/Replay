@@ -1,6 +1,6 @@
 package Replay::ReportEngine;
 
-use Replay::BaseReportEngine;
+use Replay::ReportEngine::Selector;
 use Moose;
 use Try::Tiny;
 use Carp qw/croak/;
@@ -9,82 +9,77 @@ use English qw/-no_match_vars/;
 our $VERSION = '0.03';
 
 has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
-has engine => (
-    is      => 'ro',
-    isa     => 'Replay::BaseReportEngine',
-    builder => '_build_engine',
-    lazy    => 1,
-);
-has mode => (
-    is       => 'ro',
-    isa      => 'Str',
-    required => 1,
-    builder  => '_build_mode',
-    lazy     => 1,
-);
+
 has ruleSource  => (is => 'ro', isa => 'Replay::RuleSource',  required => 1,);
 has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1,);
 has storageEngine =>
     (is => 'ro', isa => 'Replay::StorageEngine', required => 1,);
 
+has reportEngineSelector => (
+    is      => 'ro',
+    isa     => 'Replay::ReportEngine::Selector',
+    builder => '_build_report_selector',
+    lazy    => 1,
+);
+
 # Delegate the api points
 sub delivery {
     my ($self, $idkey) = @_;
-    return $self->engine->delivery($idkey->delivery);
+    return $self->engine($idkey)->delivery($idkey->delivery);
 }
 
 sub summary {
     my ($self, $idkey) = @_;
-    return $self->engine->summary($idkey->summary);
+    return $self->engine($idkey)->summary($idkey->summary);
 }
 
 sub globsummary {
     my ($self, $idkey) = @_;
-    return $self->engine->globsummary($idkey->globsummary);
+    return $self->engine($idkey)->globsummary($idkey->globsummary);
 }
 
 sub delivery_data {
     my ($self, $idkey) = @_;
-    return $self->engine->delivery_data($idkey->delivery);
+    return $self->engine($idkey)->delivery_data($idkey->delivery);
 }
 
 sub summary_data {
     my ($self, $idkey) = @_;
-    return $self->engine->summary_data($idkey->summary);
+    return $self->engine($idkey)->summary_data($idkey->summary);
 }
 
 sub globsummary_data {
     my ($self, $idkey) = @_;
-    return $self->engine->globsummary_data($idkey->globsummary);
+    return $self->engine($idkey)->globsummary_data($idkey->globsummary);
 }
 
 sub update_delivery {
     my ($self, $idkey) = @_;
-    return $self->engine->update_delivery($idkey,
+    return $self->engine($idkey)->update_delivery($idkey,
         $self->storageEngine->fetch_canonical_state($idkey));
 }
 
 sub update_summary {
     my ($self, $idkey) = @_;
-    return $self->engine->update_summary($idkey,
+    return $self->engine($idkey)->update_summary($idkey,
         $self->get_all_delivery_data($idkey));
 }
 
 sub update_globsummary {
     my ($self, $idkey) = @_;
-    return $self->engine->update_globsummary($idkey,
+    return $self->engine($idkey)->update_globsummary($idkey,
         $self->get_all_summary_data($idkey));
 }
 
 sub copydomain {
     my ($self, $idkey) = @_;
-    return $self->engine->copydomain($idkey);
+    return $self->engine($idkey)->copydomain($idkey);
 }
 
 sub get_all_delivery_data {
     my ($self, $idkey) = @_;
     my @out;
-    foreach my $delkey ($self->engine->delivery_keys($idkey->summary)) {
+    foreach my $delkey ($self->engine($idkey)->delivery_keys($idkey->summary)) {
         my $data = $self->delivery_data($delkey);
         next if $data->{EMPTY};
         push @out, $delkey->key, $data->{DATA};
@@ -95,7 +90,7 @@ sub get_all_delivery_data {
 sub get_all_summary_data {
     my ($self, $idkey) = @_;
     my @out;
-    foreach my $sumkey ($self->engine->summary_keys($idkey->globsummary)) {
+    foreach my $sumkey ($self->engine($idkey)->summary_keys($idkey->globsummary)) {
         my $data = $self->delivery_data($sumkey);
         next if $data->{EMPTY};
         push @out, $sumkey->window, $data->{DATA};
@@ -106,41 +101,32 @@ sub get_all_summary_data {
 sub freeze {
     confess "unimplimented";
     my ($self, $idkey) = @_;
-    $self->engine->freeze($idkey);
+    $self->engine($idkey)->freeze($idkey);
 }
 
 sub checkpoint {
     confess "unimplimented";
     my ($self, $attimefactor) = @_;
-    $self->engine->checkpoint($attimefactor);
+    foreach my $engine ($self->reportEngineSelector->all_engines) {
+      $engine->checkpoint($attimefactor);
+    }
 }
 
-sub _build_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
-    my $self      = shift;
-    my $classname = $self->mode;
-    return $classname->new(
-        config      => $self->config,
-        ruleSource  => $self->ruleSource,
-        eventSystem => $self->eventSystem,
-    );
+sub engine {
+    my ($self, $idkey) = @_;
+confess "No idkey, can't choose engine" unless defined $idkey;
+    my $disposition = $self->ruleSource->by_idkey($idkey)->report_disposition;
+    return $self->reportEngineSelector->select($disposition);
 }
 
-sub _build_mode {      ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_report_selector {   ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    if (not $self->config->{ReportEngine}->{Mode}) {
-        croak q(No ReportMode?);
-    }
-    my $class = 'Replay::ReportEngine::' . $self->config->{ReportEngine}->{Mode};
-    try {
-        eval "require $class"
-            or croak qq(error requiring class $class : ) . $EVAL_ERROR;
-    }
-    catch {
-        confess q(No such report engine mode available $_  )
-            . $self->config->{ReportEngine}->{Mode}
-            . " --> $_";
-    };
-    return $class;
+    return Replay::ReportEngine::Selector->new(
+        config        => $self->config,
+        ruleSource    => $self->ruleSource,
+        eventSystem   => $self->eventSystem,
+        storageEngine => $self->storageEngine,
+    );
 }
 
 1;
@@ -172,7 +158,7 @@ my $storage = Replay::ReportEngine->new(
        Mode => 'Memory' 
      },
      ReportEngine => { 
-       Mode => 'FileSystem', 
+       Mode => 'Filesystem', 
        reportFileSystemRoot => '/opt/reports/,
      }
    } 
@@ -376,10 +362,6 @@ delegate to the engine copyDomain
 
 create the appropriate engine (Replay::ReportEngine::MODE)
 
-=head2 _build_mode
-
-figure out what mode they're wanting config->ReportEngine->Mode
-
 =head2 delivery_data ( idkey )
 
 delegate to engine delivery_data
@@ -511,80 +493,3 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 =cut
 
 1;    # End of Replay
-
-=head1 STORAGE ENGINE MODEL ASSUMPTIONS
-
-IdKey: object that indicates all the axis of selection for the data
-requested Atom: defined by the rule being processed; storage engine
-shouldn't care about it.
-
-STATE DOCUMENT GENERAL TO STORAGE ENGINE
-
-inbox: [ Array of Atoms ] - freshly arrived atoms are stored here.
-canonical: [ Array of Atoms ] - the current reduced canonSignature:
-q(SIGNATURE) - a sanity check to see if this canonical has been mucked
-with Timeblocks: [ Array of input timeblock names ] Ruleversions:
-[ Array of objects like { name: <rulename>, version: <ruleversion> } ]
-
-STATE DOCUMENT SPECIFIC TO THIS IMPLIMENTATION
-
-db is determined by idkey->ruleversion collection is determined by
-idkey->collection idkey is determined by idkey->cubby
-
-desktop: [ Array of Atoms ] - the previously arrived atoms that are
-currently being processed locked: q(SIGNATURE) - if this is set, only a
-worker who knows the signature may update this lockExpireEpoch: TIMEINT -
-used in case of processing timeout to unlock the record
-
-STATE TRANSITIONS IN THIS IMPLEMENTATION
-
-checkout
-
-rename inbox to desktop so that any new absorbs don't get confused with
-what is being processed
-
-=head1 STORAGE ENGINE IMPLIMENTATION METHODS
-
-=head2 (state) = retrieve ( idkey )
-
-Unconditionally return the entire state record
-
-=head2 (success) = absorb ( idkey, message, meta )
-
-Insert a new atom into the indicated state
-
-=head2 (uuid, state) = checkout ( idkey, timeout )
-
-if the record is locked already
-  if the lock is expired
-    lock with a new uuid
-      revert the state by reabsorbing the desktop to the inbox clear
-      desktop clear lock clear expire time
-  else
-    return nothing
-else
-  lock the record atomically so no other processes may lock it with a uuid
-    move inbox to desktop return the uuid and the new state
-
-=head2 revert  ( idkey, uuid )
-
-if the record is locked with this uuid
-  if the lock is not expired
-    lock the record with a new uuid
-      reabsorb the atoms in desktop clear desktop clear lock clear
-      expire time
-  else
-    return nothing, this isn't available for reverting
-else
-  return nothing, this isn't available for reverting
-
-=head2 checkin ( idkey, uuid, state )
-
-if the record is locked, (expiration agnostic)
-  update the record with the new state clear desktop clear lock clear
-  expire time
-else
-  return nothing, we aren't allowed to do this
-
-=cut
-

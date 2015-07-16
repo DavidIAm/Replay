@@ -1,53 +1,20 @@
-package Replay::BusinessRule;
-use Carp qw/croak carp/;
-use Moose;
-with 'Replay::Role::BusinessRule';
+package Replay::Role::EventSystem;
 
-has eventSystem => (is => 'ro', isa => 'Replay::EventSystem',);
-has reportEngine=> (is => 'ro', isa => 'Str',);
-has delivery => (is => 'ro', isa => 'CodeRef', required => 0,);
-# mapper
-# [string]
-has name => (is => 'ro', required => 1,);
+# provides a base type to check communication channel implimentations against
 
-# [string]
-has version => (is => 'ro', isa => 'Str', default => '1',);
-
-
-
-has report_disposition => (is => 'ro', default => 0);
-
-# [boolean] function match ( message )
-sub match {
-    croak 'stub, implement match';
-}
-
-# [timeWindowIdentifier] function window ( message )
-sub window {
-    my ($self, $message) = @_;
-
-    # probably going to do soemthing with ->effectiveTime or ->receivedTime
-    return 'alltime';
-}
-
-# [list of Key=>message pairs] function key_value_set ( message )
-sub key_value_set {
-    croak 'stub, implement key_value_set';
-}
-
-# storage
-# [ compareFlag(-1,0,1) ] function compare ( messageA, messageB )
-sub compare {
-    return 0;
-}
-
-# reducer
-# [arrayRef of messages] function reduce (key, arrayref of messages)
-sub reduce {
-    croak 'stub, implement reduce';
-}
+use Moose::Role;
+requires(qw(emit subscribe poll));
 
 our $VERSION = '0.02';
+
+# purpose is the channel name, such as 'control', 'origin', or 'derived' but
+# may be arbitrary
+has purpose => (is => 'ro', isa => 'Str', required => 1);
+
+has mode => (is => 'ro', isa => 'Str', required => 1);
+
+# Config contains information used to connect to the queuing solution
+has config => (is => 'ro', isa => 'HashRef[Item]', required => 1);
 
 1;
 
@@ -57,7 +24,7 @@ __END__
 
 =head1 NAME
 
-Replay::BusinessRule
+Replay::EventSystem::Base
 
 =head1 VERSION
 
@@ -65,7 +32,21 @@ Version 0.01
 
 =head1 SYNOPSIS
 
-Deprecated.  use role Replay::Role::BusinessRule instead
+The control channel
+
+=head1 SUBROUTINES/METHODS
+
+=head2 emit(message)
+
+Send the indicated message on this channel
+
+=head2 subscribe( callback )
+
+Indicate that any messages on this channel should be passed to the callback
+
+=head2 poll()
+
+return the mode of this channel (fanout or worker)
 
 =head1 AUTHOR
 
@@ -152,4 +133,8 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =cut
 
+1;    # End of Replay
+
+1;
+1;
 1;

@@ -1,4 +1,4 @@
-package Replay::Envelope;
+package Replay::Role::Envelope;
 
 use Data::Dumper;
 use Moose::Role;
@@ -87,7 +87,6 @@ around BUILDARGS => sub {
     my $orig  = shift;
     my $class = shift;
     use Data::Dumper;
-   # warn("Evelope Build args $orig=".ref($orig).", class=$class args=".Dumper(\@_) );
     confess "Strange build of an envelope: ".Dumper [@_] if !ref $_[0] && scalar @_ % 2;
     my %args  = ref $_[0] ? %{ $_[0] } : @_;
     $class->meta->make_mutable;
@@ -192,7 +191,7 @@ __END__
 
 =head1 NAME
 
-Replay::Envelope - General replay message envelope 
+Replay::Role::Envelope - General replay message envelope 
 
 =head1 VERSION
 

@@ -6,6 +6,7 @@ use Moose::Util::TypeConstraints;
 our $VERSION = '0.02';
 
 has eventSystem => (is => 'ro', isa => 'Replay::EventSystem',);
+has reportEngine=> (is => 'ro', isa => 'Str',);
 
 # mapper
 # [string]
@@ -15,6 +16,8 @@ has name => (is => 'ro', required => 1,);
 has version => (is => 'ro', isa => 'Str', default => '1',);
 
 requires qw/match key_value_set window compare reduce/;
+
+has report_disposition => (is => 'ro', default => 0);
 
 # [boolean] function match ( message )
 # [timeWindowIdentifier] function window ( message )

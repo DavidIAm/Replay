@@ -1,6 +1,7 @@
 package Replay::StorageEngine::Mongo;
 
 use Moose;
+with 'Replay::Role::StorageEngine';
 use MongoDB;
 use MongoDB::OID;
 use Replay::IdKey;
@@ -14,8 +15,6 @@ use Replay::Message;
 
 our $VERSION = 0.02;
 
-extends 'Replay::BaseStorageEngine';
-
 has mongo => (
     is      => 'ro',
     isa     => 'MongoDB::MongoClient',
@@ -23,87 +22,118 @@ has mongo => (
     lazy    => 1,
 );
 
-has db       => (is => 'ro', builder => '_build_db',       lazy => 1,);
-has dbname   => (is => 'ro', builder => '_build_dbname',   lazy => 1,);
-has dbauthdb => (is => 'ro', builder => '_build_dbauthdb', lazy => 1,);
-has dbuser   => (is => 'ro', builder => '_build_dbuser',   lazy => 1,);
-has dbpass   => (is => 'ro', builder => '_build_dbpass',   lazy => 1,);
+has db       => ( is => 'ro', builder => '_build_db',       lazy => 1, );
+has dbname   => ( is => 'ro', builder => '_build_dbname',   lazy => 1, );
+has dbauthdb => ( is => 'ro', builder => '_build_dbauthdb', lazy => 1, );
+has dbuser   => ( is => 'ro', builder => '_build_dbuser',   lazy => 1, );
+has dbpass   => ( is => 'ro', builder => '_build_dbpass',   lazy => 1, );
 
-my $store = {}; #dave what is this for???
+my $store = {};    #dave what is this for???
 
-override retrieve => sub {
-    my ($self, $idkey) = @_;
-    super();
+sub retrieve {
+    my ( $self, $idkey ) = @_;
+
+    #    warn("Replay::StorageEngine::Mongo  retrieve $self, $idkey" );
     return $self->document($idkey);
-};
+}
 
-override absorb => sub {
-    my ($self, $idkey, $atom, $meta) = @_;
+sub absorb {
+
+    my ( $self, $idkey, $atom, $meta ) = @_;
+
+    #     warn("Replay::StorageEngine::Mongo  absorb $self, $idkey" );
     use JSON;
-    my $r = $self->collection($idkey)->update(
-        { idkey => $idkey->cubby },
-        {   q^$^ . 'push' => { inbox => $atom },
-            q^$^
-                . 'addToSet' => {
-                Windows      => $idkey->window,
-                Timeblocks   => { q^$^ . 'each' => $meta->{Timeblocks} || [] },
-                Ruleversions => { q^$^ . 'each' => $meta->{Ruleversions} || [] },
-                },
-            q^$^ . 'setOnInsert' => { idkey => $idkey->cubby, IdKey => $idkey->pack }
-        },
-        { upsert => 1, multiple => 0 },
+    my $r = $self->db->run_command(
+        [
+            findAndModify => $idkey->collection(),
+            query         => { idkey => $idkey->cubby },
+            update        => {
+                q^$^ . 'push' => { inbox => $atom },
+                q^$^
+                  . 'addToSet' => {
+                    Windows => $idkey->window,
+                    Timeblocks =>
+                      { q^$^ . 'each' => $meta->{Timeblocks} || [] },
+                    Ruleversions =>
+                      { q^$^ . 'each' => $meta->{Ruleversions} || [] },
+                  },
+                q^$^
+                  . 'setOnInsert' =>
+                  { idkey => $idkey->cubby, IdKey => $idkey->pack },
+                q^$^ . 'set' => { reducable_emitted => 1 },
+            },
+            fields   => { reducable_emitted => 1 },
+            upsert   => 1,
+            multiple => 0,
+            new      => 0,
+        ],
     );
-    super();
+
     return $r;
-};
+}
 
 sub revert_this_record {
-    my ($self, $idkey, $signature, $document) = @_;
+    my ( $self, $idkey, $signature, $document ) = @_;
 
     croak
-        "This document isn't locked with this signature ($document->{locked},$signature)"
-        if $document->{locked} ne $signature;
+"This document isn't locked with this signature ($document->{locked},$signature)"
+      if $document->{locked} ne $signature;
 
     # reabsorb all of the desktop atoms into the document
-    foreach my $atom (@{ $document->{'desktop'} || [] }) {
-        $self->absorb($idkey, $atom);
+    foreach my $atom ( @{ $document->{'desktop'} || [] } ) {
+        $self->absorb( $idkey, $atom );
     }
 
     # and clear the desktop state
-    my $unlockresult
-        = $self->collection($idkey)
-        ->update({ idkey => $idkey->cubby, locked => $signature } =>
-            { q^$^ . 'unset' => { desktop => 1 } });
+    my $unlockresult =
+      $self->collection($idkey)
+      ->update( { idkey => $idkey->cubby, locked => $signature } =>
+          { q^$^ . 'unset' => { desktop => 1 } } );
     croak q(UNABLE TO RESET DESKTOP AFTER REVERT ) if $unlockresult->{n} == 0;
     return $unlockresult;
 }
 
 sub checkout_record {
-    my ($self, $idkey, $signature, $timeout) = @_;
+    my ( $self, $idkey, $signature, $timeout ) = @_;
 
     # try to get lock
     my $lockresult = $self->collection($idkey)->find_and_modify(
-        {   query => {
+        {
+            query => {
                 idkey   => $idkey->cubby,
                 desktop => { q^$^ . 'exists' => 0 },
                 q^$^
-                    . 'or' => [
+                  . 'or' => [
                     { locked => { q^$^ . 'exists' => 0 } },
-                    {   q^$^
-                            . 'and' => [
+                    {
+                        q^$^
+                          . 'and' => [
                             { locked => $signature },
-                            {   q^$^
-                                    . 'or' => [
-                                    { lockExpireEpoch => { q^$^ . 'gt'     => time } },
-                                    { lockExpireEpoch => { q^$^ . 'exists' => 0 } }
-                                    ]
+                            {
+                                q^$^
+                                  . 'or' => [
+                                    {
+                                        lockExpireEpoch =>
+                                          { q^$^ . 'gt' => time }
+                                    },
+                                    {
+                                        lockExpireEpoch =>
+                                          { q^$^ . 'exists' => 0 }
+                                    }
+                                  ]
                             }
-                            ]
+                          ]
                     }
-                    ]
+                  ]
             },
             update => {
-                q^$^ . 'set' => { locked => $signature, lockExpireEpoch => time + $timeout, },
+                q^$^
+                  . 'set' => {
+                    locked            => $signature,
+                    lockExpireEpoch   => time + $timeout,
+                    reducable_emitted => 0
+                  },
+                q^$^ . 'rename' => { 'inbox' => 'desktop' },
                 q^$^ . 'rename' => { 'inbox' => 'desktop' },
             },
             upsert => 0,
@@ -115,21 +145,24 @@ sub checkout_record {
 }
 
 sub relock_expired {
-    my ($self, $idkey, $signature, $timeout) = @_;
+    my ( $self, $idkey, $signature, $timeout ) = @_;
 
     # Lets try to get an expire lock, if it has timed out
     my $unlockresult = $self->collection($idkey)->find_and_modify(
-        {   query => {
+        {
+            query => {
                 idkey  => $idkey->cubby,
                 locked => { q^$^ . 'exists' => 1 },
                 q^$^
-                    . 'or' => [
+                  . 'or' => [
                     { lockExpireEpoch => { q^$^ . 'lt'     => time } },
                     { lockExpireEpoch => { q^$^ . 'exists' => 0 } }
-                    ]
+                  ]
             },
             update => {
-                q^$^ . 'set' => { locked => $signature, lockExpireEpoch => time + $timeout, },
+                    q^$^
+                  . 'set' =>
+                  { locked => $signature, lockExpireEpoch => time + $timeout, },
             },
             upsert => 0,
             new    => 1,
@@ -140,15 +173,18 @@ sub relock_expired {
 }
 
 sub relock {
-    my ($self, $idkey, $current_signature, $new_signature, $timeout) = @_;
+    my ( $self, $idkey, $current_signature, $new_signature, $timeout ) = @_;
 
     # Lets try to get an expire lock, if it has timed out
     my $unlockresult = $self->collection($idkey)->find_and_modify(
-        {   query  => { idkey => $idkey->cubby, locked => $current_signature },
+        {
+            query  => { idkey => $idkey->cubby, locked => $current_signature },
             update => {
-                      q^$^
-                    . 'set' =>
-                    { locked => $new_signature, lockExpireEpoch => time + $timeout, },
+                q^$^
+                  . 'set' => {
+                    locked          => $new_signature,
+                    lockExpireEpoch => time + $timeout,
+                  },
             },
             upsert => 0,
             new    => 1,
@@ -239,15 +275,18 @@ override checkout => sub {
 =cut
 
 sub relock_i_match_with {
-    my ($self, $idkey, $oldsignature, $newsignature) = @_;
+    my ( $self, $idkey, $oldsignature, $newsignature ) = @_;
     my $unluuid      = $self->generate_uuid;
-    my $unlsignature = $self->state_signature($idkey, [$unluuid]);
+    my $unlsignature = $self->state_signature( $idkey, [$unluuid] );
     my $state        = $self->collection($idkey)->find_and_modify(
-        {   query  => { idkey => $idkey->cubby, locked => $oldsignature, },
+        {
+            query  => { idkey => $idkey->cubby, locked => $oldsignature, },
             update => {
-                      q^$^
-                    . 'set' =>
-                    { locked => $unlsignature, lockExpireEpoch => time + $self->timeout, },
+                q^$^
+                  . 'set' => {
+                    locked          => $unlsignature,
+                    lockExpireEpoch => time + $self->timeout,
+                  },
             },
             upsert => 0,
             new    => 1,
@@ -258,41 +297,47 @@ sub relock_i_match_with {
             Replay::Message::NoLockDuringRevert->new($idkey->marshall),
     );
     return if not $state;
-    $self->revert_this_record($idkey, $unlsignature, $state);
-    my $result = $self->unlock($idkey, $unluuid, $state);
+    $self->revert_this_record( $idkey, $unlsignature, $state );
+    my $result = $self->unlock( $idkey, $unluuid, $state );
     return defined $result;
-};
+}
 
 sub lockreport {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     return [
-        $self->collection($idkey)->find({ idkey => $idkey->cubby },
-            { locked => JSON::true, lockExpireEpoch => JSON::true })->all
+        $self->collection($idkey)->find( { idkey => $idkey->cubby },
+            { locked => JSON::true, lockExpireEpoch => JSON::true } )->all
     ];
 }
 
 sub update_and_unlock {
-    my ($self, $idkey, $uuid, $state) = @_;
-    my $signature = $self->state_signature($idkey, [$uuid]);
+    my ( $self, $idkey, $uuid, $state ) = @_;
+    my $signature = $self->state_signature( $idkey, [$uuid] );
     my @unsetcanon = ();
     if ($state) {
-        delete $state->{_id};               # cannot set _id!
-        delete $state->{inbox};             # we must not affect the inbox on updates!
-        delete $state->{desktop};           # there is no more desktop on checkin
-        delete $state->{lockExpireEpoch};   # there is no more expire time on checkin
-        delete $state->{locked};    # there is no more locked signature on checkin
-        if (@{ $state->{canonical} || [] } == 0) {
+        delete $state->{_id};         # cannot set _id!
+        delete $state->{inbox};       # we must not affect the inbox on updates!
+        delete $state->{desktop};     # there is no more desktop on checkin
+        delete
+          $state->{lockExpireEpoch};  # there is no more expire time on checkin
+        delete $state->{locked};  # there is no more locked signature on checkin
+        if ( @{ $state->{canonical} || [] } == 0 ) {
             delete $state->{canonical};
-            @unsetcanon = (canonical => 1);
+            @unsetcanon = ( canonical => 1 );
         }
     }
     return $self->collection($idkey)->find_and_modify(
-        {   query  => { idkey => $idkey->cubby, locked => $signature },
+        {
+            query  => { idkey => $idkey->cubby, locked => $signature },
             update => {
-                ($state ? (q^$^ . 'set' => $state) : ()),
+                ( $state ? ( q^$^ . 'set' => $state ) : () ),
                 q^$^
-                    . 'unset' =>
-                    { desktop => 1, lockExpireEpoch => 1, locked => 1, @unsetcanon }
+                  . 'unset' => {
+                    desktop         => 1,
+                    lockExpireEpoch => 1,
+                    locked          => 1,
+                    @unsetcanon
+                  }
             },
             upsert => 0,
             new    => 1
@@ -300,43 +345,50 @@ sub update_and_unlock {
     );
 }
 
-override checkin => sub {
-    my ($self, $idkey, $uuid, $state) = @_;
+sub checkin {
+    my ( $self, $idkey, $uuid, $state ) = @_;
 
-    my $result = $self->update_and_unlock($idkey, $uuid, $state);
-    if ($self->collection($idkey)->remove(
-            {   idkey     => $idkey->cubby,
+    # warn("Replay::StorageEngine::Mongo  checkin" );
+    my $result = $self->update_and_unlock( $idkey, $uuid, $state );
+    if (
+        $self->collection($idkey)->remove(
+            {
+                idkey     => $idkey->cubby,
                 inbox     => { q^$^ . 'exists' => 0 },
                 desktop   => { q^$^ . 'exists' => 0 },
                 canonical => { q^$^ . 'exists' => 0 }
             }
         )
-        )
+      )
     {
         $self->eventSystem->control->emit(
                 Replay::Message::ClearedState->new( $idkey->marshall ),
         );
     }
     return if not defined $result;
-
-    super();
     return $result;
-};
+}
 
-override window_all => sub {
-    my ($self, $idkey) = @_;
+sub window_all {
+    my ( $self, $idkey ) = @_;
 
-    return { map { Replay::IdKey->new($_->{IdKey})->key => $_->{canonical} }
-            $self->collection($idkey)
-            ->find({ idkey => { q^$^ . 'regex' => q(^) . $idkey->window_prefix } })
-            ->all };
-};
+    return {
+        map { Replay::IdKey->new( $_->{IdKey} )->key => $_->{canonical} }
+          $self->collection($idkey)->find(
+            { idkey => { q^$^ . 'regex' => q(^) . $idkey->window_prefix } }
+          )->all
+    };
+}
 
 sub find_keys_need_reduce {
+
     my ($self) = @_;
+
+    #    warn("Replay::StorageEngine::Mongo  find_keys_need_reduce $self" );
     my @idkeys = ();
     my $rule;
-    while ($rule = $rule ? $self->ruleSource->next : $self->ruleSource->first) {
+    while ( $rule = $rule ? $self->ruleSource->next : $self->ruleSource->first )
+    {
         my $idkey = Replay::IdKey->new(
             name    => $rule->name,
             version => $rule->version,
@@ -345,34 +397,34 @@ sub find_keys_need_reduce {
         );
         foreach my $result (
             $self->collection($idkey)->find(
-                {   q^$^
-                        . 'or' => [
+                {
+                    q^$^
+                      . 'or' => [
                         { inbox           => { q^$^ . 'exists' => 1 } },
                         { desktop         => { q^$^ . 'exists' => 1 } },
                         { locked          => { q^$^ . 'exists' => 1 } },
                         { lockExpireEpoch => { q^$^ . 'exists' => 1 } }
-                        ]
+                      ]
                 },
                 { idkey => 1 }
             )->all
-            )
+          )
         {
             push @idkeys,
-                Replay::IdKey->new(
+              Replay::IdKey->new(
                 name    => $rule->name,
                 version => $rule->version,
-                Replay::IdKey->parse_cubby($result->{idkey})
-                );
+                Replay::IdKey->parse_cubby( $result->{idkey} )
+              );
         }
     }
-    super();
     return @idkeys;
 }
 
 sub _build_mongo {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     my $db = MongoDB::MongoClient->new();
-    $db->authenticate($self->dbauthdb, $self->dbuser, $self->dbpass);
+    $db->authenticate( $self->dbauthdb, $self->dbuser, $self->dbpass );
     return $db;
 }
 
@@ -399,25 +451,25 @@ sub _build_dbname {      ## no critic (ProhibitUnusedPrivateSubroutines)
 sub _build_db {          ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     my $config = $self->config;
-    my $db     = $self->mongo->get_database($self->dbname);
+    my $db     = $self->mongo->get_database( $self->dbname );
     return $db;
 }
 
 sub collection {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     my $name = $idkey->collection();
     return $self->db->get_collection($name);
 }
 
 sub document {
-    my ($self, $idkey) = @_;
-    return $self->collection($idkey)->find({ idkey => $idkey->cubby })->next
-        || $self->new_document($idkey);
+    my ( $self, $idkey ) = @_;
+    return $self->collection($idkey)->find( { idkey => $idkey->cubby } )->next
+      || $self->new_document($idkey);
 }
 
 sub generate_uuid {
     my ($self) = @_;
-    return $self->uuid->to_string($self->uuid->create);
+    return $self->uuid->to_string( $self->uuid->create );
 }
 
 1;

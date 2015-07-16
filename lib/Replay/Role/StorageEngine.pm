@@ -1,6 +1,7 @@
-package Replay::BaseStorageEngine;
+package Replay::Role::StorageEngine;
 
-use Moose;
+use Moose::Role;
+requires qw(absorb retrieve find_keys_need_reduce window_all checkin);
 use Digest::MD5 qw/md5_hex/;
 use Data::UUID;
 use Replay::Message::Fetched;
@@ -16,10 +17,11 @@ use Replay::Message::Reducing;
 use Replay::Message::Reverted;
 use Replay::Message::Unlocked;
 use Replay::Message::WindowAll;
+use Replay::IdKey;
 use Storable qw/freeze/;
 use Try::Tiny;
 use Readonly;
-use Replay::IdKey;
+
 use Carp qw/croak carp/;
 
 our $VERSION = '0.02';
@@ -30,21 +32,21 @@ $Storable::canonical = 1;    ## no critic (ProhibitPackageVars)
 
 Readonly my $READONLY => 1;
 
-has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
+has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, );
 
-has ruleSource => (is => 'ro', isa => 'Replay::RuleSource', required => 1);
+has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1 );
 
-has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
+has eventSystem => ( is => 'ro', isa => 'Replay::EventSystem', required => 1 );
 
-has uuid => (is => 'ro', builder => '_build_uuid', lazy => 1);
+has uuid => ( is => 'ro', builder => '_build_uuid', lazy => 1 );
 
-has timeout => (is => 'ro', default => 20,);
+has timeout => ( is => 'ro', default => 20, );
 
 # accessor - how to get the rule for an idkey
 sub rule {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     my $rule = $self->ruleSource->by_idkey($idkey);
-    if (not defined $rule) {
+    if ( not defined $rule ) {
         croak "No such rule $idkey->rule_spec";
     }
     return $rule;
@@ -52,9 +54,9 @@ sub rule {
 
 # merge a list of atoms with the existing list in that slot
 sub merge {
-    my ($self, $idkey, $alpha, $beta) = @_;
-    my @sorted = sort { $self->rule($idkey)->compare($a, $b) } @{$alpha},
-        @{$beta};
+    my ( $self, $idkey, $alpha, $beta ) = @_;
+    my @sorted = sort { $self->rule($idkey)->compare( $a, $b ) } @{$alpha},
+      @{$beta};
     return [@sorted];
 }
 
@@ -70,25 +72,26 @@ sub merge {
 # signature  If it relocks we are in state-2-with-signature and are able to
 # check it out
 sub checkout {
-    my ($self, $idkey, $timeout) = @_;
+    my ( $self, $idkey, $timeout ) = @_;
     $timeout ||= $self->timeout;
     my $uuid = $self->generate_uuid;
 
-    my $signature = $self->state_signature($idkey, [$uuid]);
-    my $lockresult = $self->checkout_record($idkey, $signature, $timeout);
+    my $signature = $self->state_signature( $idkey, [$uuid] );
+    my $lockresult = $self->checkout_record( $idkey, $signature, $timeout );
 
-    if (defined $lockresult) {
+    if ( defined $lockresult ) {
         super();
         return $uuid, $lockresult;
     }
 
     # if it failed, check to see if we can relock an expired record
-    my $unluuid       = $self->generate_uuid;
-    my $unlsignature  = $self->state_signature($idkey, [$unluuid]);
-    my $expire_relock = $self->relock_expired($idkey, $unlsignature, $timeout);
+    my $unluuid = $self->generate_uuid;
+    my $unlsignature = $self->state_signature( $idkey, [$unluuid] );
+    my $expire_relock =
+      $self->relock_expired( $idkey, $unlsignature, $timeout );
 
     # If it didn't relock, give up.  Its locked by somebody else.
-    if (not defined $expire_relock) {
+    if ( not defined $expire_relock ) {
         carp
             q(Unable to obtain lock because the current one is locked and unexpired ())
             . $idkey->cubby
@@ -100,29 +103,29 @@ sub checkout {
     }
 
     # Oh my, we did. Well then, we should...
-    $self->revert_this_record($idkey, $unlsignature, $expire_relock);
+    $self->revert_this_record( $idkey, $unlsignature, $expire_relock );
 
     # Get a new signature to use for the relocked record
     my $newuuid = $self->generate_uuid;
-    my $newsignature = $self->state_signature($idkey, [$newuuid]);
+    my $newsignature = $self->state_signature( $idkey, [$newuuid] );
 
     # move the lock from teh temp reverting lock to the new one
-    my $relockresult
-        = $self->relock($idkey, $unlsignature, $newsignature, $timeout);
+    my $relockresult =
+      $self->relock( $idkey, $unlsignature, $newsignature, $timeout );
 
     $self->eventSystem->control->emit(
         Replay::Message::NoLockPostRevert->new($idkey->marshall),
     );
-    if (not defined $relockresult) {
+    if ( not defined $relockresult ) {
         carp "Unable to relock after revert ($unlsignature)? "
-            . $idkey->checkstring . qq(\n);
+          . $idkey->checkstring . qq(\n);
         return;
     }
 
     # check out the r
-    my $checkresult = $self->checkout_record($idkey, $newsignature, $timeout);
+    my $checkresult = $self->checkout_record( $idkey, $newsignature, $timeout );
 
-    if (defined $checkresult) {
+    if ( defined $checkresult ) {
         super();
         return $newuuid, $lockresult;
     }
@@ -132,54 +135,59 @@ sub checkout {
     );
 
     carp q(checkout after revert and relock failed.  Look in COLLECTION \()
-        . $idkey->collection
-        . q(\) IDKEY \()
-        . $idkey->cubby . q(\));
+      . $idkey->collection
+      . q(\) IDKEY \()
+      . $idkey->cubby . q(\));
 
     $self->eventSystem->control->emit(
-        Replay::Message::Locked->new($idkey->marshall));
+        Replay::Message::Locked->new( $idkey->marshall ) );
     return;
 }
 
-sub checkin {
-    my ($self, $idkey) = @_;
-    return $self->eventSystem->control->emit(
-        Replay::Message::Unlocked->new($idkey->marshall));
-}
+before 'checkin' => sub {
+    my ( $self, $idkey ) = @_;
+
+    #     warn("Replay::BaseStorageEnginee  before checkin");
+    return $self->eventSystem->control->emit( 
+        Replay::Message::Unlocked->new( $idkey->marshall ) );
+};
+
+before 'retrieve' => sub {
+    my ( $self, $idkey ) = @_;
+
+    #    warn("Replay::BaseStorageEnginee  before retrieve");
+    return $self->eventSystem->control->emit( 
+        Replay::Message::Fetched->new( $idkey->marshall ) );
+};
+
+after 'absorb' => sub {
+    my ( $self, $idkey ) = @_;
+
+    #       warn("Replay::BaseStorageEnginee  after absorb $self, $idkey");
+    return $self->eventSystem->control->emit( 
+        Replay::Message::Reducable->new( $idkey->marshall ) );
+};
 
 sub revert {
-    my ($self, $idkey, $uuid) = @_;
-    my $signature    = $self->state_signature($idkey, [$uuid]);
+    my ( $self, $idkey, $uuid ) = @_;
+    my $signature    = $self->state_signature( $idkey, [$uuid] );
     my $unluuid      = $self->generate_uuid;
-    my $unlsignature = $self->state_signature($idkey, [$unluuid]);
-    my $state = $self->relock($idkey, $signature, $unlsignature, $self->timeout);
+    my $unlsignature = $self->state_signature( $idkey, [$unluuid] );
+    my $state =
+      $self->relock( $idkey, $signature, $unlsignature, $self->timeout );
     carp q(tried to do a revert but didn't have a lock on it) if not $state;
     $self->eventSystem->control->emit(
         Replay::Message::NoLockDuringRevert->new($idkey->marshall));
     return if not $state;
-    $self->revert_this_record($idkey, $unlsignature, $state);
-    my $result = $self->unlock($idkey, $unluuid, $state);
+    $self->revert_this_record( $idkey, $unlsignature, $state );
+    my $result = $self->unlock( $idkey, $unluuid, $state );
     return unless defined $result;
-    return $self->eventSystem->control->emit(
-        Replay::Message::Reverted->new($idkey->marshall));
-}
-
-sub retrieve {
-    my ($self, $idkey) = @_;
-    return $self->eventSystem->control->emit(
-        Replay::Message::Fetched->new($idkey->marshall));
-}
-
-sub absorb {
-    my ($self, $idkey) = @_;
-    return $self->eventSystem->control->emit(
-        Replay::Message::Reducable->new($idkey->marshall));
-    return $self->eventSystem->reduce->emit(
-        Replay::Message::Reducable->new($idkey->marshall));
+    return $self->eventSystem->control->emit( 
+        Replay::Message::Reverted->new( $idkey->marshall ) );
 }
 
 sub delay_to_do_once {
-    my ($self, $name, $code) = @_;
+    my ( $self, $name, $code ) = @_;
     use AnyEvent;
     return $self->{timers}{$name} = AnyEvent->timer(
         after => 1,
@@ -192,72 +200,78 @@ sub delay_to_do_once {
 
 # accessor - given a state, generate a signature
 sub state_signature {
-    my ($self, $idkey, $list) = @_;
-    return undef if not defined $list;  ## no critic (ProhibitExplicitReturnUndef)
-    $self->stringtouch($list);
-    return md5_hex($idkey->hash . freeze($list));
+    my ( $self, $idkey, $list ) = @_;
+    return undef
+      if not defined $list;    ## no critic (ProhibitExplicitReturnUndef)
+    my $newlist = $self->stringtouch($list);
+    my $sig     = md5_hex( $idkey->hash . freeze($newlist) );
+    return $sig;
 }
 
 sub stringtouch {
-    my ($self, $struct) = @_;
-    if (not ref $struct) {
-        $struct .= q();
+    my ( $self, $struct ) = @_;
+    if ( not ref $struct ) {
+        return $struct;
     }
-    if ('ARRAY' eq ref $struct) {
-        foreach (0 .. $#{$struct}) {
-            if (ref $struct->[$_]) {
-                stringtouch($struct->[$_]);
+    if ( 'ARRAY' eq ref $struct ) {
+        my $ary = [];
+        foreach ( 0 .. $#{$struct} ) {
+            if ( ref $struct->[$_] ) {
+                push @{$ary}, $self->stringtouch( $struct->[$_] );
             }
             else {
-                $struct->[$_] .= q();
+                push @{$ary}, $struct->[$_] . q();
             }
         }
+        return $ary;
     }
-    if ('HASH' eq ref $struct) {
-        foreach (keys %{$struct}) {
-            if (ref $struct->{$_}) {
-                stringtouch($struct->{$_});
+    if ( 'HASH' eq ref $struct ) {
+        my $hsh = {};
+        foreach ( keys %{$struct} ) {
+            if ( ref $struct->{$_} ) {
+                $hsh->{$_} = $self->stringtouch( $struct->{$_} );
             }
             else {
-                $struct->{$_} .= q();
+                $hsh->{$_} = $struct->{$_} . q();
             }
         }
+        return $hsh;
     }
-    return;
+    return $struct;
 }
 
 sub fetch_transitional_state {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
 
-    my ($uuid, $cubby) = $self->checkout($idkey, $REDUCE_TIMEOUT);
+    my ( $uuid, $cubby ) = $self->checkout( $idkey, $REDUCE_TIMEOUT );
 
-    if (not defined $cubby) {
+    if ( not defined $cubby ) {
         return;
     }
 
     # drop the checkout if we don't have any items to reduce
-    if (0 == scalar @{ $cubby->{desktop} || [] }) {
+    if ( 0 == scalar @{ $cubby->{desktop} || [] } ) {
 
-      #        carp q(Reverting because we didn't check out any work to do?) . qq(\n);
-        $self->revert($idkey, $uuid);
+#        carp q(Reverting because we didn't check out any work to do?) . qq(\n);
+        $self->revert( $idkey, $uuid );
         return;
     }
 
     # merge in canonical, moving atoms from desktop
     my $reducing;
     try {
-        $reducing
-            = $self->merge($idkey, $cubby->{desktop}, $cubby->{canonical} || []);
+        $reducing =
+          $self->merge( $idkey, $cubby->{desktop}, $cubby->{canonical} || [] );
     }
     catch {
         carp "Reverting because doing the merge caused an exception $_\n";
-        $self->revert($idkey, $uuid);
+        $self->revert( $idkey, $uuid );
         return;
     };
 
     # notify interested parties
     $self->eventSystem->control->emit(
-        Replay::Message::Reducing->new($idkey->marshall));
+        Replay::Message::Reducing->new( $idkey->marshall ) );
 
     # return uuid and list
     return $uuid => {
@@ -269,70 +283,65 @@ sub fetch_transitional_state {
 }
 
 sub store_new_canonical_state {
-    my ($self, $idkey, $uuid, $emitter, @atoms) = @_;
+    my ( $self, $idkey, $uuid, $emitter, @atoms ) = @_;
     my $cubby = $self->retrieve($idkey);
     $cubby->{canonVersion}++;
     $cubby->{canonical} = [@atoms];
-    $cubby->{canonSignature}
-        = $self->state_signature($idkey, $cubby->{canonical});
+    $cubby->{canonSignature} =
+      $self->state_signature( $idkey, $cubby->{canonical} );
     delete $cubby->{desktop};
-    my $newstate = $self->checkin($idkey, $uuid, $cubby);
+    my $newstate = $self->checkin( $idkey, $uuid, $cubby );
     $emitter->release;
 
-    foreach my $atom (@{ $emitter->atomsToDefer }) {
-        $self->absorb($idkey, $atom, {});
+    foreach my $atom ( @{ $emitter->atomsToDefer } ) {
+        $self->absorb( $idkey, $atom, {} );
     }
-    $self->eventSystem->report->emit(
-        Replay::Message::NewCanonical->new($idkey->marshall));
-    $self->eventSystem->control->emit(
-        Replay::Message::NewCanonical->new($idkey->marshall));
-    if (scalar @{ $newstate->{inbox} || [] })
-    {    # renotify reducable if inbox has entries now
-        $self->eventSystem->control->emit(
-            Replay::Message::Reducable->new($idkey->marshall));
+    $self->eventSystem->control->emit( 
+        Replay::Message::NewCanonical->new( $idkey->marshall ) );
+    if ( scalar @{ $newstate->{inbox} || [] } )
+    {    # renotify reducable if inbox currently has entries
+        $self->eventSystem->control->emit( 
+            Replay::Message::Reducable->new( $idkey->marshall ) );
     }
     return $newstate;    # release pending messages
 }
 
 sub fetch_canonical_state {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
+
     my $cubby = $self->retrieve($idkey);
 
-    my $e = $self->state_signature($idkey, $cubby->{canonical}) || q();
-    if (($cubby->{canonSignature} || q()) ne ($e || q())) {
+    my $e = $self->state_signature( $idkey, $cubby->{canonical} ) || q();
+    if ( ( $cubby->{canonSignature} || q() ) ne ( $e || q() ) ) {
         use Data::Dumper;
-        carp "dump of idkey=" . Dumper($idkey);
-        carp "canonical corruption $cubby->{canonSignature} vs. " . $e;
+
+        #        carp "dump of idkey=" . Dumper($idkey);
+        #        carp "canonical corruption $cubby->{canonSignature} vs. " . $e;
     }
-    $self->eventSystem->control->emit(
-        Replay::Message::Fetched->new($idkey->marshall));
+
+    #    $self->eventSystem->control->emit(
+    #        Replay::Message::Fetched->new($idkey->marshall));
     return @{ $cubby->{canonical} || [] };
 }
 
-sub window_all {
-    my ($self, $idkey) = @_;
-    return $self->eventSystem->control->emit(
-        Replay::Message::WindowAll->new($idkey->marshall));
-}
-
-sub find_keys_need_reduce {
-    my ($self, $idkey) = @_;
-    return $self->eventSystem->control->emit(
-        Replay::Message::FoundKeysForReduce->new($idkey->marshall));
-}
+# sub window_all {
+# my ($self, $idkey) = @_;
+# return $self->eventSystem->control->emit(
+# Replay::Message::WindowAll->new($idkey->marshall));
+# }
 
 sub enumerate_windows {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     croak q(unimplemented);
 }
 
 sub enumerate_keys {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     croak q(unimplemented);
 }
 
 sub new_document {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     return {
         idkey        => { $idkey->hash_list },
         Windows      => [],
@@ -348,12 +357,12 @@ sub _build_uuid {    ## no critic (ProhibitUnusedPrivateSubroutines)
 
 sub generate_uuid {
     my ($self) = @_;
-    return $self->uuid->to_string($self->uuid->create);
+    return $self->uuid->to_string( $self->uuid->create );
 }
 
 sub unlock {
-    my ($self, $idkey, $uuid, $state) = @_;
-    return $self->update_and_unlock($idkey, $uuid, $state);
+    my ( $self, $idkey, $uuid, $state ) = @_;
+    return $self->update_and_unlock( $idkey, $uuid, $state );
 }
 
 1;
@@ -651,4 +660,3 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 =cut
 
 1;    # End of Replay
-

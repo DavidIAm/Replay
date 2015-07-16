@@ -15,7 +15,7 @@ use Try::Tiny;
 use Data::UUID;
 use JSON;
 use Scalar::Util qw/blessed/;
-use Carp qw/confess/;
+use Carp qw/cluck confess/;
 
 has rabbit => (
     is       => 'ro',
@@ -38,7 +38,7 @@ has topic => (is => 'ro', isa => 'Replay::EventSystem::RabbitMQ::Topic',);
 
 has exchange_type => (is => 'ro', isa => 'Str', default => 'topic',);
 
-has passive => (is => 'ro', isa => 'Bool', default => 1,);
+has passive => (is => 'ro', isa => 'Bool', default => 0,);
 
 has durable => (is => 'ro', isa => 'Bool', default => 1,);
 
@@ -58,20 +58,20 @@ has topic => (
 );
 
 sub _new_channel {
-    my $self = shift;
+    my ($self) = @_;
     return $self->rabbit->channel_open;
 }
 
 sub emit {
     my ($self, $message) = @_;
 
-    # THIS MUST DOES A Replay::Envelope
-    confess "Can only emit Replay::Envelope consumer"
-        unless $message->does('Replay::Envelope');
+    # THIS MUST DOES A Replay::Role::Envelope
+    confess "Can only emit Replay::Role::Envelope consumer"
+        unless $message->does('Replay::Role::Envelope');
 
-   #    warn "EMITTING ON " . $self->topic_name . " : " . $message->{MessageType};
+#    warn __FILE__ .": EMITTING ON " . $self->topic_name . " : " . $message->{MessageType};
 
-    $self->rabbit->rabbit->publish(
+    $self->topic->publish(
         $self->channel, $self->topic_name,
         to_json($message->marshall),
         { exchange => $self->topic_name }
@@ -96,16 +96,12 @@ sub _build_routing_key {    ## no critic (ProhibitUnusedPrivateSubroutines)
 
 sub _build_topic_name {     ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    confess q(No purpose) if not $self->purpose;
+    confess q(No purpose) unless defined $self->purpose;
     return join q(_), $self->rabbit->config->{stage}, 'replay', $self->purpose;
 }
 
 sub _build_topic {          ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    warn " TYPE " . $self->exchange_type;
-    warn " PASSIVE " . $self->passive;
-    warn " DURABLE " . $self->durable;
-    warn " AUTO_DELETE " . $self->auto_delete;
     $self->rabbit->exchange_declare(
         $self->channel,
         $self->topic_name,
