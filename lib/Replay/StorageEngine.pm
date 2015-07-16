@@ -1,6 +1,6 @@
 package Replay::StorageEngine;
 
-use Replay::BaseStorageEngine;
+#use Replay::BaseStorageEngine;
 use Moose;
 use Try::Tiny;
 use English '-no_match_vars';
@@ -11,7 +11,7 @@ our $VERSION = '0.03';
 has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
 has engine => (
     is      => 'ro',
-    isa     => 'Replay::BaseStorageEngine',
+    isa     => 'Object',
     builder => '_build_engine',
     lazy    => 1,
 );
@@ -69,6 +69,12 @@ sub find_keys_need_reduce {
 sub _build_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self, @args) = @_;
     my $classname = $self->mode;
+ 
+    unless($classname->does('Replay::Role::StorageEngine')){
+        croak $classname.q( -->Must use the Replay::Role::StorageEngin 'Role' );
+        
+    }    
+    
     return $classname->new(
         config      => $self->config,
         ruleSource  => $self->ruleSource,
