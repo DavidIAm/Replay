@@ -43,21 +43,20 @@ sub origin {
 }
 
 sub emit {
-    my ($self)  = shift;
-    my ($channel, $message) = @_;
+    my ($self, $channel, $message) = shift;
 
- #   warn(" Replay::DelayedEmitter emit $self $channel $message");
+    #warn(" Replay::EventSystem::Null emit $message");
     # handle single argument construct
     if (blessed $channel && $channel->isa('Replay::Message')) {
         $message = $channel;
         $channel = 'derived';
     }
- # warn(" Replay::DelayedEmitter emit $channel $message");
+
     $message = Replay::Message->new($message) unless blessed $message;
-     
-    # THIS MUST DOES A Replay::Envelope
-    confess "Can only emit Replay::Envelope consumer"
-        unless $message->does('Replay::Envelope');
+
+    # THIS MUST DOES A Replay::Role::Envelope
+    confess "Can only emit Replay::Role::Envelope consumer"
+        unless $message->does('Replay::Role::Envelope');
 
     #    die "Must emit a Replay message" unless $message->isa('Replay::Message');
 

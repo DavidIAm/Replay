@@ -40,20 +40,27 @@ override retrieve => sub {
 override absorb => sub {
     my ($self, $idkey, $atom, $meta) = @_;
     use JSON;
-    my $r = $self->collection($idkey)->update(
-        { idkey => $idkey->cubby },
-        {   q^$^ . 'push' => { inbox => $atom },
-            q^$^
-                . 'addToSet' => {
-                Windows      => $idkey->window,
-                Timeblocks   => { q^$^ . 'each' => $meta->{Timeblocks} || [] },
-                Ruleversions => { q^$^ . 'each' => $meta->{Ruleversions} || [] },
-                },
-            q^$^ . 'setOnInsert' => { idkey => $idkey->cubby, IdKey => $idkey->pack }
-        },
-        { upsert => 1, multiple => 0 },
+    my $r = $self->db->run_command(
+        [   findAndModify => $idkey->collection(),
+            query         => { idkey => $idkey->cubby },
+            update        => {
+                q^$^ . 'push' => { inbox => $atom },
+                q^$^
+                    . 'addToSet' => {
+                    Windows      => $idkey->window,
+                    Timeblocks   => { q^$^ . 'each' => $meta->{Timeblocks} || [] },
+                    Ruleversions => { q^$^ . 'each' => $meta->{Ruleversions} || [] },
+                    },
+                q^$^ . 'setOnInsert' => { idkey => $idkey->cubby, IdKey => $idkey->pack },
+                q^$^ . 'set' => { reducable_emitted => 1 },
+            },
+            fields   => { reducable_emitted => 1 },
+            upsert   => 1,
+            multiple => 0,
+            new => 0,
+        ],
     );
-    super();
+    super() unless ref $r && ref $r->{value} && $r->{value}{reducable_emitted}; # reducable_emitted wasn't already set
     return $r;
 };
 
@@ -103,7 +110,13 @@ sub checkout_record {
                     ]
             },
             update => {
-                q^$^ . 'set' => { locked => $signature, lockExpireEpoch => time + $timeout, },
+                q^$^
+                    . 'set' => {
+                    locked            => $signature,
+                    lockExpireEpoch   => time + $timeout,
+                    reducable_emitted => 0
+                    },
+                q^$^ . 'rename' => { 'inbox' => 'desktop' },
                 q^$^ . 'rename' => { 'inbox' => 'desktop' },
             },
             upsert => 0,

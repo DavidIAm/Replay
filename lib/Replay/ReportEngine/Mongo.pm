@@ -7,8 +7,10 @@ use Carp qw/croak carp cluck/;
 use MongoDB;
 use MongoDB::OID;
 
-with(qw(Replay::BaseReportEngine Replay::Role::MongoDB));
+with(qw(Replay::Role::ReportEngine Replay::Role::MongoDB));
 our $VERSION = q(0.03);
+
+has '+mode' => ( default => 'Mongo' );
 
 sub _build_mongo {
     my ($self) = @_;
@@ -19,22 +21,22 @@ sub _build_mongo {
 
 sub _build_dbpass {
     my $self = shift;
-    return $self->config->{ReportEngine}->{Pass};
+    return $self->config->{Pass};
 }
 
 sub _build_dbuser {
     my $self = shift;
-    return $self->config->{ReportEngine}->{User};
+    return $self->config->{User};
 }
 
 sub _build_dbauthdb {
     my $self = shift;
-    return $self->config->{ReportEngine}->{AuthDB} || 'admin';
+    return $self->config->{AuthDB} || 'admin';
 }
 
 sub _build_dbname {
     my $self = shift;
-    return $self->config->{ReportEngine}->{Name}
+    return $self->config->{Name}
         || $self->config->{stage} . "-report-" . '-replay';
 }
 
@@ -55,9 +57,6 @@ sub retrieve {
         my $e = { $self->idkey_where_doc($idkey), REVISION => $revision, },
         { ($structured ? (DATA => 1) : ()), ($structured ? () : (FORMATTED => 1)) }
     );
-    use JSON;
-    warn "EMPTY ON SEARCH PATH ON THIS RETRIEVE WAS " . to_json $e
-        unless defined $r;
     return { EMPTY => 1 } unless defined $r;
     delete $r->{_id};
     $r->{EMPTY} = 0;
@@ -103,7 +102,7 @@ sub delete_latest_revision {
 
 #Api
 sub store {
-    my ($self, $part, $idkey, $reportdata, $formatted) = @_;
+    my ($self, $idkey, $reportdata, $formatted) = @_;
     confess "WHUT DATA" if scalar @{$reportdata} && !defined $reportdata->[0];
     my $revision = $self->revision($idkey) || 0;
     my $r = $self->collection($idkey)->update(

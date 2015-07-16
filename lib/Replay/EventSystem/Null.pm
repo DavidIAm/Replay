@@ -8,7 +8,7 @@ package Replay::EventSystem::Null;
 use Scalar::Util qw/blessed/;
 use Moose;
 use Carp qw/croak confess/;
-with 'Replay::EventSystem::Base';
+with 'Replay::Role::EventSystem';
 
 our $VERSION = '0.02';
 
@@ -38,9 +38,9 @@ sub emit {
 
     $message = Replay::Message->new($message) unless blessed $message;
 
-    # THIS MUST DOES A Replay::Envelope
-    confess "Can only emit Replay::Envelope consumer"
-        unless $message->does('Replay::Envelope');
+    # THIS MUST DOES A Replay::Role::Envelope
+    confess "Can only emit Replay::Role::Envelope consumer"
+        unless $message->does('Replay::Role::Envelope');
 
     #warn(" Replay::EventSystem::Null emit $message");
 

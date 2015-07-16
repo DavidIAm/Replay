@@ -169,8 +169,8 @@ sub revert {
 
 sub retrieve {
     my ($self, $idkey) = @_;
-    return $self->eventSystem->emit('control',
-        Replay::Message::Fetched->new($idkey->marshall));
+#    return $self->eventSystem->emit('control',
+#        Replay::Message::Fetched->new($idkey->marshall));
 }
 
 sub absorb {
@@ -195,36 +195,41 @@ sub delay_to_do_once {
 sub state_signature {
     my ($self, $idkey, $list) = @_;
     return undef if not defined $list;  ## no critic (ProhibitExplicitReturnUndef)
-    $self->stringtouch($list);
-    return md5_hex($idkey->hash . freeze($list));
+    my $newlist = $self->stringtouch($list);
+    my $sig =  md5_hex($idkey->hash . freeze($newlist));
+    return $sig;
 }
 
 sub stringtouch {
     my ($self, $struct) = @_;
     if (not ref $struct) {
-        $struct .= q();
+        return $struct;
     }
     if ('ARRAY' eq ref $struct) {
+        my $ary = [];
         foreach (0 .. $#{$struct}) {
             if (ref $struct->[$_]) {
-                stringtouch($struct->[$_]);
+                push @{$ary}, $self->stringtouch($struct->[$_]);
             }
             else {
-                $struct->[$_] .= q();
+                push @{$ary}, $struct->[$_] . q();
             }
         }
+        return $ary;
     }
     if ('HASH' eq ref $struct) {
+        my $hsh = {};
         foreach (keys %{$struct}) {
             if (ref $struct->{$_}) {
-                stringtouch($struct->{$_});
+                $hsh->{$_} = $self->stringtouch($struct->{$_});
             }
             else {
-                $struct->{$_} .= q();
+                $hsh->{$_} = $struct->{$_} . q();
             }
         }
+        return $hsh;
     }
-    return;
+    return $struct;
 }
 
 sub fetch_transitional_state {
@@ -286,7 +291,7 @@ sub store_new_canonical_state {
     $self->eventSystem->emit('control',
         Replay::Message::NewCanonical->new($idkey->marshall));
     if (scalar @{ $newstate->{inbox} || [] })
-    {    # renotify reducable if inbox has entries now
+    {    # renotify reducable if inbox currently has entries
         $self->eventSystem->emit('control',
             Replay::Message::Reducable->new($idkey->marshall));
     }
@@ -300,11 +305,11 @@ sub fetch_canonical_state {
     my $e = $self->state_signature($idkey, $cubby->{canonical}) || q();
     if (($cubby->{canonSignature} || q()) ne ($e || q())) {
         use Data::Dumper;
-        carp "dump of idkey=" . Dumper($idkey);
-        carp "canonical corruption $cubby->{canonSignature} vs. " . $e;
+#        carp "dump of idkey=" . Dumper($idkey);
+#        carp "canonical corruption $cubby->{canonSignature} vs. " . $e;
     }
-    $self->eventSystem->emit('control',
-        Replay::Message::Fetched->new($idkey->marshall));
+#    $self->eventSystem->emit('control',
+#        Replay::Message::Fetched->new($idkey->marshall));
     return @{ $cubby->{canonical} || [] };
 }
 

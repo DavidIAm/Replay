@@ -1,62 +1,20 @@
-package Replay::Message::At::SentMessageAt;
+package Replay::Role::EventSystem;
 
-use Moose;
-use MooseX::Storage;
-use MooseX::MetaDescription::Meta::Trait;
+# provides a base type to check communication channel implimentations against
+
+use Moose::Role;
+requires(qw(emit subscribe poll));
 
 our $VERSION = '0.02';
 
-with(qw(Replay::Role::Envelope));
+# purpose is the channel name, such as 'control', 'origin', or 'derived' but
+# may be arbitrary
+has purpose => (is => 'ro', isa => 'Str', required => 1);
 
-has '+MessageType' => (default => 'SendMessageAt',);
-has 'requested' => (
-    is          => 'ro',
-    isa         => 'Num',
-    traits      => ['MooseX::MetaDescription::Meta::Trait'],
-    description => { layer => 'message' },
-);
-has 'actual' => (
-    is          => 'ro',
-    isa         => 'Num',
-    traits      => ['MooseX::MetaDescription::Meta::Trait'],
-    description => { layer => 'message' },
-);
-has 'atdomain' => (
-    is          => 'ro',
-    isa         => 'Str',
-    traits      => ['MooseX::MetaDescription::Meta::Trait'],
-    description => { layer => 'message' },
-);
-has 'sentuuid' => (
-    is          => 'ro',
-    isa         => 'Str',
-    traits      => ['MooseX::MetaDescription::Meta::Trait'],
-    description => { layer => 'message' },
-);
-has 'foruuid' => (
-    is          => 'ro',
-    isa         => 'Str',
-    traits      => ['MooseX::MetaDescription::Meta::Trait'],
-    description => { layer => 'message' },
-);
-has 'window' => (
-    is          => 'ro',
-    isa         => 'Str',
-    traits      => ['MooseX::MetaDescription::Meta::Trait'],
-    description => { layer => 'message' },
-);
-has 'newmin' => (
-    is          => 'ro',
-    isa         => 'Num',
-    traits      => ['MooseX::MetaDescription::Meta::Trait'],
-    description => { layer => 'message' },
-);
-has 'newmax' => (
-    is          => 'ro',
-    isa         => 'Num',
-    traits      => ['MooseX::MetaDescription::Meta::Trait'],
-    description => { layer => 'message' },
-);
+has mode => (is => 'ro', isa => 'Str', required => 1);
+
+# Config contains information used to connect to the queuing solution
+has config => (is => 'ro', isa => 'HashRef[Item]', required => 1);
 
 1;
 
@@ -66,7 +24,7 @@ __END__
 
 =head1 NAME
 
-Replay::Message::At::SentMessageAt
+Replay::EventSystem::Base
 
 =head1 VERSION
 
@@ -74,14 +32,21 @@ Version 0.01
 
 =head1 SYNOPSIS
 
-the basic message functionality, providing the serialization
-routines and patterns for making a Replay Message
+The control channel
 
 =head1 SUBROUTINES/METHODS
 
-=head2 marshall ($message)
+=head2 emit(message)
 
-use the state information provided by the construction to create a structure suitable for serializing
+Send the indicated message on this channel
+
+=head2 subscribe( callback )
+
+Indicate that any messages on this channel should be passed to the callback
+
+=head2 poll()
+
+return the mode of this channel (fanout or worker)
 
 =head1 AUTHOR
 
@@ -168,4 +133,8 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =cut
 
+1;    # End of Replay
+
+1;
+1;
 1;

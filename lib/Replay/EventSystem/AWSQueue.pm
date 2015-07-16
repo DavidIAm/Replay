@@ -4,8 +4,7 @@ use Moose;
 
 our $VERSION = '0.02';
 
-use Replay::EventSystem::Base;
-with 'Replay::EventSystem::Base';
+with 'Replay::Role::EventSystem';
 
 use Replay::Message;
 
@@ -32,6 +31,8 @@ has sqs => (
     lazy    => 1,
 );
 
+
+
 has config => (is => 'ro', isa => 'HashRef[Item]', required => 1);
 
 has queue => (
@@ -57,17 +58,17 @@ has queuearn =>
 has queueName =>
     (is => 'ro', isa => 'Str', builder => '_build_queue_name', lazy => 1);
 
+
 sub emit {
-    my $self = shift;
-    my ($message) = @_;
+    my ($self, $message) = @_;
 
     $message = Replay::Message->new($message) unless blessed $message;
 
-    # THIS MUST DOES A Replay::Envelope
-    confess "Can only emit Replay::Envelope consumer"
-        unless $message->does('Replay::Envelope');
+    # THIS MUST DOES A Replay::Role::Envelope
+    confess "Can only emit Replay::Role::Envelope consumer"
+        unless $message->does('Replay::Role::Envelope');
     my $uuid = $message->UUID;
-#warn("REPLAy AWS Que topic=". $self->topic);
+
     $self->topic->Publish(to_json $message->marshall) or return;
 
     return $uuid;
@@ -82,8 +83,8 @@ sub poll {
     foreach my $message ($self->_receive()) {
         $handled++;
 
- #       use Data::Dumper;
- #       warn("poll message=".Dumper($message));
+        #use Data::Dumper;
+        #warn("poll message=".Dumper($message));
         foreach my $subscriber (@{ $self->subscribers }) {
             try {
                 $subscriber->($message);
@@ -136,6 +137,9 @@ sub _receive {
     return @payloads;
 }
 
+
+
+
 sub _build_sqs {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     my $config = $self->config;
@@ -154,6 +158,8 @@ sub _build_sqs {    ## no critic (ProhibitUnusedPrivateSubroutines)
 sub _build_sns {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     my $config = $self->config;
+    croak q(No access key?).Dumper $config if not $config->{EventSystem}{awsIdentity}{access};
+    croak q(No secret key?) if not $config->{EventSystem}{awsIdentity}{secret};
     my $sns    = Amazon::SNS->new(
         {   key    => $config->{EventSystem}{awsIdentity}{access},
             secret => $config->{EventSystem}{awsIdentity}{secret}
@@ -165,9 +171,9 @@ sub _build_sns {    ## no critic (ProhibitUnusedPrivateSubroutines)
 
 sub _build_queue {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    carp q(BUILDING QUEUE ) . $self->queueName;
+    carp q(BUILDING QUEUE ) . $self->queueName if $ENV{DEBUG_REPLAY_TEST};;
     my $queue = $self->sqs->CreateQueue($self->queueName);
-    carp q(SETTING QUEUE POLICY ) . $self->queueName;
+    carp q(SETTING QUEUE POLICY ) . $self->queueName if $ENV{DEBUG_REPLAY_TEST};;
     $queue->SetAttribute(
         'Policy',
         to_json(
@@ -184,7 +190,7 @@ sub _build_queue {    ## no critic (ProhibitUnusedPrivateSubroutines)
             }
         )
     );
-    carp q(SUBSCRIBING TO QUEUE ) . $self->queueName;
+    carp q(SUBSCRIBING TO QUEUE ) . $self->queueName if $ENV{DEBUG_REPLAY_TEST};;
     $self->{subscriptionARN} = $self->sns->dispatch(
         {   Action   => 'Subscribe',
             Endpoint => $self->queuearn,
@@ -221,7 +227,7 @@ sub _build_topic_name {    ## no critic (ProhibitUnusedPrivateSubroutines)
 sub _build_topic {         ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     my $topic;
-    carp q(BUILDING TOPIC ) . $self->topicName;
+    carp q(BUILDING TOPIC ) . $self->topicName if $ENV{DEBUG_REPLAY_TEST};;
     if ($self->has_topicarn) {
         $topic = $self->sns->GetTopic($self->topicarn);
     }
@@ -235,7 +241,8 @@ sub _build_queue_name {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     my $ug   = Data::UUID->new;
     return join q(_), $self->config->{stage}, 'replay', $self->purpose,
-        ($self->mode eq 'fanout' ? $ug->to_string($ug->create) : ());
+        ($self->mode eq 'fanout' ? $ug->to_string($ug->create) : 
+        ());
 }
 
 # this derives the arn from the topic name.
