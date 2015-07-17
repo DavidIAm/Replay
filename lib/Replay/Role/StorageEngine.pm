@@ -164,6 +164,8 @@ after 'absorb' => sub {
     my ( $self, $idkey ) = @_;
 
     #       warn("Replay::BaseStorageEnginee  after absorb $self, $idkey");
+    $self->eventSystem->reduce->emit(
+        Replay::Message::Reducable->new( $idkey->marshall ) );
     return $self->eventSystem->control->emit(
         Replay::Message::Reducable->new( $idkey->marshall ) );
 };
