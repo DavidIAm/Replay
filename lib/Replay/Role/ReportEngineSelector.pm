@@ -9,12 +9,12 @@ use Carp qw/croak/;
 
 requires qw(select);
 
-has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
+has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, );
 
-has ruleSource  => (is => 'ro', isa => 'Replay::RuleSource',  required => 1,);
-has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1,);
+has ruleSource  => ( is => 'ro', isa => 'Replay::RuleSource',  required => 1, );
+has eventSystem => ( is => 'ro', isa => 'Replay::EventSystem', required => 1, );
 has storageEngine =>
-    (is => 'ro', isa => 'Replay::StorageEngine', required => 1,);
+  ( is => 'ro', isa => 'Replay::StorageEngine', required => 1, );
 
 role_type WithReportEngine => { role => 'Replay::Role::ReportEngine' };
 
@@ -28,7 +28,6 @@ has availableReportEngines => (
 has defaultReportEngine => (
     is      => 'ro',
     isa     => 'WithReportEngine',
-#    isa     => 'Replay::Role::ReportEngine',
     builder => '_build_defaultReportEngine',
     lazy    => 1,
 );
@@ -38,27 +37,25 @@ sub _build_availableReportEngines
     my $self            = shift;
     my $hash_of_engines = {};
 
-    foreach my $engine (keys %{ $self->config->{ReportEngines} }) {
+    foreach my $engine ( keys %{ $self->config->{ReportEngines} } ) {
 
         my $d = $hash_of_engines->{$engine} = $self->mode_class($engine)->new(
             config      => $self->config,
             ruleSource  => $self->ruleSource,
             eventSystem => $self->eventSystem,
         );
-confess " THIS DOES NOT ROLE? " unless $d->does('Replay::Role::ReportEngine');
     }
     return $hash_of_engines;
 }
 
-sub _build_defaultReportEngine
-{    ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_defaultReportEngine { ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self    = shift;
     my $default = $self->availableReportEngines()
-        ->{ $self->config->{Defaults}->{ReportEngine} };
+      ->{ $self->config->{Defaults}->{ReportEngine} };
     unless ($default) {
         croak 'No ReportEngine '
-            . $self->config->{Defaults}->{ReportEngine}
-            . ' defined';
+          . $self->config->{Defaults}->{ReportEngine}
+          . ' defined';
     }
     return $default;
 }
@@ -68,21 +65,23 @@ sub all_engines {
     return values %{ $self->availableReportEngines };
 }
 
-sub mode_class {      ## no critic (ProhibitUnusedPrivateSubroutines)
-    my ($self, $mode) = @_;
-    if (not $mode) {
+sub mode_class {    ## no critic (ProhibitUnusedPrivateSubroutines)
+    my ( $self, $mode ) = @_;
+    if ( not $mode ) {
         croak q(No ReportMode?);
     }
     my $class = 'Replay::ReportEngine::' . $mode;
-#    try {
-        eval "require $class";
-#            or croak qq(error requiring class $class : ) . $EVAL_ERROR;
-#    }
-#    catch {
-#        confess q(No such report engine mode available )
-#            . $mode
-#            . " --> $_";
-#    };
+
+    #    try {
+    eval "require $class";
+
+    #            or croak qq(error requiring class $class : ) . $EVAL_ERROR;
+    #    }
+    #    catch {
+    #        confess q(No such report engine mode available )
+    #            . $mode
+    #            . " --> $_";
+    #    };
     return $class;
 }
 
