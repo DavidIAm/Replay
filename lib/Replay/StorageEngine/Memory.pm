@@ -8,22 +8,20 @@ use Replay::Message::ClearedState;
 use Replay::IdKey;
 use Carp qw/croak carp cluck/;
 
-
-
-has 'debug' => (is => 'rw');
+has 'debug' => ( is => 'rw' );
 our $VERSION = q(0.02);
 
 my $store = {};
 
 sub retrieve {
-    my ($self, $idkey) = @_;
-    return $self->collection($idkey)->{ $idkey->cubby }
-        ||= $self->new_document($idkey);
-};
+    my ( $self, $idkey ) = @_;
+    return $self->collection($idkey)->{ $idkey->cubby } ||=
+      $self->new_document($idkey);
+}
 
 # State transition = add new atom to inbox
 sub absorb {
-    my ($self, $idkey, $atom, $meta) = @_;
+    my ( $self, $idkey, $atom, $meta ) = @_;
     $meta ||= {};
     my $state = $self->retrieve($idkey);
 
@@ -32,24 +30,25 @@ sub absorb {
     $state->{Windows} = [ keys %windows ];
 
     # unique list of Timeblocks
-    my %timeblocks = map { $_ => 1 } grep {$_} @{ $state->{Timeblocks} },
-        $meta->{timeblock};
+    my %timeblocks = map { $_ => 1 } grep { $_ } @{ $state->{Timeblocks} },
+      $meta->{timeblock};
     $state->{Timeblocks} = [ keys %timeblocks ];
 
     # unique list of Ruleversions
     my %ruleversions = ();
-    foreach my $m (@{ $state->{Ruleversions} }, $meta->{ruleversion}) {
-        $ruleversions{ join q(+), map { $_ . q(-) . $m->{$_} } sort keys %{$m} } = $m;
+    foreach my $m ( @{ $state->{Ruleversions} }, $meta->{ruleversion} ) {
+        $ruleversions{ join q(+),
+            map { $_ . q(-) . $m->{$_} } sort keys %{$m} } = $m;
     }
     $state->{Ruleversions} = [ values %ruleversions ];
     push @{ $state->{inbox} ||= [] }, $atom;
     my $already = $state->{reducable_emitted};
     $state->{reducable_emitted} = 1;
     return 1;
-};
+}
 
 sub checkout_record {
-    my ($self, $idkey, $signature, $timeout) = @_;
+    my ( $self, $idkey, $signature, $timeout ) = @_;
 
     # try to get lock
     my $state = $self->retrieve($idkey);
@@ -68,7 +67,7 @@ sub checkout_record {
 }
 
 sub relock {
-    my ($self, $idkey, $current_signature, $new_signature, $timeout) = @_;
+    my ( $self, $idkey, $current_signature, $new_signature, $timeout ) = @_;
 
     # Lets try to get an expire lock, if it has timed out
     my $state = $self->retrieve($idkey);
@@ -81,17 +80,17 @@ sub relock {
 }
 
 sub purge {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     return delete $self->collection($idkey)->{ $idkey->cubby };
 }
 
 sub exists {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     return exists $self->collection($idkey)->{ $idkey->cubby };
 }
 
 sub relock_expired {
-    my ($self, $idkey, $signature, $timeout) = @_;
+    my ( $self, $idkey, $signature, $timeout ) = @_;
 
     # Lets try to get an expire lock, if it has timed out
     return unless $self->exists($idkey);
@@ -100,20 +99,20 @@ sub relock_expired {
     warn "NOT LOCKED" unless exists $state->{locked};
     warn "NO EPOCH"   unless exists $state->{lockExpireEpoch};
     warn "UNEXPIRED ( $state->{lockExpireEpoch})"
-        if $state->{lockExpireEpoch} > time;
+      if $state->{lockExpireEpoch} > time;
     return unless exists $state->{locked};
     return
-        if exists $state->{lockExpireEpoch} && $state->{lockExpireEpoch} >= time;
+      if exists $state->{lockExpireEpoch} && $state->{lockExpireEpoch} >= time;
     $state->{locked}          = $signature;
     $state->{lockExpireEpoch} = time + $timeout;
 
     return $state;
 }
 
-sub checkin  {
-    my ($self, $idkey, $uuid, $state) = @_;
+sub checkin {
+    my ( $self, $idkey, $uuid, $state ) = @_;
 
-    my $result = $self->update_and_unlock($idkey, $uuid, $state);
+    my $result = $self->update_and_unlock( $idkey, $uuid, $state );
 
     # if any of these three exist, we maintain state
     return $result if exists $result->{inbox};
@@ -123,52 +122,54 @@ sub checkin  {
     # otherwise we clear it entirely
     $self->purge($idkey);
 
-        $self->eventSystem->control->emit(
-                Replay::Message::ClearedState->new( $idkey->hash_list ),
-        );
+    $self->eventSystem->control->emit(
+        Replay::Message::ClearedState->new( $idkey->hash_list ),
+    );
 
     return;
-};
+}
 
-sub window_all  {
-    my ($self, $idkey) = @_;
+sub window_all {
+    my ( $self, $idkey ) = @_;
     my $collection = $self->collection($idkey);
-    return { map { $collection->{$_}{idkey}{key} => $collection->{$_}{canonical} }
-            grep { 0 == index $_, $idkey->window_prefix } keys %{$collection} };
-};
+    return {
+        map { $collection->{$_}{idkey}{key} => $collection->{$_}{canonical} }
+        grep { 0 == index $_, $idkey->window_prefix } keys %{$collection}
+    };
+}
 
-sub revert  {
-    my ($self, $idkey, $uuid) = @_;
-    my $signature    = $self->state_signature($idkey, [$uuid]);
+sub revert {
+    my ( $self, $idkey, $uuid ) = @_;
+    my $signature    = $self->state_signature( $idkey, [$uuid] );
     my $unluuid      = $self->generate_uuid;
-    my $unlsignature = $self->state_signature($idkey, [$unluuid]);
+    my $unlsignature = $self->state_signature( $idkey, [$unluuid] );
     my $state        = $self->retrieve($idkey);
-    if (exists $state->{locked} && $state->{locked} ne $signature) {
+    if ( exists $state->{locked} && $state->{locked} ne $signature ) {
         carp q(tried to do a revert but didn't have a lock on it);
         $self->eventSystem->control->emit(
-            Replay::Message::NoLockDuringRevert->new( $idkey->hash_list),
+            Replay::Message::NoLockDuringRevert->new( $idkey->hash_list ),
         );
     }
 
     $state->{locked}          = $unlsignature;
     $state->{lockExpireEpoch} = time + $self->timeout;
 
-    $self->revert_this_record($idkey, $unlsignature, $state);
-    my $result = $self->unlock($idkey, $unluuid, $state);
+    $self->revert_this_record( $idkey, $unlsignature, $state );
+    my $result = $self->unlock( $idkey, $unluuid, $state );
     return defined $result;
-};
+}
 
 sub revert_this_record {
-    my ($self, $idkey, $signature, $document) = @_;
+    my ( $self, $idkey, $signature, $document ) = @_;
 
     my $state = $self->retrieve($idkey);
     croak
-        "This document isn't locked with this signature ($document->{locked},$signature)"
-        if $document->{locked} ne $signature;
+"This document isn't locked with this signature ($document->{locked},$signature)"
+      if $document->{locked} ne $signature;
 
     # reabsorb all of the desktop atoms into the document
-    foreach my $atom (@{ $document->{'desktop'} || [] }) {
-        $self->absorb($idkey, $atom);
+    foreach my $atom ( @{ $document->{'desktop'} || [] } ) {
+        $self->absorb( $idkey, $atom );
     }
 
     # and clear the desktop state
@@ -177,23 +178,23 @@ sub revert_this_record {
 }
 
 sub update_and_unlock {
-    my ($self, $idkey, $uuid, $state) = @_;
-    my $signature = $self->state_signature($idkey, [$uuid]);
+    my ( $self, $idkey, $uuid, $state ) = @_;
+    my $signature = $self->state_signature( $idkey, [$uuid] );
     return unless exists $state->{locked};
     warn "LOCKED" . $state->{locked} if $self->debug;
     return unless $state->{locked} eq $signature;
-    delete $state->{desktop};            # there is no more desktop on checkin
-    delete $state->{lockExpireEpoch};    # there is no more expire time on checkin
+    delete $state->{desktop};          # there is no more desktop on checkin
+    delete $state->{lockExpireEpoch};  # there is no more expire time on checkin
     delete $state->{locked};    # there is no more locked signature on checkin
 
-    if (@{ $state->{canonical} || [] } == 0) {
+    if ( @{ $state->{canonical} || [] } == 0 ) {
         delete $state->{canonical};
     }
     return $state;
 }
 
 sub collection {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     my $name = $idkey->collection();
     use Data::Dumper;
     warn "POSTIION NAME" . $name . " - " . $idkey->cubby if $self->{debug};
@@ -222,7 +223,7 @@ sub find_keys_need_reduce {
                 Replay::IdKey->parse_cubby( $_->{idkey} )
             );
           } grep {
-                 exists $_->{inbox}
+            exists $_->{inbox}
               || exists $_->{desktop}
               || exists $_->{locked}
               || exists $_->{lockExpireEpoch}

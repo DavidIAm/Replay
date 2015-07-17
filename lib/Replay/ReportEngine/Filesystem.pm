@@ -25,11 +25,11 @@ has '+mode' => ( default => 'Filesystem' );
 
 my $store = {};
 
-
 sub BUILD {
-    my $self = shift;
+    my $self      = shift;
     my $directory = $self->config->{ReportEngines}->{ $self->mode }->{Root};
-    $self->config->{ReportEngines}->{ $self->mode }->{Root} = abs_path $directory;
+    $self->config->{ReportEngines}->{ $self->mode }->{Root} =
+      abs_path $directory;
     mkpath $directory unless -d $directory;
     confess "no report filesystem Root" . to_json $self->config->{ReportEngines}
       unless -d $directory;

@@ -8,12 +8,12 @@ use English qw/-no_match_vars/;
 
 our $VERSION = '0.03';
 
-has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
+has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, );
 
-has ruleSource  => (is => 'ro', isa => 'Replay::RuleSource',  required => 1,);
-has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1,);
+has ruleSource  => ( is => 'ro', isa => 'Replay::RuleSource',  required => 1, );
+has eventSystem => ( is => 'ro', isa => 'Replay::EventSystem', required => 1, );
 has storageEngine =>
-    (is => 'ro', isa => 'Replay::StorageEngine', required => 1,);
+  ( is => 'ro', isa => 'Replay::StorageEngine', required => 1, );
 
 has reportEngineSelector => (
     is      => 'ro',
@@ -24,62 +24,65 @@ has reportEngineSelector => (
 
 # Delegate the api points
 sub delivery {
-    my ($self, $idkey) = @_;
-    return $self->engine($idkey)->delivery($idkey->delivery);
+    my ( $self, $idkey ) = @_;
+    return $self->engine($idkey)->delivery( $idkey->delivery );
 }
 
 sub summary {
-    my ($self, $idkey) = @_;
-    return $self->engine($idkey)->summary($idkey->summary);
+    my ( $self, $idkey ) = @_;
+    return $self->engine($idkey)->summary( $idkey->summary );
 }
 
 sub globsummary {
-    my ($self, $idkey) = @_;
-    return $self->engine($idkey)->globsummary($idkey->globsummary);
+    my ( $self, $idkey ) = @_;
+    return $self->engine($idkey)->globsummary( $idkey->globsummary );
 }
 
 sub delivery_data {
-    my ($self, $idkey) = @_;
-    return $self->engine($idkey)->delivery_data($idkey->delivery);
+    my ( $self, $idkey ) = @_;
+    return $self->engine($idkey)->delivery_data( $idkey->delivery );
 }
 
 sub summary_data {
-    my ($self, $idkey) = @_;
-    return $self->engine($idkey)->summary_data($idkey->summary);
+    my ( $self, $idkey ) = @_;
+    return $self->engine($idkey)->summary_data( $idkey->summary );
 }
 
 sub globsummary_data {
-    my ($self, $idkey) = @_;
-    return $self->engine($idkey)->globsummary_data($idkey->globsummary);
+    my ( $self, $idkey ) = @_;
+    return $self->engine($idkey)->globsummary_data( $idkey->globsummary );
 }
 
 sub update_delivery {
-    my ($self, $idkey) = @_;
-    return $self->engine($idkey)->update_delivery($idkey,
-        $self->storageEngine->fetch_canonical_state($idkey));
+    my ( $self, $idkey ) = @_;
+    return $self->engine($idkey)
+      ->update_delivery( $idkey,
+        $self->storageEngine->fetch_canonical_state($idkey) );
 }
 
 sub update_summary {
-    my ($self, $idkey) = @_;
-    return $self->engine($idkey)->update_summary($idkey,
-        $self->get_all_delivery_data($idkey));
+    my ( $self, $idkey ) = @_;
+    return $self->engine($idkey)
+      ->update_summary( $idkey, $self->get_all_delivery_data($idkey) );
 }
 
 sub update_globsummary {
-    my ($self, $idkey) = @_;
-    return $self->engine($idkey)->update_globsummary($idkey,
-        $self->get_all_summary_data($idkey));
+    my ( $self, $idkey ) = @_;
+    return $self->engine($idkey)
+      ->update_globsummary( $idkey, $self->get_all_summary_data($idkey) );
 }
 
 sub copydomain {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     return $self->engine($idkey)->copydomain($idkey);
 }
 
 sub get_all_delivery_data {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     my @out;
-    foreach my $delkey ($self->engine($idkey)->delivery_keys($idkey->summary)) {
+    foreach
+      my $delkey ( $self->engine($idkey)->delivery_keys( $idkey->summary ) )
+    {
         my $data = $self->delivery_data($delkey);
         next if $data->{EMPTY};
         push @out, $delkey->key, $data->{DATA};
@@ -88,9 +91,11 @@ sub get_all_delivery_data {
 }
 
 sub get_all_summary_data {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     my @out;
-    foreach my $sumkey ($self->engine($idkey)->summary_keys($idkey->globsummary)) {
+    foreach
+      my $sumkey ( $self->engine($idkey)->summary_keys( $idkey->globsummary ) )
+    {
         my $data = $self->delivery_data($sumkey);
         next if $data->{EMPTY};
         push @out, $sumkey->window, $data->{DATA};
@@ -100,25 +105,26 @@ sub get_all_summary_data {
 
 sub freeze {
     confess "unimplimented";
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     $self->engine($idkey)->freeze($idkey);
 }
 
 sub checkpoint {
     confess "unimplimented";
-    my ($self, $attimefactor) = @_;
-    foreach my $engine ($self->reportEngineSelector->all_engines) {
-      $engine->checkpoint($attimefactor);
+    my ( $self, $attimefactor ) = @_;
+    foreach my $engine ( $self->reportEngineSelector->all_engines ) {
+        $engine->checkpoint($attimefactor);
     }
 }
 
 sub engine {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     return $self->reportEngineSelector->select($idkey);
 }
 
-sub _build_report_selector {   ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_report_selector {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
+
     # TODO : This should decide more reasonably which Selector to load, probably
     # using a configuration directive
     return Replay::ReportEngine::Selector->new(

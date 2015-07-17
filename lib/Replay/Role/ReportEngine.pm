@@ -27,182 +27,185 @@ $Storable::canonical = 1;    ## no critic (ProhibitPackageVars)
 Readonly my $REPORT_TIMEOUT => 60;
 Readonly my $READONLY       => 1;
 
-has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
+has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, );
 
-has ruleSource => (is => 'ro', isa => 'Replay::RuleSource', required => 1);
+has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1 );
 
-has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
+has eventSystem => ( is => 'ro', isa => 'Replay::EventSystem', required => 1 );
 has mode => ( is => 'ro', isa => 'Str', required => 1 );
+
 # accessor - how to get the rule for an idkey
 sub rule {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     my $rule = $self->ruleSource->by_idkey($idkey);
     croak "No such rule $idkey->rule_spec" if not defined $rule;
     return $rule;
 }
 
 sub notify_purge {
-    my ($self, $idkey, $part) = @_;
+    my ( $self, $idkey, $part ) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Report::PurgedDelivery->new($idkey->marshall))
-        if ($part eq 'delivery');
+        Replay::Message::Report::PurgedDelivery->new( $idkey->marshall ) )
+      if ( $part eq 'delivery' );
     return $self->eventSystem->control->emit(
-        Replay::Message::Report::PurgedSummary->new($idkey->marshall))
-        if ($part eq 'summary');
+        Replay::Message::Report::PurgedSummary->new( $idkey->marshall ) )
+      if ( $part eq 'summary' );
     return $self->eventSystem->control->emit(
-        Replay::Message::Report::PurgedGlobSummary->new($idkey->marshall))
-        if ($part eq 'globsummary');
+        Replay::Message::Report::PurgedGlobSummary->new( $idkey->marshall ) )
+      if ( $part eq 'globsummary' );
 }
 
 sub notify_new {
-    my ($self, $idkey, $part) = @_;
-    $self->notify_new_report($idkey, $part);
-    $self->notify_new_control($idkey, $part);
+    my ( $self, $idkey, $part ) = @_;
+    $self->notify_new_report( $idkey, $part );
+    $self->notify_new_control( $idkey, $part );
 }
 
 sub notify_new_generic {
-    my ($self, $channel, $idkey, $part) = @_;
+    my ( $self, $channel, $idkey, $part ) = @_;
     return $channel->emit(
-        Replay::Message::Report::NewDelivery->new($idkey->marshall))
-        if ($part eq 'delivery');
+        Replay::Message::Report::NewDelivery->new( $idkey->marshall ) )
+      if ( $part eq 'delivery' );
     return $channel->emit(
-        Replay::Message::Report::NewSummary->new($idkey->marshall))
-        if ($part eq 'summary');
+        Replay::Message::Report::NewSummary->new( $idkey->marshall ) )
+      if ( $part eq 'summary' );
     return $channel->emit(
-        Replay::Message::Report::NewGlobSummary->new($idkey->marshall))
-        if ($part eq 'globsummary');
+        Replay::Message::Report::NewGlobSummary->new( $idkey->marshall ) )
+      if ( $part eq 'globsummary' );
 }
 
 sub notify_new_report {
-  my ($self, $idkey, $part) = @_;
-  $self->notify_new_generic($self->eventSystem->report, $idkey, $part);
+    my ( $self, $idkey, $part ) = @_;
+    $self->notify_new_generic( $self->eventSystem->report, $idkey, $part );
 }
+
 sub notify_new_control {
-  my ($self, $idkey, $part) = @_;
-  $self->notify_new_generic($self->eventSystem->control, $idkey, $part);
+    my ( $self, $idkey, $part ) = @_;
+    $self->notify_new_generic( $self->eventSystem->control, $idkey, $part );
 
 }
 
 sub delete_latest {
-    my ($self, $idkey, $part) = @_;
+    my ( $self, $idkey, $part ) = @_;
     $self->delete_latest_revision($idkey);
-    $self->notify_purge($idkey, $part);
+    $self->notify_purge( $idkey, $part );
 }
 
 sub update {
-    my ($self, $part, $idkey, @state) = @_;
+    my ( $self, $part, $idkey, @state ) = @_;
     my $rule = $self->rule($idkey);
     return unless $rule->can($part);
-    return $self->delete_latest($idkey, $part)
-        if 0 == scalar @state && defined $self->current($idkey);
-    $self->store($idkey, $rule->can($part)->($rule, @state));
-    $self->notify_new($idkey, $part);
+    return $self->delete_latest( $idkey, $part )
+      if 0 == scalar @state && defined $self->current($idkey);
+    $self->store( $idkey, $rule->can($part)->( $rule, @state ) );
+    $self->notify_new( $idkey, $part );
 }
 
 # store a new
 sub update_delivery {
-    my ($self, $idkey, @state) = @_;
-    $self->update('delivery', $idkey, @state);
+    my ( $self, $idkey, @state ) = @_;
+    $self->update( 'delivery', $idkey, @state );
 }
 
 sub update_summary {
-    my ($self, $idkey, @state) = @_;
-    $self->update('summary', $idkey->summary, @state);
+    my ( $self, $idkey, @state ) = @_;
+    $self->update( 'summary', $idkey->summary, @state );
 }
 
 sub update_globsummary {
-    my ($self, $idkey, @state) = @_;
-    $self->update('globsummary', $idkey->globsummary, @state);
+    my ( $self, $idkey, @state ) = @_;
+    $self->update( 'globsummary', $idkey->globsummary, @state );
 }
 
 #report on a key
 sub delivery {    #get the named document latest version
-    my ($self, $idkey) = @_;
-    return $self->do_retrieve($idkey->delivery);
+    my ( $self, $idkey ) = @_;
+    return $self->do_retrieve( $idkey->delivery );
 }
 
 # reports on a windows and a key
 sub summary {     #
-    my ($self, $idkey) = @_;
-    return $self->do_retrieve($idkey->summary);
+    my ( $self, $idkey ) = @_;
+    return $self->do_retrieve( $idkey->summary );
 }
 
 # reports all windows for a rule version
 sub globsummary {
-    my ($self, $idkey) = @_;
-    return $self->do_retrieve($idkey->globsummary);
+    my ( $self, $idkey ) = @_;
+    return $self->do_retrieve( $idkey->globsummary );
 }
 
 #report on a key
 sub delivery_data {    #get the named document latest version
-    my ($self, $idkey) = @_;
-    return $self->do_retrieve($idkey->delivery, 1);
+    my ( $self, $idkey ) = @_;
+    return $self->do_retrieve( $idkey->delivery, 1 );
 }
 
 # reports on a windows and a key
 sub summary_data {     #
-    my ($self, $idkey) = @_;
-    return $self->do_retrieve($idkey->summary, 1);
+    my ( $self, $idkey ) = @_;
+    return $self->do_retrieve( $idkey->summary, 1 );
 }
 
 # reports all windows for a rule version
 sub globsummary_data {
-    my ($self, $idkey) = @_;
-    return $self->do_retrieve($idkey->globsummary, 1);
+    my ( $self, $idkey ) = @_;
+    return $self->do_retrieve( $idkey->globsummary, 1 );
 }
 
 sub do_retrieve {
-    my ($self, $idkey, $structured) = @_;
-    my $result = $self->retrieve($idkey, $structured);
+    my ( $self, $idkey, $structured ) = @_;
+    my $result = $self->retrieve( $idkey, $structured );
     confess "retrieve in storage engine implimentation must return hash"
-        unless 'HASH' eq ref $result;
+      unless 'HASH' eq ref $result;
     return $result if $result->{EMPTY};
     if ($structured) {
         confess
-            "retrieve in storage engine implimentation must have DATA key for structured"
-            unless exists $result->{DATA};
+"retrieve in storage engine implimentation must have DATA key for structured"
+          unless exists $result->{DATA};
     }
     else {
         confess
-            "retrieve in storage engine implimentation must have FORMATTED key for unstructured"
-            unless exists $result->{FORMATTED};
+"retrieve in storage engine implimentation must have FORMATTED key for unstructured"
+          unless exists $result->{FORMATTED};
     }
     return $result;
 }
 
 # get the revsion that is returning
 sub revision {
-    my ($self, $idkey) = @_;
-    confess "This isn't an idkey" unless UNIVERSAL::isa($idkey, 'Replay::IdKey');
+    my ( $self, $idkey ) = @_;
+    confess "This isn't an idkey"
+      unless UNIVERSAL::isa( $idkey, 'Replay::IdKey' );
     return $idkey->revision if $idkey->has_revision;
     return $self->current($idkey);
 }
 
 sub freeze {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Report::Freeze->new($idkey->marshall));
+        Replay::Message::Report::Freeze->new( $idkey->marshall ) );
 }
 
 sub copydomain {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Report::CopyDomain->new($idkey->marshall));
+        Replay::Message::Report::CopyDomain->new( $idkey->marshall ) );
 }
 
 sub checkpoint {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     return $self->delay_to_do_once(
         $idkey->hash . 'Reducable',
         sub {
             $self->eventSystem->control->emit(
-                Replay::Message::Report::Checkpoint->new($idkey->marshall));
+                Replay::Message::Report::Checkpoint->new( $idkey->marshall ) );
         }
     );
 }
 
 sub delay_to_do_once {
-    my ($self, $name, $code) = @_;
+    my ( $self, $name, $code ) = @_;
     use AnyEvent;
     return $self->{timers}{$name} = AnyEvent->timer(
         after => 1,

@@ -294,7 +294,7 @@ sub relock_i_match_with {
     );
     carp q(tried to do a revert but didn't have a lock on it) if not $state;
     $self->eventSystem->control->emit(
-            Replay::Message::NoLockDuringRevert->new($idkey->marshall),
+        Replay::Message::NoLockDuringRevert->new( $idkey->marshall ),
     );
     return if not $state;
     $self->revert_this_record( $idkey, $unlsignature, $state );
@@ -362,7 +362,7 @@ sub checkin {
       )
     {
         $self->eventSystem->control->emit(
-                Replay::Message::ClearedState->new( $idkey->marshall ),
+            Replay::Message::ClearedState->new( $idkey->marshall ),
         );
     }
     return if not defined $result;

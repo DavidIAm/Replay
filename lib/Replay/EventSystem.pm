@@ -12,7 +12,6 @@ use Replay::Message::Timing;
 use Try::Tiny;
 use Carp qw/croak carp confess/;
 
-
 our $VERSION = '0.02';
 
 Readonly my $LTYEAR         => 1900;
@@ -29,28 +28,28 @@ has control => (
     clearer   => 'clear_control',
 );
 has map => (
-    is      => 'rw',
-    isa     => 'Object',
-    builder => '_build_map',
+    is        => 'rw',
+    isa       => 'Object',
+    builder   => '_build_map',
     predicate => 'has_map',
-    lazy    => 1,
-    clearer => 'clear_map',
+    lazy      => 1,
+    clearer   => 'clear_map',
 );
 has reduce => (
-    is      => 'rw',
-    isa     => 'Object',
-    builder => '_build_reduce',
+    is        => 'rw',
+    isa       => 'Object',
+    builder   => '_build_reduce',
     predicate => 'has_reduce',
-    lazy    => 1,
-    clearer => 'clear_reduce',
+    lazy      => 1,
+    clearer   => 'clear_reduce',
 );
 has report => (
-    is      => 'rw',
-    isa     => 'Object',
-    builder => '_build_report',
+    is        => 'rw',
+    isa       => 'Object',
+    builder   => '_build_report',
     predicate => 'has_report',
-    lazy    => 1,
-    clearer => 'clear_report',
+    lazy      => 1,
+    clearer   => 'clear_report',
 );
 has origin => (
     is        => 'rw',
@@ -69,28 +68,28 @@ has originsniffer => (
     clearer   => 'clear_origin_sniffer',
 );
 has mapsniffer => (
-    is      => 'rw',
-    isa     => 'Object',
-    builder => '_build_map_sniffer',
+    is        => 'rw',
+    isa       => 'Object',
+    builder   => '_build_map_sniffer',
     predicate => 'has_map_sniffer',
-    lazy    => 1,
-    clearer => 'clear_map_sniffer',
+    lazy      => 1,
+    clearer   => 'clear_map_sniffer',
 );
 has reducesniffer => (
-    is      => 'rw',
-    isa     => 'Object',
-    builder => '_build_reduce_sniffer',
+    is        => 'rw',
+    isa       => 'Object',
+    builder   => '_build_reduce_sniffer',
     predicate => 'has_reduce_sniffer',
-    lazy    => 1,
-    clearer => 'clear_reduce_sniffer',
+    lazy      => 1,
+    clearer   => 'clear_reduce_sniffer',
 );
 has reportsniffer => (
-    is      => 'rw',
-    isa     => 'Object',
-    builder => '_build_report_sniffer',
+    is        => 'rw',
+    isa       => 'Object',
+    builder   => '_build_report_sniffer',
     predicate => 'has_report_sniffer',
-    lazy    => 1,
-    clearer => 'clear_report_sniffer',
+    lazy      => 1,
+    clearer   => 'clear_report_sniffer',
 );
 has mode => (
     is       => 'ro',
@@ -99,17 +98,18 @@ has mode => (
     builder  => '_build_mode',
     lazy     => 1,
 );
-has config => (is => 'ro', isa => 'HashRef[Item]', required => 1);
-has domain => (is => 'ro');    # placeholder
+has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1 );
+has domain => ( is => 'ro' );    # placeholder
 
 sub BUILD {
     my ($self) = @_;
-    if (not $self->config->{EventSystem}->{Mode}) {
+    if ( not $self->config->{EventSystem}->{Mode} ) {
         use Data::Dumper;
-        confess q(NO EventSystem Mode CONFIG!?  Make sure its in the locale files)
-            . Dumper $self->config;
+        confess
+          q(NO EventSystem Mode CONFIG!?  Make sure its in the locale files)
+          . Dumper $self->config;
     }
-    $self->{stop} = AnyEvent->condvar(cb => sub {exit});
+    $self->{stop} = AnyEvent->condvar( cb => sub { exit } );
     return;
 }
 
@@ -139,27 +139,31 @@ sub run {
     $quitting = 0;
 
     $self->clock;
-    carp q(SIGQUIT will stop loop) if $ENV{DEBUG_REPLAY_TEST};;
+    carp q(SIGQUIT will stop loop) if $ENV{DEBUG_REPLAY_TEST};
     local $SIG{QUIT} = sub {
         return if $quitting++;
         $self->stop;
         $self->clear;
-        carp('shutdownBySIGQUIT') if $ENV{DEBUG_REPLAY_TEST};;
+        carp('shutdownBySIGQUIT') if $ENV{DEBUG_REPLAY_TEST};
     };
-    carp q(SIGINT will stop loop) if $ENV{DEBUG_REPLAY_TEST};;
+    carp q(SIGINT will stop loop) if $ENV{DEBUG_REPLAY_TEST};
     local $SIG{INT} = sub {
         return if $quitting++;
         $self->stop;
         $self->clear;
-        carp('shutdownBySIGINT') if $ENV{DEBUG_REPLAY_TEST};;
+        carp('shutdownBySIGINT') if $ENV{DEBUG_REPLAY_TEST};
     };
 
-    if ($self->config->{timeout}) {
+    if ( $self->config->{timeout} ) {
         $self->{stoptimer} = AnyEvent->timer(
             after => $self->config->{timeout},
-            cb    => sub { carp q(Timeout triggered.) if $ENV{DEBUG_REPLAY_TEST};; $self->stop }
+            cb    => sub {
+                carp q(Timeout triggered.) if $ENV{DEBUG_REPLAY_TEST};
+                $self->stop;
+            }
         );
-        carp q(Setting loop timeout to ) . $self->config->{timeout} if $ENV{DEBUG_REPLAY_TEST};;
+        carp q(Setting loop timeout to ) . $self->config->{timeout}
+          if $ENV{DEBUG_REPLAY_TEST};
     }
 
     $self->{polltimer} = AnyEvent->timer(
@@ -169,14 +173,14 @@ sub run {
             $self->poll();
         }
     );
-    carp q(Event loop startup now) if $ENV{DEBUG_REPLAY_TEST};;
+    carp q(Event loop startup now) if $ENV{DEBUG_REPLAY_TEST};
     EV::loop;
     return;
 }
 
 sub stop {
     my ($self) = @_;
-    carp q(Event loop shutdown by request) if $ENV{DEBUG_REPLAY_TEST};;
+    carp q(Event loop shutdown by request) if $ENV{DEBUG_REPLAY_TEST};
     EV::unloop;
     return;
 }
@@ -198,17 +202,17 @@ sub clear {
 }
 
 sub emit {
-    my ($self, $channel, $message) = @_;
+    my ( $self, $channel, $message ) = @_;
 
     $message = Replay::Message->new($message) unless blessed $message;
 
     # THIS MUST DOES A Replay::Role::Envelope
     confess "Can only emit Replay::Role::Envelope consumer"
-        unless $message->does('Replay::Role::Envelope');
+      unless $message->does('Replay::Role::Envelope');
 
     confess "Unknown channel $channel" unless $self->can($channel);
 
-    $self->$channel->emit($message->marshall);
+    $self->$channel->emit( $message->marshall );
     return $message->UUID;
 
 }
@@ -216,24 +220,26 @@ sub emit {
 use EV;
 
 sub poll {
-    my ($self, @purposes) = @_;
-    if (0 == scalar @purposes) {
+    my ( $self, @purposes ) = @_;
+    if ( 0 == scalar @purposes ) {
         @purposes = (
-            ($self->has_origin          ? qw(origin)         : ()),
-            ($self->has_control         ? qw(control)        : ()),
-            ($self->has_map         ? qw(map)        : ()),
-            ($self->has_reduce         ? qw(reduce)        : ()),
-            ($self->has_report         ? qw(report)        : ()),
-            ($self->has_map_sniffer ? qw(mapsniffer) : ()),
-            ($self->has_reduce_sniffer ? qw(reducesniffer) : ()),
-            ($self->has_report_sniffer ? qw(reportsniffer) : ()),
-            ($self->has_origin_sniffer  ? qw(originsniffer)  : ()),
+            ( $self->has_origin         ? qw(origin)        : () ),
+            ( $self->has_control        ? qw(control)       : () ),
+            ( $self->has_map            ? qw(map)           : () ),
+            ( $self->has_reduce         ? qw(reduce)        : () ),
+            ( $self->has_report         ? qw(report)        : () ),
+            ( $self->has_map_sniffer    ? qw(mapsniffer)    : () ),
+            ( $self->has_reduce_sniffer ? qw(reducesniffer) : () ),
+            ( $self->has_report_sniffer ? qw(reportsniffer) : () ),
+            ( $self->has_origin_sniffer ? qw(originsniffer) : () ),
         );
     }
     my $activity = 0;
     foreach my $purpose (@purposes) {
+
         #try {
-            $activity += $self->$purpose->poll();
+        $activity += $self->$purpose->poll();
+
         #}
         #catch {
         #    confess "Unable to do poll for purpose $purpose: $_";
@@ -246,17 +252,17 @@ sub poll {
 sub clock {
     my $self             = shift;
     my $last_seen_minute = time - time % $SECS_IN_MINUTE;
-    carp q(Clock tick started) if $ENV{DEBUG_REPLAY_TEST};;
+    carp q(Clock tick started) if $ENV{DEBUG_REPLAY_TEST};
     $self->{clock} = AnyEvent->timer(
         after    => 0.25,
         interval => 0.25,
         cb       => sub {
             my $this_minute = time - time % $SECS_IN_MINUTE;
             return if $last_seen_minute == $this_minute;
-            carp "Clock tick on minute $this_minute" if $ENV{DEBUG_REPLAY_TEST};;
+            carp "Clock tick on minute $this_minute" if $ENV{DEBUG_REPLAY_TEST};
             $last_seen_minute = $this_minute;
-            my ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst)
-                = localtime time;
+            my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst ) =
+              localtime time;
             $self->emit(
                 'origin',
                 Replay::Message::Timing->new(
@@ -281,28 +287,28 @@ sub clock {
 
 sub _build_mode {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    if (not $self->config->{EventSystem}->{Mode}) {
+    if ( not $self->config->{EventSystem}->{Mode} ) {
         croak q(No EventSystem Mode?);
     }
     my $class = 'Replay::EventSystem::' . $self->config->{EventSystem}->{Mode};
     try {
         eval "require $class"
-            or croak qq(error requiring class $class : ) . $EVAL_ERROR;
+          or croak qq(error requiring class $class : ) . $EVAL_ERROR;
     }
     catch {
         confess q(No such event system mode available )
-            . $self->config->{EventSystem}
-            . " --> $_";
+          . $self->config->{EventSystem}
+          . " --> $_";
     };
     return $class;
 }
 
 sub _build_queue {
-    my ($self, $purpose, $mode) = @_;
+    my ( $self, $purpose, $mode ) = @_;
     my $classname = $self->mode;
     try {
         try {
-            if (eval "require $classname") {
+            if ( eval "require $classname" ) {
             }
             else {
                 croak $EVAL_ERROR;
@@ -314,8 +320,8 @@ sub _build_queue {
     }
     catch {
         croak q(Unable to load queue class )
-            . $self->config->{EventSystem}->{Mode}
-            . " --> $_ ";
+          . $self->config->{EventSystem}->{Mode}
+          . " --> $_ ";
     };
     my $queue = $classname->new(
         purpose => $purpose,
@@ -327,47 +333,47 @@ sub _build_queue {
 
 sub _build_control {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    return $self->_build_queue('control', 'fanout');
+    return $self->_build_queue( 'control', 'fanout' );
 }
 
-sub _build_reduce_sniffer {   ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_reduce_sniffer {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    return $self->_build_queue('reduce', 'fanout');
+    return $self->_build_queue( 'reduce', 'fanout' );
 }
 
-sub _build_report_sniffer {   ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_report_sniffer {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    return $self->_build_queue('report', 'fanout');
+    return $self->_build_queue( 'report', 'fanout' );
 }
 
-sub _build_map_sniffer {   ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_map_sniffer {       ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    return $self->_build_queue('map', 'fanout');
+    return $self->_build_queue( 'map', 'fanout' );
 }
 
-sub _build_map {           ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_map {               ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    return $self->_build_queue('map', 'topic');
+    return $self->_build_queue( 'map', 'topic' );
 }
 
-sub _build_reduce {           ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_reduce {            ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    return $self->_build_queue('reduce', 'topic');
+    return $self->_build_queue( 'reduce', 'topic' );
 }
 
-sub _build_report {           ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_report {            ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    return $self->_build_queue('report', 'topic');
+    return $self->_build_queue( 'report', 'topic' );
 }
 
 sub _build_origin {            ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    return $self->_build_queue('origin', 'topic');
+    return $self->_build_queue( 'origin', 'topic' );
 }
 
 sub _build_origin_sniffer {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    return $self->_build_queue('origin', 'fanout');
+    return $self->_build_queue( 'origin', 'fanout' );
 }
 
 1;

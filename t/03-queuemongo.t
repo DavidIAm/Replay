@@ -28,7 +28,7 @@ sub a_replay_config : Test(startup => 2) {
         timeout       => 400,
         stage         => 'testscript-03-' . $ENV{USER},
         StorageEngine => {
-            Mode      => 'Mongo',
+            Mode => 'Mongo',
             User => 'replayuser',
             Pass => 'replaypass',
         },
@@ -38,14 +38,8 @@ sub a_replay_config : Test(startup => 2) {
             snsService  => 'https://sns.us-east-1.amazonaws.com',
             sqsService  => 'https://sqs.us-east-1.amazonaws.com',
         },
-        Defaults => {
-          ReportEngine => 'Filesystem'
-        },
-        ReportEngines => {
-              Filesystem => {
-                    Root => $self->{storedir}, 
-                  }
-                }
+        Defaults      => { ReportEngine => 'Filesystem' },
+        ReportEngines => { Filesystem   => { Root => $self->{storedir}, } }
     };
 }
 
