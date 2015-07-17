@@ -114,13 +114,13 @@ sub checkpoint {
 
 sub engine {
     my ($self, $idkey) = @_;
-confess "No idkey, can't choose engine" unless defined $idkey;
-    my $disposition = $self->ruleSource->by_idkey($idkey)->report_disposition;
-    return $self->reportEngineSelector->select($disposition);
+    return $self->reportEngineSelector->select($idkey);
 }
 
 sub _build_report_selector {   ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
+    # TODO : This should decide more reasonably which Selector to load, probably
+    # using a configuration directive
     return Replay::ReportEngine::Selector->new(
         config        => $self->config,
         ruleSource    => $self->ruleSource,

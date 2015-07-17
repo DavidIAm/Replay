@@ -95,7 +95,7 @@ sub update {
     return unless $rule->can($part);
     return $self->delete_latest($idkey, $part)
         if 0 == scalar @state && defined $self->current($idkey);
-    $self->store($part, $idkey, $rule->can($part)->($rule, @state));
+    $self->store($idkey, $rule->can($part)->($rule, @state));
     $self->notify_new($idkey, $part);
 }
 

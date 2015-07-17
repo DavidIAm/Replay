@@ -32,6 +32,7 @@ has map => (
     is      => 'rw',
     isa     => 'Object',
     builder => '_build_map',
+    predicate => 'has_map',
     lazy    => 1,
     clearer => 'clear_map',
 );
@@ -39,6 +40,7 @@ has reduce => (
     is      => 'rw',
     isa     => 'Object',
     builder => '_build_reduce',
+    predicate => 'has_reduce',
     lazy    => 1,
     clearer => 'clear_reduce',
 );
@@ -46,6 +48,7 @@ has report => (
     is      => 'rw',
     isa     => 'Object',
     builder => '_build_report',
+    predicate => 'has_report',
     lazy    => 1,
     clearer => 'clear_report',
 );
@@ -69,6 +72,7 @@ has mapsniffer => (
     is      => 'rw',
     isa     => 'Object',
     builder => '_build_map_sniffer',
+    predicate => 'has_map_sniffer',
     lazy    => 1,
     clearer => 'clear_map_sniffer',
 );
@@ -76,6 +80,7 @@ has reducesniffer => (
     is      => 'rw',
     isa     => 'Object',
     builder => '_build_reduce_sniffer',
+    predicate => 'has_reduce_sniffer',
     lazy    => 1,
     clearer => 'clear_reduce_sniffer',
 );
@@ -83,6 +88,7 @@ has reportsniffer => (
     is      => 'rw',
     isa     => 'Object',
     builder => '_build_report_sniffer',
+    predicate => 'has_report_sniffer',
     lazy    => 1,
     clearer => 'clear_report_sniffer',
 );

@@ -93,9 +93,9 @@ sub checkout {
     # If it didn't relock, give up.  Its locked by somebody else.
     if ( not defined $expire_relock ) {
         carp
-            q(Unable to obtain lock because the current one is locked and unexpired ())
-            . $idkey->cubby
-            . qq(\)\n);
+q(Unable to obtain lock because the current one is locked and unexpired ())
+          . $idkey->cubby
+          . qq(\)\n);
         $self->eventSystem->control->emit(
             Replay::Message::NoLock->new( $idkey->marshall ),
         );
@@ -114,7 +114,7 @@ sub checkout {
       $self->relock( $idkey, $unlsignature, $newsignature, $timeout );
 
     $self->eventSystem->control->emit(
-        Replay::Message::NoLockPostRevert->new($idkey->marshall),
+        Replay::Message::NoLockPostRevert->new( $idkey->marshall ),
     );
     if ( not defined $relockresult ) {
         carp "Unable to relock after revert ($unlsignature)? "
@@ -131,7 +131,7 @@ sub checkout {
     }
 
     $self->eventSystem->control->emit(
-        Replay::Message::NoLockPostRevertRelock->new($idkey->marshall),
+        Replay::Message::NoLockPostRevertRelock->new( $idkey->marshall ),
     );
 
     carp q(checkout after revert and relock failed.  Look in COLLECTION \()
@@ -148,7 +148,7 @@ before 'checkin' => sub {
     my ( $self, $idkey ) = @_;
 
     #     warn("Replay::BaseStorageEnginee  before checkin");
-    return $self->eventSystem->control->emit( 
+    return $self->eventSystem->control->emit(
         Replay::Message::Unlocked->new( $idkey->marshall ) );
 };
 
@@ -156,7 +156,7 @@ before 'retrieve' => sub {
     my ( $self, $idkey ) = @_;
 
     #    warn("Replay::BaseStorageEnginee  before retrieve");
-    return $self->eventSystem->control->emit( 
+    return $self->eventSystem->control->emit(
         Replay::Message::Fetched->new( $idkey->marshall ) );
 };
 
@@ -164,7 +164,7 @@ after 'absorb' => sub {
     my ( $self, $idkey ) = @_;
 
     #       warn("Replay::BaseStorageEnginee  after absorb $self, $idkey");
-    return $self->eventSystem->control->emit( 
+    return $self->eventSystem->control->emit(
         Replay::Message::Reducable->new( $idkey->marshall ) );
 };
 
@@ -177,12 +177,12 @@ sub revert {
       $self->relock( $idkey, $signature, $unlsignature, $self->timeout );
     carp q(tried to do a revert but didn't have a lock on it) if not $state;
     $self->eventSystem->control->emit(
-        Replay::Message::NoLockDuringRevert->new($idkey->marshall));
+        Replay::Message::NoLockDuringRevert->new( $idkey->marshall ) );
     return if not $state;
     $self->revert_this_record( $idkey, $unlsignature, $state );
     my $result = $self->unlock( $idkey, $unluuid, $state );
     return unless defined $result;
-    return $self->eventSystem->control->emit( 
+    return $self->eventSystem->control->emit(
         Replay::Message::Reverted->new( $idkey->marshall ) );
 }
 
@@ -296,11 +296,13 @@ sub store_new_canonical_state {
     foreach my $atom ( @{ $emitter->atomsToDefer } ) {
         $self->absorb( $idkey, $atom, {} );
     }
-    $self->eventSystem->control->emit( 
+    $self->eventSystem->report->emit(
+        Replay::Message::NewCanonical->new( $idkey->marshall ) );
+    $self->eventSystem->control->emit(
         Replay::Message::NewCanonical->new( $idkey->marshall ) );
     if ( scalar @{ $newstate->{inbox} || [] } )
     {    # renotify reducable if inbox currently has entries
-        $self->eventSystem->control->emit( 
+        $self->eventSystem->control->emit(
             Replay::Message::Reducable->new( $idkey->marshall ) );
     }
     return $newstate;    # release pending messages

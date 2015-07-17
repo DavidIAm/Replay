@@ -3,6 +3,7 @@ package Replay::Role::ReportEngineSelector;
 use Replay::Role::ReportEngine;
 
 use Moose::Role;
+use Moose::Util::TypeConstraints;
 use English qw/-no_match_vars/;
 use Carp qw/croak/;
 
@@ -15,16 +16,19 @@ has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1,);
 has storageEngine =>
     (is => 'ro', isa => 'Replay::StorageEngine', required => 1,);
 
+role_type WithReportEngine => { role => 'Replay::Role::ReportEngine' };
+
 has availableReportEngines => (
     is      => 'ro',
-    isa     => 'HashRef[Replay::Role::ReportEngine]',
+    isa     => 'HashRef[WithReportEngine]',
     builder => '_build_availableReportEngines',
     lazy    => 1,
 );
 
 has defaultReportEngine => (
     is      => 'ro',
-    isa     => 'Replay::Role::ReportEngine',
+    isa     => 'WithReportEngine',
+#    isa     => 'Replay::Role::ReportEngine',
     builder => '_build_defaultReportEngine',
     lazy    => 1,
 );
@@ -36,11 +40,12 @@ sub _build_availableReportEngines
 
     foreach my $engine (keys %{ $self->config->{ReportEngines} }) {
 
-        $hash_of_engines->{$engine} = $self->mode_class($engine)->new(
+        my $d = $hash_of_engines->{$engine} = $self->mode_class($engine)->new(
             config      => $self->config,
             ruleSource  => $self->ruleSource,
             eventSystem => $self->eventSystem,
         );
+confess " THIS DOES NOT ROLE? " unless $d->does('Replay::Role::ReportEngine');
     }
     return $hash_of_engines;
 }

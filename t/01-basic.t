@@ -15,14 +15,20 @@ sub t_environment_reset : Test(startup => 1) {
 
 sub a_replay_config : Test(startup) {
     my $self = shift;
-    $self->{storedir} = '/tmp/testscript-03-' . $ENV{USER};
+    $self->{storedir} = '/tmp/testscript-01-' . $ENV{USER};
     $self->{config}   = {
         stage         => 'testscript-01-' . $ENV{USER},
         EventSystem   => { Mode => 'Null' },
         StorageEngine => { Mode => 'Memory' },
         timeout       => 50,
-        ReportEngine =>
-            { Mode => 'Filesystem', reportFilesystemRoot => $self->{storedir}, },
+        Defaults => {
+          ReportEngine => 'Filesystem'
+        },
+        ReportEngines => {
+              Filesystem => {
+                    Root => $self->{storedir}, 
+                  }
+                }
     };
 }
 

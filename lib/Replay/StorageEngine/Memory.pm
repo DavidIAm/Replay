@@ -200,6 +200,37 @@ sub collection {
     return $store->{$name} ||= {};
 }
 
+sub find_keys_need_reduce {
+
+    my ($self) = @_;
+
+    #    warn("Replay::StorageEngine::Memory  find_keys_need_reduce $self" );
+    my @idkeys = ();
+    my $rule;
+    while ( $rule = $rule ? $self->ruleSource->next : $self->ruleSource->first )
+    {
+        my $idkey = Replay::IdKey->new(
+            name    => $rule->name,
+            version => $rule->version,
+            window  => q^-^,
+            key     => q^-^
+        );
+        push @idkeys, map {
+            Replay::IdKey->new(
+                name    => $rule->name,
+                version => $rule->version,
+                Replay::IdKey->parse_cubby( $_->{idkey} )
+            );
+          } grep {
+                 exists $_->{inbox}
+              || exists $_->{desktop}
+              || exists $_->{locked}
+              || exists $_->{lockExpireEpoch}
+          } values %{$store};
+    }
+    return @idkeys;
+}
+
 1;
 
 __END__
