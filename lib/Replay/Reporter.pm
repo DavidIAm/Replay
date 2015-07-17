@@ -143,7 +143,7 @@ $eventSystem->run;
 =head1 DESCRIPTION
 
 The reducer listens for Replay::Message::Reducable messages on the
-control channel (which it subscribes to on create)
+report channel (which it subscribes to on create)
 
 When it sees one, it attempts to retrieve the rule from its rule source.
 
@@ -263,7 +263,7 @@ sub myWindowChooserAlgorithm {...}
 
 =head1 DESCRIPTION 
 
-the reporter subscribes to the control channel
+the reporter subscribes to the report channel
 
 When the reporter sees a NewCanonical message, it calls the report 
 engine implimentation with 'update_delivery' method

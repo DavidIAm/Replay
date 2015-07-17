@@ -21,7 +21,7 @@ has storageEngine =>
 
 sub BUILD {
     my $self = shift;
-    $self->eventSystem->control->subscribe(
+    $self->eventSystem->reduce->subscribe(
         sub {
             $self->reduce_wrapper(@_);
         }
@@ -129,7 +129,7 @@ $eventSystem->run;
 =head1 DESCRIPTION
 
 The reducer listens for Replay::Message::Reducable messages on the
-control channel (which it subscribes to on create)
+report channel (which it subscribes to on create)
 
 When it sees one, it attempts to retrieve the rule from its rule source.
 

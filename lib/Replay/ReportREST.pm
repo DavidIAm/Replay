@@ -26,9 +26,6 @@ my $replay = Replay->new(
     rules => []
 );
 
-$replay->worm;
-$replay->reducer;
-$replay->mapper;
 my $reportEngine = $replay->reporter;
 
 app->stash(
