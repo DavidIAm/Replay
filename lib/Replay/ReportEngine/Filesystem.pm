@@ -216,7 +216,11 @@ sub store {
     my ( $self, $idkey, $data, $formatted ) = @_;
     use Data::Dumper;
     confess
-"second return value from delivery/summary/globsummary function does not appear to be an array ref"
+      'second return value from delivery/summary/globsummary function for rule '
+      . $idkey->name
+      . ' version '
+      . $idkey->version
+      . ' does not appear to be an array ref'
       . Dumper $data
       unless 'ARRAY' eq ref $data;
     my $directory = $self->directory($idkey);
