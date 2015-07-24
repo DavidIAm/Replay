@@ -15,11 +15,13 @@ sub a_replay_config : Test(startup) {
     my $self = shift;
     $self->{storedir} = '/tmp/testscript-07-' . $ENV{USER};
     $self->{config}   = {
+        Defaults=>{
+          ReportEngine=>'Filesystem'},
         stage   => 'testscript-07-' . $ENV{USER},
         EventSystem   => { Mode => 'Null', },
         StorageEngine => { Mode => 'Memory', },
-        ReportEngine =>
-            { Mode => 'Filesystem', reportFilesystemRoot => $self->{storedir}, },
+        ReportEngines =>
+            {Filesystem =>{Root =>$self->{storedir},Access=>'public',} },
         timeout => 10,
     };
 }

@@ -7,7 +7,7 @@ use JSON;
 use YAML;
 use File::Slurp;
 use Test::Most;
-
+our $REPLAY_TEST_CONFIG =  $ENV{REPLAY_TEST_CONFIG};
 sub t_environment_reset : Test(startup => 2) {
     my $self   = shift;
     my $replay = $self->{replay};
@@ -19,10 +19,10 @@ sub t_environment_reset : Test(startup => 2) {
 
 sub a_replay_config : Test(startup => 2) {
     my $self = shift;
-    $self->{identity} = YAML::LoadFile('/etc/cargotel/testidentity');
+    $self->{identity} = YAML::LoadFile($REPLAY_TEST_CONFIG);
     ok exists $self->{identity}{access};
     ok exists $self->{identity}{secret};
-    $self->{idfile}   = '/etc/cargotel/testidentity';
+    $self->{idfile}   = $REPLAY_TEST_CONFIG;
     $self->{storedir} = '/tmp/testscript-03-' . $ENV{USER};
     $self->{config}   = {
         timeout       => 400,

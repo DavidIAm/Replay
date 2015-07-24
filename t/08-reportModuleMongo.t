@@ -13,13 +13,14 @@ sub t_environment_reset : Test(startup) {
 sub a_replay_config : Test(startup) {
     my $self = shift;
     $self->{config} = {
+        Defaults=>{
+          ReportEngine=> 'Mongo'},
         stage         => 'testscript-08-' . $ENV{USER},
         EventSystem   => { Mode => 'Null', },
         StorageEngine => { Mode => 'Memory', },
-        ReportEngine  => {
-            Mode      => 'Mongo',
-            MongoUser => 'replayuser',
-            MongoPass => 'replaypass',
+        ReportEngines => {
+            Mongo =>{MongoUser => 'replayuser',
+            MongoPass => 'replaypass'},
         },
         timeout => 10,
     };
@@ -29,3 +30,17 @@ sub alldone : Test(teardown) {
 }
 
 Test::Class->runtests();
+
+
+ Defaults=>{
+          ReportEngine=>'Filesystem'},
+        stage   => 'testscript-07-' . $ENV{USER},
+ Defaults=>{
+          ReportEngine=>'Filesystem'},
+        stage   => 'testscript-07-' . $ENV{USER},
+        EventSystem   => { Mode => 'Null', },
+        StorageEngine => { Mode => 'Memory', },
+        ReportEngines =>
+            {Filesystem =>{Root =>$self->{storedir},Access=>'public',} },
+        timeout => 10,
+

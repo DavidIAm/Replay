@@ -5,7 +5,7 @@ use lib 'Replay/lib/';
 package Primera;
 use Moose;
 use Replay 0.02;
-with qw/Replay::Envelope/;
+with qw/Replay::Role::Envelope/;
 
 has '+MessageType' => ( default => 'Primera' );
 has 'decided'  => (
@@ -17,7 +17,7 @@ has 'decided'  => (
 
 package Mediar;
 use Moose;
-with qw/Replay::Envelope/;
+with qw/Replay::Role::Envelope/;
 extends 'Replay::Message';
 has '+MessageType' => ( default => 'Mediar' );
 has 'that'     => (
@@ -29,7 +29,7 @@ has 'that'     => (
 
 package Ultima;
 use Moose;
-with qw/Replay::Envelope/;
+with qw/Replay::Role::Envelope/;
 extends 'Replay::Message';
 has '+MessageType' => ( default => 'Ultima' );
 has 'disaster' => (
@@ -41,7 +41,7 @@ has 'disaster' => (
 
 package Lastima;
 use Moose;
-with qw/Replay::Envelope/;
+with qw/Replay::Role::Envelope/;
 extends 'Replay::Message';
 has '+MessageType' => ( default => 'Lastima' );
 has 'this'     => (
