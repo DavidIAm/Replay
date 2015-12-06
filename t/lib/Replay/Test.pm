@@ -50,14 +50,14 @@ has '+name' => ( default => __PACKAGE__, );
 
 sub match {
     my ( $self, $message ) = @_;
-    warn "Matching against " . $message->{MessageType};
+#    warn "Matching against " . $message->{MessageType};
     return $message->{MessageType} eq 'interesting';
 }
 
 sub window {
     my ( $self, $message ) = @_;
-    warn "Window against "
-      . substr( ( keys %{ $message->{Message} } )[0], 0, 1 );
+#    warn "Window against "
+#      . substr( ( keys %{ $message->{Message} } )[0], 0, 1 );
     return 'early'
       if substr( ( keys %{ $message->{Message} } )[0], 0, 1 ) =~
       /[abcdefghijklm]/i;
@@ -73,7 +73,7 @@ sub key_value_set {
             push @keyvalues, $key, $_;
         }
     }
-    warn "KEYVALUESET @keyvalues";
+#    warn "KEYVALUESET @keyvalues";
     return @keyvalues;
 }
 
@@ -85,8 +85,8 @@ sub compare {
 
 sub reduce {
     my ( $self, $emitter, @state ) = @_;
-    warn "REDUCING @state";
-    warn __FILE__ . ": PURGE FOUND" if grep { $_ eq 'purge' } @state;
+#    warn "REDUCING @state";
+#    warn __FILE__ . ": PURGE FOUND" if grep { $_ eq 'purge' } @state;
     return                          if grep { $_ eq 'purge' } @state;
     return List::Util::reduce { $a + $b } @state;
 }
@@ -94,16 +94,16 @@ sub reduce {
 sub delivery {
     my ( $self, @state ) = @_;
     use Data::Dumper;
-    warn __FILE__ . ": DELIVERY HIT";
+#    warn __FILE__ . ": DELIVERY HIT";
     return [@state], to_json [@state];
 }
 
 sub summary {
     my ( $self, %deliverydatas ) = @_;
-    warn __FILE__ . ": SUMMARY HIT";
+#    warn __FILE__ . ": SUMMARY HIT";
     my @state =
       keys %deliverydatas
-      ? List::Util::reduce { $a + $b }
+      ? map { $_.''} List::Util::reduce { $a + $b }
     map { @{ $deliverydatas{$_} } } keys %deliverydatas
       : ();
     return [@state], to_json [@state];
@@ -111,7 +111,7 @@ sub summary {
 
 sub globsummary {
     my ( $self, %summarydatas ) = @_;
-    warn __FILE__ . ": GLOBSUMMARY HIT";
+#    warn __FILE__ . ": GLOBSUMMARY HIT";
     my @state =
       keys %summarydatas
       ? List::Util::reduce { $a + $b }
@@ -201,7 +201,7 @@ sub a_testruleoperation : Test(no_plan) {
     is_deeply [
         $rule->summary( a => [5], b => [4], c => [3], d => [2], e => [1] )
       ],
-      [ [15], '[15]' ], 'summary verify';
+      [ [15], '["15"]' ], 'summary verify';
     is_deeply [ $rule->globsummary() ], [ [], '[]' ],
       'globsummary verify empty';
     is_deeply [
@@ -212,7 +212,6 @@ sub a_testruleoperation : Test(no_plan) {
 }
 
 sub m_replay_construct : Test(startup => 1) {
-    warn "REPLAY CONSTRUCT";
     my $self = shift;
     return "out of replay context" unless $self->{config};
 
@@ -284,7 +283,7 @@ sub testloop : Test(no_plan) {
     my $globsumcount    = -3;
     my $secglobsumcount = -2;
     use Scalar::Util;
-    $replay->eventSystem->origin->subscribe(
+1 or    $replay->eventSystem->origin->subscribe(
         sub {
             my ($message) = @_;
 
@@ -293,7 +292,7 @@ sub testloop : Test(no_plan) {
               . $message->{MessageType} . "\n";
         }
     );
-    $replay->eventSystem->map->subscribe(
+1 or    $replay->eventSystem->map->subscribe(
         sub {
             my ($message) = @_;
 
@@ -302,7 +301,7 @@ sub testloop : Test(no_plan) {
               . $message->{MessageType} . "\n";
         }
     );
-    $replay->eventSystem->reduce->subscribe(
+1 or    $replay->eventSystem->reduce->subscribe(
         sub {
             my ($message) = @_;
 
@@ -328,9 +327,9 @@ sub testloop : Test(no_plan) {
         sub {
             my ($message) = @_;
 
-            warn __FILE__
-              . ": This is a report message of type "
-              . $message->{MessageType} . "\n";
+#            warn __FILE__
+#              . ": This is a report message of type "
+#              . $message->{MessageType} . "\n";
 
            # The behavior of this return plus the globsumcount increment is that
            # it will keep letting things run until it sees the third
@@ -362,21 +361,21 @@ sub testloop : Test(no_plan) {
             # Get a formatted summary for window early
             # (the key part is ignored in this idkey!)
             is_deeply [ $replay->reportEngine->summary($keyA) ],
-              [ { FORMATTED => '[55]', TYPE => 'text/plain', EMPTY => 0 } ];
+              [ { FORMATTED => '["55"]', TYPE => 'text/plain', EMPTY => 0 } ];
 
-            warn __FILE__ . ": Starting subscribe to report for finishup";
+#            warn __FILE__ . ": Starting subscribe to report for finishup";
 
             $replay->eventSystem->report->subscribe(
                 sub {
                     my ($message) = @_;
 
-                    warn "Final subscribe message type "
-                      . $message->{MessageType};
+#                    warn "Final subscribe message type "
+#                      . $message->{MessageType};
                     $secglobsumcount++
                       if $message->{MessageType} eq 'ReportNewGlobSummary';
                     return if $secglobsumcount;
 
-                    warn __FILE__ . ": PROPER STOP";
+#                    warn __FILE__ . ": PROPER STOP";
                     $replay->eventSystem->stop;
                 }
             );
@@ -391,7 +390,7 @@ sub testloop : Test(no_plan) {
     my $e = AnyEvent->timer(
         after => 1,
         cb    => sub {
-            warn "EMITTING MESSAGES NOW";
+#            warn "EMITTING MESSAGES NOW";
 
             $replay->eventSystem->map->emit( $self->{funMessage} );
             $replay->eventSystem->map->emit( $self->{secondMessage} );

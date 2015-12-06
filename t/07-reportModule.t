@@ -18,8 +18,14 @@ sub a_replay_config : Test(startup) {
         stage   => 'testscript-07-' . $ENV{USER},
         EventSystem   => { Mode => 'Null', },
         StorageEngine => { Mode => 'Memory', },
-        ReportEngine =>
-            { Mode => 'Filesystem', reportFilesystemRoot => $self->{storedir}, },
+        Defaults      => { ReportEngine => 'Filesystem' },
+        ReportEngines => [
+            {
+                Name => 'Filesystem',
+                Mode => 'Filesystem',
+                Root => $self->{storedir},
+            }
+        ],
         timeout => 10,
     };
 }

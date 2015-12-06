@@ -20,7 +20,7 @@ role_type WithReportEngine => { role => 'Replay::Role::ReportEngine' };
 
 has availableReportEngines => (
     is      => 'ro',
-    isa     => 'HashRef[WithReportEngine]',
+    isa     => 'ArrayRef[WithReportEngine]',
     builder => '_build_availableReportEngines',
     lazy    => 1,
 );
@@ -32,37 +32,39 @@ has defaultReportEngine => (
     lazy    => 1,
 );
 
-sub _build_availableReportEngines
-{    ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_availableReportEngines {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self            = shift;
-    my $hash_of_engines = {};
+    my $list_of_engines = [];
 
-    foreach my $engine ( keys %{ $self->config->{ReportEngines} } ) {
+    foreach my $engine ( @{$self->config->{ReportEngines} } ) {
+#      confess "INVALID ENGINE" unless defined $engine->{Name};
 
-        my $d = $hash_of_engines->{$engine} = $self->mode_class($engine)->new(
+        push @{$list_of_engines}, my $d = $self->mode_class($engine->{Mode})->new(
             config      => $self->config,
+            thisConfig => $engine,
             ruleSource  => $self->ruleSource,
             eventSystem => $self->eventSystem,
         );
+        confess "WHAT IS $d" . $d->dump(1) unless $d->does('Replay::Role::ReportEngine');
     }
-    return $hash_of_engines;
+    return $list_of_engines;
 }
 
 sub _build_defaultReportEngine { ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self    = shift;
-    my $default = $self->availableReportEngines()
-      ->{ $self->config->{Defaults}->{ReportEngine} };
+    my $default = (grep { $_->Name eq $self->config->{Defaults}->{ReportEngine} } @{$self->availableReportEngines()})[0];
     unless ($default) {
+      use Data::Dumper;
         croak 'No ReportEngine '
           . $self->config->{Defaults}->{ReportEngine}
-          . ' defined';
+          . ' defined' . Dumper $self->availableReportEngines;
     }
     return $default;
 }
 
 sub all_engines {
     my ($self) = @_;
-    return values %{ $self->availableReportEngines };
+    return values @{ $self->availableReportEngines };
 }
 
 sub mode_class {    ## no critic (ProhibitUnusedPrivateSubroutines)

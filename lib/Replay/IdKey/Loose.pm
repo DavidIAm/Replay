@@ -12,6 +12,18 @@ has '+version' => (
     required    => 0,
 );
 
+has 'indicate_latest_rev' => (
+  isa => 'Bool',
+  is => 'ro', 
+  builder => '_build_indicate_latest_rev',
+  lazy => 1,
+)
+
+sub _build_indicate_latest_rev {
+  my $self = shift;
+  return $self->has_rev && $self->{rev}  eq 'latest';
+}
+
 1;
 
 __END__

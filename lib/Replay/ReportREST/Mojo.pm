@@ -70,6 +70,7 @@ my $replay = Replay->new(
     },
     rules => []
 );
+
 sub report_retriever {
     my $c = shift;
     $c->stash( 'rev', $c->req->query_params->param('rev') )
@@ -132,7 +133,6 @@ sub report_retriever {
     }
 
     return $c->respond_to(
-
         text => "No such "
           . $replay->reporter->reportEngine->engine->directory($idkey)
           . " report information found for "

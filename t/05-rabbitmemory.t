@@ -55,9 +55,14 @@ sub a_replay_config : Test(startup) {
                 },
             },
         },
-        ReportEngine =>
-            { Mode => 'Filesystem', reportFilesystemRoot => $self->{storedir} },
-        StorageEngine => { Mode => 'Memory' },
+        Defaults      => { ReportEngine => 'Filesystem' },
+        ReportEngines => [
+            {
+                Name => 'Filesystem',
+                Mode => 'Filesystem',
+                Root => $self->{storedir},
+            }
+        ],
     };
 }
 

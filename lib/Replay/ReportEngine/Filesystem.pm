@@ -7,32 +7,56 @@ use Carp qw/croak carp cluck/;
 use JSON qw/to_json/;
 use File::Spec::Functions;
 use File::Path qw/mkpath/;
-use File::MimeInfo::Magic;
+use File::MimeInfo::Magic qw/mimetype/;
 use File::Slurp qw/read_file/;
 use Readonly;
 use Cwd 'abs_path';
 use Storable qw/store_fd/;
 use IO::Dir;
 
-with 'Replay::Role::ReportEngine';
-
 our $VERSION = q(0.03);
 
 Readonly my $CURRENTFILE  => 'CURRENT';
 Readonly my $WRITABLEFILE => 'WRITABLE';
 
+has 'Root' => (
+    is      => 'ro',
+    isa     => 'Str',
+    builder => '_build_root',
+    lazy    => 1,
+);
+
+has 'Name' => (
+    is      => 'ro',
+    isa     => 'Str',
+    builder => '_build_name',
+    lazy    => 1,
+);
+
+has 'thisConfig' => (
+    is       => 'ro',
+    isa      => 'HashRef',
+    required => 1,
+);
+
+with 'Replay::Role::ReportEngine';
+
 has '+mode' => ( default => 'Filesystem' );
 
 my $store = {};
 
-sub BUILD {
+sub _build_name {
+    my $self = shift;
+    return $self->thisConfig->{Name};
+}
+
+sub _build_root {
     my $self      = shift;
-    my $directory = $self->config->{ReportEngines}->{ $self->mode }->{Root};
-    $self->config->{ReportEngines}->{ $self->mode }->{Root} =
-      abs_path $directory;
+    my $directory = abs_path $self->thisConfig->{Root};
     mkpath $directory unless -d $directory;
-    confess "no report filesystem Root" . to_json $self->config->{ReportEngines}
+    confess "no exist report filesystem Root" . to_json $self->thisConfig
       unless -d $directory;
+    return $directory;
 }
 
 sub retrieve {
@@ -80,7 +104,7 @@ sub current_revision {
     return undef unless -d $directory;
     my $vfile = $self->current_revision_path($directory);
     return undef unless ( -f $vfile );
-    return read_file($vfile) || 0;
+    return map { chomp; $_ } read_file($vfile);
 }
 
 sub current {
@@ -103,7 +127,7 @@ sub subdirs {
         }
     }
     warn "SUBDIRS: @subdirs";
-    return @subdirs;
+    return sort @subdirs;
 }
 
 # filters a list of directories by those which contain a CURRENT file
@@ -185,7 +209,7 @@ sub filename {
 sub directory {
     my ( $self, $idkey ) = @_;
     return catdir(
-        $self->config->{ReportEngines}->{ $self->mode }->{Root},
+        $self->Root,
         ( $idkey->has_domain  ? ( $idkey->domain )  : () ),
         ( $idkey->has_name    ? ( $idkey->name )    : () ),
         ( $idkey->has_version ? ( $idkey->version ) : () ),

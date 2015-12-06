@@ -25,7 +25,13 @@ sub a_replay_config : Test(startup) {
         },
         EventSystem   => { Mode         => 'Null' },
         Defaults      => { ReportEngine => 'Filesystem' },
-        ReportEngines => { Filesystem   => { Root => $self->{storedir}, } }
+        ReportEngines => [
+            {
+                Name => 'Filesystem',
+                Mode => 'Filesystem',
+                Root => $self->{storedir},
+            }
+        ],
     };
 }
 

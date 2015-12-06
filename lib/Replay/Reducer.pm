@@ -89,7 +89,7 @@ sub reduce_wrapper {
         $self->storageEngine->revert($idkey, $uuid);
         $self->eventSystem->control->emit(
             Replay::Message::ReducerException->new(
-                $self->idkey->hash_list,
+                $idkey->hash_list,
                 exception => (blessed $_ && $_->can('trace') ? $_->trace->as_string : $_),
             )
         );

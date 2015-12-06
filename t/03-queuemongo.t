@@ -33,13 +33,22 @@ sub a_replay_config : Test(startup => 2) {
             Pass => 'replaypass',
         },
         EventSystem => {
-            Mode        => 'AWSQueue',
-            awsIdentity => $self->{identity},
-            snsService  => 'https://sns.us-east-1.amazonaws.com',
-            sqsService  => 'https://sqs.us-east-1.amazonaws.com',
+            Mode                => 'AWSQueue',
+            awsIdentity         => $self->{identity},
+            snsService          => 'https://sns.us-east-1.amazonaws.com',
+            sqsService          => 'https://sqs.us-east-1.amazonaws.com',
+            WaitTimeSeconds     => 19,
+            MaxNumberOfMessages => 2,
+            VisibilityTimeout   => 501,
         },
         Defaults      => { ReportEngine => 'Filesystem' },
-        ReportEngines => { Filesystem   => { Root => $self->{storedir}, } }
+        ReportEngines => [
+            {
+                Name => 'Filesystem',
+                Mode => 'Filesystem',
+                Root => $self->{storedir},
+            }
+        ],
     };
 }
 

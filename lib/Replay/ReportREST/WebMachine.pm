@@ -1,81 +1,87 @@
-#!/usr/bin/env perl
+use Web::Machine;
+
+use strict;
+use warnings
+
+{
 package Replay::ReportREST::Mojo;
 BEGIN { warn '---------------' }
 
-use Mojolicious::Lite;
-use HTTP::Status qw(:constants :is status_message);
 
-use Data::Dumper;
-use Replay;
-use Replay::IdKey::Loose;
-use XML::Simple;
-use JSON;
-use YAML;
+use parent 'Web::Machine::Resource';
 
-use Moose;
+sub content_types_provided {
+    [
+        { 'text/plain'       => 'to_plain', },
+        { 'application/json' => 'to_json', },
+        { 'application/xml'  => 'to_xml', },
+        { 'text/yaml'        => 'to_yaml' },
 
-our $VERSION = '0.04';
+    ];
+}
 
-#sub Replay {
-#    return app->config('reportEngine');
-#}
+sub to_plain {
+}
 
-app->stash(
-    domain  => 1,
-    name    => 1,
-    version => 1,
-    window  => 1,
-    key     => 1,
-    rev     => 1
-);
+sub to_yaml {
+}
 
-under '/replay/reports';
+sub to_xml {
+}
 
-get
-  '/domain/:domain/rule/:name/version/:version/window/:window/key/:key/rev/:rev'
-  => {
-    domain  => 'empty',
-    name    => 'empty',
-    version => 'empty',
-    window  => 'empty',
-    key     => 'empty',
-    rev     => 'empty'
-  } => \&report_retriever;
-
-get '/:domain/:name/:version/:window/:key' => {
-    domain  => 'empty',
-    name    => 'empty',
-    version => 'empty',
-    window  => 'empty',
-    key     => 'empty',
-    rev     => 'empty'
-} => \&report_retriever;
+sub context {
+    my $self = shift;
+    $self->{idkey} = idkey_from_list( @_ );
+    $self->{'context'} ||= $replay->reporter->reportEngine->engine->retrieve( $idkey,
+            structured => $self->request->query_parameters->{'structured'} );
 
 
-my $replay = Replay->new(
-    config => {
-        EventSystem   => { Mode         => 'Null' },
-        StorageEngine => { Mode         => 'Memory' },
-        Defaults       => { ReportEngine => 'Prime' },
-        ReportEngines => [
-            {
-                Name => 'Prime',
-                Mode => 'Filesystem',
-                Root => './reports',
-            },
-        ],
+    return $self->{'context'};
+}
 
-        timeout => 50,
-        stage   => 'testscript-01-' . $ENV{USER},
-    },
-    rules => []
-);
+sub allowed_methods {
+    return [
+        qw[ GET HEAD PUT POST ],
+        ( (shift)->request->path_info eq '/' ? () : 'DELETE' )
+    ];
+}
+
+sub map_to_data {
+  my $self = shift;
+    if ( $self->{idkey}->has_key && $self->{idkey}->has_rev) {
+        if ( $c->{idkey}->indicate_latest_rev ) {
+        }
+    }
+  }
+sub resource_exists {
+    my $self = shift;
+
+    $self->context(bind_path( '/reports/domain/:domain/rule/:name/version/:version/window/:window/key/:key/rev/:rev', $self->request->path_info));
+
+    return ! $self->context->{EMPTY};
+}
+
+sub to_json { 
+  $JSON->encode( (shift)->context->{DATA} ) 
+}
+
+sub from_json {
+    my $self = shift;
+    my $data = $JSON->decode( $self->request->content );
+
+}
+
+sub my_report {
+my $self = shift;
+return $self->{my_report};
+}
+
 sub report_retriever {
     my $c = shift;
     $c->stash( 'rev', $c->req->query_params->param('rev') )
       if $c->req->query_params->param('rev');
     $c->stash( 'current', undef );
-    my $idkey = idkey_from_stash($c);
+    my $idkey = idkey_from_list($c);
 
     my ($currentrecord) =
       $replay->reporter->reportEngine->engine->current($idkey);
@@ -173,35 +179,19 @@ sub report_retriever {
 
 }
 
-sub idkey_from_stash {
-    my $c = shift;
-    my ( $domain, $name, $version, $window, $key, $rev ) = (
-        $c->stash('domain'),  $c->stash('name'),
-        $c->stash('version'), $c->stash('window'),
-        $c->stash('key'),     $c->stash('rev')
-    );
+sub idkey_from_list {
+    my ( $domain, $name, $version, $window, $key, $rev ) = @_;
     try {
         return Replay::IdKey::Loose->new(
             {
-                ( $name ne 'empty' ? ( name => $c->stash('name') ) : () ),
+                ( defined $name    ? ( name    => $name )    : () ),
+                ( defined $version ? ( version => $version ) : () ),
+                ( defined $window  ? ( window  => $window )  : () ),
+                ( defined $key     ? ( key     => $key )     : () ),
                 (
-                    $version ne 'empty' ? ( version => $c->stash('version') )
-                    : ()
+                    defined $rev && $rev ne 'latest' ? ( revision => $rev ) : ()
                 ),
-                (
-                    $window ne 'empty' ? ( window => $c->stash('window') )
-                    : ()
-                ),
-                ( $key ne 'empty' ? ( key => $c->stash('key') ) : () ),
-                (
-                    $rev ne 'empty'
-                      && $rev ne 'latest' ? ( revision => $c->stash('rev') )
-                    : ()
-                ),
-                (
-                    $domain ne 'empty' ? ( domain => $c->stash('domain') )
-                    : ()
-                ),
+                ( defined $domain ? ( domain => $domain ) : () ),
             }
         );
     }
@@ -235,3 +225,5 @@ __DATA__
 % }
 </ul>
 
+## Please see file perltidy.ERR
+## Please see file perltidy.ERR

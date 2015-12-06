@@ -16,11 +16,20 @@ sub a_replay_config : Test(startup) {
         stage         => 'testscript-08-' . $ENV{USER},
         EventSystem   => { Mode => 'Null', },
         StorageEngine => { Mode => 'Memory', },
-        ReportEngine  => {
-            Mode      => 'Mongo',
-            MongoUser => 'replayuser',
-            MongoPass => 'replaypass',
-        },
+        Defaults      => { ReportEngine => 'MongoAlter' },
+        ReportEngines => [
+            {
+                Name      => 'MongoAlter',
+                Mode      => 'Mongo',
+                User => 'replayuser',
+                Pass => 'replaypass',
+            },
+            {
+                Name      => 'FileBug',
+                Mode      => 'Filesystem',
+                Root => '/tmp/rpt',
+            },
+        ],
         timeout => 10,
     };
 }
@@ -29,3 +38,5 @@ sub alldone : Test(teardown) {
 }
 
 Test::Class->runtests();
+
+1;
