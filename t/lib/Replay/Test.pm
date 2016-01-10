@@ -128,7 +128,6 @@ use Data::Dumper;
 use AnyEvent;
 use Test::Most;
 use Data::Dumper;
-use Net::RabbitMQ;
 use Time::HiRes qw/gettimeofday/;
 use JSON qw/to_json from_json/;
 

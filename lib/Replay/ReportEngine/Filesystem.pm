@@ -126,7 +126,6 @@ sub subdirs {
             push @subdirs, $entry;
         }
     }
-    warn "SUBDIRS: @subdirs";
     return sort @subdirs;
 }
 
@@ -339,6 +338,8 @@ sub freeze {
     $self->unlock($directory);
 }
 
+__PACKAGE__->meta->make_immutable;
+
 1;
 
 __END__
@@ -357,11 +358,12 @@ Version 0.03
 
 Replay::ReportEngine::Filesystem->new( 
         config      => 
-        { ReportEngines => { 
+        { ReportEngines => {
           FileSystem=>{
               Access=>'public',  
               Root  => $storedir, 
           },
+        },
         ruleSource  => $self->ruleSource,
         eventSystem => $self->eventSystem,
     );
