@@ -222,7 +222,7 @@ sub stringtouch {
                 push @{$ary}, $self->stringtouch( $struct->[$_] );
             }
             else {
-                push @{$ary}, $struct->[$_] . q();
+                push @{$ary}, q();
             }
         }
         return $ary;
@@ -234,7 +234,7 @@ sub stringtouch {
                 $hsh->{$_} = $self->stringtouch( $struct->{$_} );
             }
             else {
-                $hsh->{$_} = $struct->{$_} . q();
+                $hsh->{$_} = q();
             }
         }
         return $hsh;
