@@ -64,7 +64,7 @@ sub _build_defaultReportEngine { ## no critic (ProhibitUnusedPrivateSubroutines)
 
 sub all_engines {
     my ($self) = @_;
-    return @{ $self->availableReportEngines };
+    return value %{ $self->availableReportEngines };
 }
 
 sub mode_class {    ## no critic (ProhibitUnusedPrivateSubroutines)
