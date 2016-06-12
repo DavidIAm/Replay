@@ -145,6 +145,20 @@ sub checkout_record {
     return $lockresult;
 }
 
+sub is_locked {
+    my ($self, $idkey) = @_;
+    return $self->collection($idkey)->find(
+        {   idkey  => $idkey->cubby,
+            locked => { q^$^ . 'exists' => 1 },
+            q^$^
+                . 'or' => [
+                { lockExpireEpoch => { q^$^ . 'lt'     => time } },
+                { lockExpireEpoch => { q^$^ . 'exists' => 0 } }
+                ]
+        }
+    )->has_next;
+}
+
 sub relock_expired {
     my ( $self, $idkey, $signature, $timeout ) = @_;
 
@@ -307,7 +321,7 @@ sub lockreport {
     my ( $self, $idkey ) = @_;
     return [
         $self->collection($idkey)->find( { idkey => $idkey->cubby },
-            { locked => JSON::true, lockExpireEpoch => JSON::true } )->all
+            { locked => JSON::true, lockExpireEpoch => JSON::true, inbox => JSON::true, desktop => JSON::true } )->all
     ];
 }
 
@@ -424,8 +438,12 @@ sub find_keys_need_reduce {
 
 sub _build_mongo {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    my $db = MongoDB::MongoClient->new();
-    $db->authenticate( $self->dbauthdb, $self->dbuser, $self->dbpass );
+    my $db = MongoDB::MongoClient->new(
+        {   username => $self->dbuser,
+            password => $self->dbpass,
+            db_name  => $self->dbauthdb
+        }
+    );
     return $db;
 }
 

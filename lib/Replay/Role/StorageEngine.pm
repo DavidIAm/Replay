@@ -2,6 +2,7 @@ package Replay::Role::StorageEngine;
 
 use Moose::Role;
 requires qw(absorb retrieve find_keys_need_reduce window_all checkin);
+use Data::Dumper;
 use Digest::MD5 qw/md5_hex/;
 use Data::UUID;
 use Replay::Message::Fetched;
@@ -21,6 +22,7 @@ use Replay::IdKey;
 use Storable qw/freeze/;
 use Try::Tiny;
 use Readonly;
+use JSON qw/to_json/;
 
 use Carp qw/croak carp/;
 
@@ -84,6 +86,10 @@ sub checkout {
         return $uuid, $lockresult;
     }
 
+    unless ($self->is_locked( $idkey )) {
+        return;
+    }
+
     # if it failed, check to see if we can relock an expired record
     my $unluuid = $self->generate_uuid;
     my $unlsignature = $self->state_signature( $idkey, [$unluuid] );
@@ -95,7 +101,7 @@ sub checkout {
         carp
 q(Unable to obtain lock because the current one is locked and unexpired ())
           . $idkey->cubby
-          . qq(\)\n);
+          . qq^)(^ . Dumper($self->lockreport($idkey)) . qq^)\n^;
         $self->eventSystem->control->emit(
             Replay::Message::NoLock->new( $idkey->marshall ),
         );
