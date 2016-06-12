@@ -42,8 +42,10 @@ sub _build_name {
 
 sub _build_mongo {
     my ($self) = @_;
-    my $db = MongoDB::MongoClient->new();
-    $db->authenticate( $self->dbauthdb, $self->dbuser, $self->dbpass );
+    my $db = MongoDB::MongoClient->new({username=>$self->dbuser,
+                                       password=>$self->dbpass,
+                                       db_name=>$self->dbauthdb});
+
     return $db;
 }
 
