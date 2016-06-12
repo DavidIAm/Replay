@@ -102,6 +102,7 @@ sub checkout_record {
             query => {
                 idkey   => $idkey->cubby,
                 desktop => { q^$^ . 'exists' => 0 },
+                inbox => { q^$^ . 'exists' => 1 },
                 q^$^
                   . 'or' => [
                     { locked => { q^$^ . 'exists' => 0 } },
