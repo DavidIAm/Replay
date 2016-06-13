@@ -6,6 +6,7 @@ use Replay::DelayedEmitter;
 use Replay::IdKey;
 use Replay::Message;
 use Replay::Message::Reduced;
+use Replay::Message::ReducerException;
 use Scalar::Util qw/blessed/;
 use Carp qw/carp/;
 use Try::Tiny;
