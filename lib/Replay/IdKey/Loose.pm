@@ -17,7 +17,7 @@ has 'indicate_latest_rev' => (
   is => 'ro', 
   builder => '_build_indicate_latest_rev',
   lazy => 1,
-)
+);
 
 sub _build_indicate_latest_rev {
   my $self = shift;
