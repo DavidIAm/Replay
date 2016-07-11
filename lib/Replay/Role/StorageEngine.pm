@@ -239,8 +239,11 @@ sub stringtouch {
             if ( ref $struct->{$_} ) {
                 $hsh->{$_} = $self->stringtouch( $struct->{$_} );
             }
-            else {
+            elsif ($struct->{$_}) { #has value
                 $hsh->{$_} = $struct->{$_} . q();
+            }
+            else { #no value
+                $hsh->{$_} = undef;  
             }
         }
         return $hsh;
