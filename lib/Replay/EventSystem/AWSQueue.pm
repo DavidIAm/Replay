@@ -12,6 +12,7 @@ use Replay::Message;
 use Carp qw/carp croak confess/;
 
 use Perl::Version;
+use IO::Socket::SSL;
 use Amazon::SNS;
 use Try::Tiny;
 use Amazon::SQS::Simple;
@@ -234,6 +235,8 @@ sub _build_topic {         ## no critic (ProhibitUnusedPrivateSubroutines)
     else {
         $topic = $self->sns->CreateTopic($self->topicName);
     }
+    croak "SNS error cannot create topic=$topic Error:".$self->sns->error
+      if ($self->sns->error);
     return $topic;
 }
 
