@@ -67,13 +67,11 @@ package Replay::Rules::AtDomain;
 #        };
 
 use Moose;
-use Replay::BusinessRule 0.02;
 use Scalar::Util qw/blessed/;
 use List::Util qw/min max/;
 use JSON;
 use Try::Tiny;
-use Replay::Message 0.02;
-use Replay::Message::At::SendMessageNow 0.02;
+use Replay::Message::Send::Now 0.02;
 use Readonly;
 with 'Replay::Role::BusinessRule' => { -version => 0.02 };
 
@@ -214,7 +212,7 @@ sub reduce {
                 {
                     $emitter->emit(
                         'map',
-                        Replay::Message::At::SendMessageNow->new(
+                        Replay::Message::Send::Now->new(
                             sendtime => $time,
                             atdomain => $domain,
                             window   => $window,

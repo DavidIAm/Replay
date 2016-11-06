@@ -41,14 +41,13 @@ package Replay::Rules::At;
 #        };
 
 use Moose;
-use Replay::BusinessRule 0.02;
 use Scalar::Util qw/blessed/;
 use List::Util qw/min max/;
 use JSON;
 use Try::Tiny;
 use Time::HiRes qw/gettimeofday/;
-use Replay::Message::At::SentMessageAt 0.02;
-use Replay::Message::At::SendMessageWhen 0.02;
+use Replay::Message::Sent::At 0.02;
+use Replay::Message::Send::When 0.02;
 use Replay::Message 0.02;
 use Readonly;
 with 'Replay::Role::BusinessRule' => { -version => 0.02 };
@@ -134,7 +133,7 @@ sub reduce {
             $emitter->emit($atom->{channel}, my $sent = $c->new($atom->{payload}));
             $emitter->emit(
                 'map',
-                Replay::Message::At::SentMessageAt->new(
+                Replay::Message::Sent::At->new(
                     requested => $atom->{sendat},
                     actual    => scalar(gettimeofday),
                     atdomain  => $atom->{atdomain},
@@ -155,7 +154,7 @@ sub reduce {
     {
         $emitter->emit(
             'map',
-            Replay::Message::At::SendMessageWhen->new(
+            Replay::Message::Send::When->new(
                 newmin   => $newmin,
                 newmax   => $newmax,
                 atdomain => $atom->{atdomain},

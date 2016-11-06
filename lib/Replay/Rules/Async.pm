@@ -1,4 +1,4 @@
-package Replay::Role::ClearingMachine;
+package Replay::Rule::Async;
 
 # This is the general logic that will be used by the traditional clearing
 # pattern:
@@ -34,20 +34,17 @@ package Replay::Role::ClearingMachine;
 #                       },
 #        };
 
-use Moose::Role;
-use Replay::BusinessRule 0.02;
+use Moose;
 use Scalar::Util qw/blessed/;
 use List::Util qw/min max/;
 use JSON;
 use Try::Tiny;
 use Time::HiRes qw/gettimeofday/;
-use Replay::Message::At::SentMessageAt 0.02;
-use Replay::Message::At::SendMessageWhen 0.02;
-use Replay::Message 0.02;
+use Replay::Message::Clock;
+use Replay::Message::Async;
 use Readonly;
-
 with qw/Replay::Role::BusinessRule/;
-requires qw/initial_match attempt on_error on_exception on_success value_set/;
+#requires qw/initial_match attempt on_error on_exception on_success value_set/;
 
 our $VERSION = q(2);
 
@@ -59,7 +56,7 @@ Readonly my $PURPOSE_MAP            => { 'retry' => 1, 'new_input' => 2, };
 
 # given an error, when to retry this next
 sub retry_next_at {
-    my ($self, @atoms) = @_;
+    my ( $self, @atoms ) = @_;
 }
 
 sub window_size_seconds {
@@ -67,19 +64,19 @@ sub window_size_seconds {
 }
 
 sub compare {
-    my ($self, $aa, $bb) = @_;
+    my ( $self, $aa, $bb ) = @_;
     return -1 if $aa->{MessageType} eq 'Async';
     return 1  if $bb->{MessageType} eq 'Async';
-    return $PURPOSE_MAP->{ $aa->{Message}{purpose} }
-        <=> $PURPOSE_MAP->{ $bb->{Message}{purpose} };
+    return $PURPOSE_MAP->{ $aa->{Message}{purpose} } <=>
+      $PURPOSE_MAP->{ $bb->{Message}{purpose} };
 }
 
 sub match {
-    my ($self, $message) = @_;
-		use Data::Dumper;
-		warn "The message type is " . Dumper $message->{MessageType};
+    my ( $self, $message ) = @_;
+    use Data::Dumper;
+    warn "The message type is " . Dumper $message->{MessageType};
     return 1 if $message->{MessageType} eq 'Async';
-    return 1 if $self->message_in_set($message);
+    return 1 if $self->initial_match($message);
     return 0;
 }
 
@@ -87,74 +84,73 @@ sub effective_to_window {
 }
 
 sub window {
-    my ($self, $message) = @_;
+    my ( $self, $message ) = @_;
 
     # we send this along to rejoin the proper window
     return $message->{Message}{window}
-        if $message->{MessageType} eq 'Async';
+      if $message->{MessageType} eq 'Async';
     return $message->{UUID};
 }
 
 sub attempt_is_success {
-	my ($self, $key, $message) = @_;
-	$self->emit('origin', Replay::Message::Async->new( key => $key, ));
-	$self->on_success($message);
-}
-sub attempt_is_error {
-	my ($self, $message) = @_;
-	$self->on_error($message);
-}
-sub attempt_is_exception {
-	my ($self, $message) = @_;
-	$self->on_exception($message);
-}
-
-sub key_value_set {
-    my ($self, $message) = @_;
-
-		return $self->set_key($message);
-} 
+    my ( $self, $key, $message ) = @_;
     
-=pod
+    $self->emit('origin', Replay::Message::Async->new( key => $key, ));
+    $self->on_success($message);
+ }
 
-    if $self->message_in_set($message);
-		return $message->{Message}{key} => {
-        requested => 0,
-        window    => $self->window($message),
-        uuid      => $message->{UUID},
-        } if $self->initial_match($message);
+    sub attempt_is_error {
+        my ( $self, $message ) = @_;
+        $self->on_error($message);
+    }
 
-        if $message->{MessageType} eq 'Async';
-        if $message->{MessageType} eq 'Async';
+    sub attempt_is_exception {
+        my ( $self, $message ) = @_;
+        $self->on_exception($message);
+    }
 
-    # the only other type we should see is our initial type
-    my $counter = 1;
-    return
-        map { $message->{UUID} . '-' . ($counter++) => { payload => $_ } }
-        $self->value_set($message);
-}
+    sub key_value_set {
+        my ( $self, $message ) = @_;
 
-sub reduce {
-    my ($self, $emitter, @atoms) = @_;
+        return
+          map { $message->{UUID} => { element => 'original', value => $_ } }
+          $self->value_set
+          if $self->initial_match($message);
 
+        # return $message->{Message}{key} => {
+            # requested => 0,
+            # window    => $self->window($message),
+            # uuid      => $message->{UUID},
+          # }
+          # if $self->initial_match($message);
+
+        # #if $message->{MessageType} eq 'Async';
+
+        # the only other type we should see is our initial type
+        my $counter = 1;
+        return
+          map { $message->{UUID} . '-' . ( $counter++ ) => { payload => $_ } }
+          $self->value_set($message);
+    }
+
+    sub reduce {
+        my ( $self, $emitter, @atoms ) = @_;
 
 #requires qw/key_for_set initial_match attempt on_error on_exception on_success value_set/;
 # atdomain message
 
-inital match <M>
-attempt <M->ER/EX/SU>
+        # inital match <M> attempt < M->ER / EX / SU >
 
-# requested is zero
-if ($_->{MessageType} eq 'ClearingMachine') {
-}
-elsif ($_->{MessageType} eq 'ClearingMachineAttempt' {
-}
+          # # requested is zero
+          # if ( $_->{MessageType} eq 'ClearingMachine' ) {
+        # }
+        # elsif (
+            # $_->{MessageType} eq 'ClearingMachineAttempt' {}
 
-    return @atoms_to_keep;
-}
-=cut
+            # return @atoms_to_keep;
+        }
 
-1;
+        1;
 
 =pod
 
@@ -314,4 +310,4 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =cut
 
-1;
+        1;

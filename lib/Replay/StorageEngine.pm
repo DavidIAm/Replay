@@ -1,6 +1,5 @@
 package Replay::StorageEngine;
 
-#use Replay::BaseStorageEngine;
 use Moose;
 use Try::Tiny;
 use English '-no_match_vars';

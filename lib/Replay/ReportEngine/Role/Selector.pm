@@ -1,6 +1,4 @@
-package Replay::Role::ReportEngineSelector;
-
-use Replay::Role::ReportEngine;
+package Replay::ReportEngine::Role::Selector;
 
 use Moose::Role;
 use Moose::Util::TypeConstraints;
@@ -37,15 +35,20 @@ sub _build_availableReportEngines
     my $self            = shift;
     my $hash_of_engines = {};
 
-    foreach my $engine ( keys %{ $self->config->{ReportEngines} } ) {
+    my $list_of_engines = [];
 
-        my $d = $hash_of_engines->{$engine} = $self->mode_class($engine)->new(
+    foreach my $engine ( @{$self->config->{ReportEngines} } ) {
+#      confess "INVALID ENGINE" unless defined $engine->{Name};
+
+        push @{$list_of_engines}, my $d = $self->mode_class($engine->{Mode})->new(
             config      => $self->config,
+            thisConfig => $engine,
             ruleSource  => $self->ruleSource,
             eventSystem => $self->eventSystem,
         );
+        confess "WHAT IS $d" . $d->dump(1) unless $d->does('Replay::Role::ReportEngine');
     }
-    return $hash_of_engines;
+    return $list_of_engines;
 }
 
 sub _build_defaultReportEngine { ## no critic (ProhibitUnusedPrivateSubroutines)

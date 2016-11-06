@@ -4,15 +4,15 @@ use Moose::Util::TypeConstraints;
 
 #use namespace::autoclean;
 use Replay::Message::Clock;
-use Replay::Message::IdKey;
+# use Replay::Message::IdKey;
 
 our $VERSION = '0.02';
 
 class_type 'Clock', { class => 'Replay::Message::Clock' };
 coerce 'Clock', from 'HashRef', via { Replay::Message::Clock->new(%{$_}) };
 
-class_type 'IdKey', { class => 'Replay::IdKey' };
-coerce 'IdKey', from 'HashRef', via { Replay::IdKey->new(%{$_}) };
+# class_type 'IdKey', { class => 'Replay::IdKey' };
+# coerce 'IdKey', from 'HashRef', via { Replay::IdKey->new(%{$_}) };
 
 1;
 

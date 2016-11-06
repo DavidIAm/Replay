@@ -1,10 +1,11 @@
-package Replay::Message::Report::NewSummary;
+package Replay::Message::Report::New::GlobSummary;
 
 use Moose;
-extends('Replay::Message::IdKey', 'Replay::Message');
+extends('Replay::Message');
+with ('Replay::Role::IdKey');
 our $VERSION = '0.03';
 
-has '+MessageType' => (default => 'ReportNewSummary');
+has '+MessageType' => (default => 'ReportNewGlobSummary');
 
 1;
 
@@ -14,7 +15,7 @@ __END__
 
 =head1 NAME
 
-Replay::Message::Report::NewSummary - signal that a new summary has been delivered
+Replay::Message::Report::NewGlobSummary - signal that a new global summary has been delivered
 
 =head1 VERSION
 

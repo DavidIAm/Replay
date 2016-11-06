@@ -1,6 +1,7 @@
 package Replay::IdKey;
 
 use Moose;
+with Storage('format' => 'JSON');
 use MongoDB;
 use MooseX::Storage;
 use MongoDB::OID;
@@ -58,7 +59,7 @@ has revision => (
     description => { layer => 'message' },
 );
 
-with Storage('format' => 'JSON');
+
 
 sub BUILD {
     my $self = shift;

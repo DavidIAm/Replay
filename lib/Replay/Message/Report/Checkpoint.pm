@@ -1,7 +1,8 @@
 package Replay::Message::Report::Checkpoint;
 
 use Moose;
-extends('Replay::Message::IdKey', 'Replay::Message');
+extends('Replay::Message');
+with ('Replay::Role::IdKey');
 
 our $VERSION = '0.03';
 
