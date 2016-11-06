@@ -1,8 +1,8 @@
 package Replay::Message::Reducable;
 
 use Moose;
-extends('Replay::Message');
-with ('Replay::Role::IdKey');
+extends('Replay::IdKey',Replay::Message');
+
 
 our $VERSION = '0.02';
 

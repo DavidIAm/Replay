@@ -1,8 +1,8 @@
 package Replay::Message::NoLock::PostRevertRelock;
 
 use Moose;
-extends('Replay::Message');
-with ('Replay::Role::IdKey');
+extends('Replay::IdKey',Replay::Message');
+
 our $VERSION = '0.03';
 
 has '+MessageType' => (default => 'NoLockPostRevertRelock');

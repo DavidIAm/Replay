@@ -2,6 +2,7 @@ package Replay::ReportEngine::Role::Selector;
 
 use Moose::Role;
 use Moose::Util::TypeConstraints;
+use Replay::Role::ReportEngine;
 use English qw/-no_match_vars/;
 use Carp qw/croak/;
 

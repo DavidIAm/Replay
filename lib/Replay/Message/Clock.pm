@@ -2,7 +2,7 @@ package Replay::Message::Clock;
 
 use Moose;
 use MooseX::MetaDescription::Meta::Trait;
-extends('Replay::Message');
+extends('Replay::IdKey',Replay::Message');
 our $VERSION = '0.03';
 
 has epoch   => (is => 'ro', isa => 'Int', required => 1,

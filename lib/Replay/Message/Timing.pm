@@ -1,7 +1,7 @@
 package Replay::Message::Timing;
 
 use Moose;
-extends('Replay::Message');
+extends('Replay::IdKey',Replay::Message');
 
 our $VERSION = '0.03';
 
