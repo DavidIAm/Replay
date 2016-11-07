@@ -1,7 +1,8 @@
 package Replay::Message::Report::Purged::GlobSummary;
 
 use Moose;
-extends('Replay::IdKey',Replay::Message');
+extends('Replay::Message');
+with ('Replay::Role::IdKey');
 
 our $VERSION = '0.03';
 

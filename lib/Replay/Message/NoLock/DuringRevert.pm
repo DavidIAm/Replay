@@ -1,8 +1,8 @@
 package Replay::Message::NoLock::DuringRevert;
 
 use Moose;
-extends('Replay::IdKey',Replay::Message');
-
+extends('Replay::Message');
+with ('Replay::Role::IdKey');
 
 our $VERSION = '0.03';
 

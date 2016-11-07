@@ -20,7 +20,7 @@ use Carp qw/croak carp/;
 
 our $VERSION = '0.03';
 
-requires qw/retrieve store freeze delivery_keys summary_keys/;
+requires qw/retrieve store freeze delivery_keys summary_keys Name thisConfig/;
 
 $Storable::canonical = 1;    ## no critic (ProhibitPackageVars)
 

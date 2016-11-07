@@ -1,8 +1,9 @@
 package Replay::ReportEngine::Role::Selector;
 
+use Replay::Role::ReportEngine;
+
 use Moose::Role;
 use Moose::Util::TypeConstraints;
-use Replay::Role::ReportEngine;
 use English qw/-no_match_vars/;
 use Carp qw/croak/;
 
@@ -19,7 +20,7 @@ role_type WithReportEngine => { role => 'Replay::Role::ReportEngine' };
 
 has availableReportEngines => (
     is      => 'ro',
-    isa     => 'HashRef[WithReportEngine]',
+    isa     => 'ArrayRef[WithReportEngine]',
     builder => '_build_availableReportEngines',
     lazy    => 1,
 );
@@ -31,11 +32,8 @@ has defaultReportEngine => (
     lazy    => 1,
 );
 
-sub _build_availableReportEngines
-{    ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_availableReportEngines {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self            = shift;
-    my $hash_of_engines = {};
-
     my $list_of_engines = [];
 
     foreach my $engine ( @{$self->config->{ReportEngines} } ) {
@@ -54,12 +52,16 @@ sub _build_availableReportEngines
 
 sub _build_defaultReportEngine { ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self    = shift;
-    my $default = $self->availableReportEngines()
-      ->{ $self->config->{Defaults}->{ReportEngine} };
+    my $default = (grep { $_->Name eq $self->config->{Defaults}->{ReportEngine} } @{$self->availableReportEngines()})[0];
+    
+use Data::Dumper;    
+
+warn("<-----JSP default =".$self->config->{Defaults}->{ReportEngine});
     unless ($default) {
+      use Data::Dumper;
         croak 'No ReportEngine '
           . $self->config->{Defaults}->{ReportEngine}
-          . ' defined';
+          . ' defined' . Dumper $self->availableReportEngines;
     }
     return $default;
 }
@@ -88,5 +90,6 @@ sub mode_class {    ## no critic (ProhibitUnusedPrivateSubroutines)
     #    };
     return $class;
 }
+
 
 1;
