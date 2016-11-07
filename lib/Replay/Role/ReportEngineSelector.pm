@@ -1,4 +1,4 @@
-package Replay::ReportEngine::Role::Selector;
+package Replay::Role::ReportEngineSelector;
 
 use Replay::Role::ReportEngine;
 
@@ -53,10 +53,6 @@ sub _build_availableReportEngines {    ## no critic (ProhibitUnusedPrivateSubrou
 sub _build_defaultReportEngine { ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self    = shift;
     my $default = (grep { $_->Name eq $self->config->{Defaults}->{ReportEngine} } @{$self->availableReportEngines()})[0];
-    
-use Data::Dumper;    
-
-warn("<-----JSP default =".$self->config->{Defaults}->{ReportEngine});
     unless ($default) {
       use Data::Dumper;
         croak 'No ReportEngine '
@@ -91,5 +87,6 @@ sub mode_class {    ## no critic (ProhibitUnusedPrivateSubroutines)
     return $class;
 }
 
+#__PACKAGE__->meta->make_immutable;
 
 1;

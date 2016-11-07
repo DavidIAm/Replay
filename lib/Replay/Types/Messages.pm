@@ -4,7 +4,7 @@ use Moose::Util::TypeConstraints;
 
 #use namespace::autoclean;
 use Replay::Message::Clock;
-# use Replay::Message::IdKey;
+use Replay::IdKey;
 
 our $VERSION = '0.02';
 

@@ -190,7 +190,7 @@ sub freeze {
 sub copydomain {
     my ( $self, $idkey ) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Report::CopyDomain->new( $idkey->marshall ) );
+        Replay::Message::Report::Copy::Domain->new( $idkey->marshall ) );
 }
 
 sub checkpoint {

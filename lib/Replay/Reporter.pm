@@ -3,7 +3,7 @@ package Replay::Reporter;
 use Moose;
 use Scalar::Util;
 use Replay::DelayedEmitter;
-use Replay::Message::ReporterException;
+use Replay::Message::Exception::Reporter;
 use Replay::Message::Reported;
 use Replay::IdKey;
 use Replay::Message;
@@ -102,7 +102,7 @@ sub report_wrapper {
     catch {
         carp "REPORTING EXCEPTION: $_";
         $self->eventSystem->control->emit(
-            Replay::Message::ReporterException->new(
+            Replay::Message::Exception::Reporter->new(
                 ($idkey ? $idkey->hash_list : ()),
                 exception => (blessed $_ && $_->can('trace') ? $_->trace->as_string : $_),
             )

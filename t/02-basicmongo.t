@@ -24,8 +24,11 @@ sub a_replay_config : Test(startup) {
             MongoPass => 'replaypass',
         },
         EventSystem   => { Mode         => 'Null' },
-        Defaults      => { ReportEngine => 'Filesystem' },
-        ReportEngines => { Filesystem   => { Root => $self->{storedir}, } }
+        Defaults      => { ReportEngine => 'Filesystemtest' },
+        ReportEngines => [{ Mode =>'Filesystem',
+                            Root => $self->{storedir},
+                            Name => 'Filesystemtest',
+                            Access => 'public' } ]
     };
 }
 

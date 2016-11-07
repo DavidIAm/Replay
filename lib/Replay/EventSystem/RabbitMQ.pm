@@ -3,8 +3,6 @@ package Replay::EventSystem::RabbitMQ;
 use Moose;
 
 our $VERSION = '0.02';
-
-#use Replay::EventSystem::Base;
 with 'Replay::Role::EventSystem';
 
 use Replay::EventSystem::RabbitMQ::Connection;

@@ -8,10 +8,10 @@ use Replay::Message::Fetched;
 use Replay::Message::FoundKeysForReduce;
 use Replay::Message::Locked;
 use Replay::Message::NewCanonical;
-use Replay::Message::NoLockDuringRevert;
+use Replay::Message::NoLock::DuringRevert;
 use Replay::Message::NoLock;
-use Replay::Message::NoLockPostRevert;
-use Replay::Message::NoLockPostRevertRelock;
+use Replay::Message::NoLock::PostRevert;
+use Replay::Message::NoLock::PostRevertRelock;
 use Replay::Message::Reducable;
 use Replay::Message::Reducing;
 use Replay::Message::Reverted;
@@ -114,7 +114,7 @@ q(Unable to obtain lock because the current one is locked and unexpired ())
       $self->relock( $idkey, $unlsignature, $newsignature, $timeout );
 
     $self->eventSystem->control->emit(
-        Replay::Message::NoLockPostRevert->new( $idkey->marshall ),
+        Replay::Message::NoLock::PostRevert->new( $idkey->marshall ),
     );
     if ( not defined $relockresult ) {
         carp "Unable to relock after revert ($unlsignature)? "
@@ -131,7 +131,7 @@ q(Unable to obtain lock because the current one is locked and unexpired ())
     }
 
     $self->eventSystem->control->emit(
-        Replay::Message::NoLockPostRevertRelock->new( $idkey->marshall ),
+        Replay::Message::NoLock::PostRevertRelock->new( $idkey->marshall ),
     );
 
     carp q(checkout after revert and relock failed.  Look in COLLECTION \()
@@ -179,7 +179,7 @@ sub revert {
       $self->relock( $idkey, $signature, $unlsignature, $self->timeout );
     carp q(tried to do a revert but didn't have a lock on it) if not $state;
     $self->eventSystem->control->emit(
-        Replay::Message::NoLockDuringRevert->new( $idkey->marshall ) );
+        Replay::Message::NoLock::DuringRevert->new( $idkey->marshall ) );
     return if not $state;
     $self->revert_this_record( $idkey, $unlsignature, $state );
     my $result = $self->unlock( $idkey, $unluuid, $state );

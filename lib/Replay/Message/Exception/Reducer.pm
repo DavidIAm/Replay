@@ -1,4 +1,4 @@
-package Replay::Message::Reducer::Exception;
+package Replay::Message::Exception::Reducer;
 
 use Moose;
 extends('Replay::Message');

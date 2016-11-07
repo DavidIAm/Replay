@@ -3,8 +3,8 @@ package Replay::StorageEngine::Memory;
 use Moose;
 with 'Replay::Role::StorageEngine';
 use Scalar::Util qw/blessed/;
-use Replay::Message::NoLockDuringRevert;
-use Replay::Message::ClearedState;
+use Replay::Message::NoLock::DuringRevert;
+use Replay::Message::Cleared::State;
 use Replay::IdKey;
 use Carp qw/croak carp cluck/;
 
@@ -123,7 +123,7 @@ sub checkin {
     $self->purge($idkey);
 
     $self->eventSystem->control->emit(
-        Replay::Message::ClearedState->new( $idkey->hash_list ),
+        Replay::Message::Cleared::State->new( $idkey->hash_list ),
     );
 
     return;
@@ -147,7 +147,7 @@ sub revert {
     if ( exists $state->{locked} && $state->{locked} ne $signature ) {
         carp q(tried to do a revert but didn't have a lock on it);
         $self->eventSystem->control->emit(
-            Replay::Message::NoLockDuringRevert->new( $idkey->hash_list ),
+            Replay::Message::NoLock::DuringRevert->new( $idkey->hash_list ),
         );
     }
 

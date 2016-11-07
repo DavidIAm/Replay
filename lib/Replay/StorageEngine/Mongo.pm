@@ -9,8 +9,8 @@ use Readonly;
 use JSON;
 use Carp qw/croak carp/;
 use Replay::Message::Reducable;
-use Replay::Message::ClearedState;
-use Replay::Message::NoLockDuringRevert;
+use Replay::Message::Cleared::State;
+use Replay::Message::NoLock::DuringRevert;
 use Replay::Message;
 
 our $VERSION = 0.02;
@@ -75,8 +75,7 @@ sub absorb {
 sub revert_this_record {
     my ( $self, $idkey, $signature, $document ) = @_;
 
-    croak
-"This document isn't locked with this signature ($document->{locked},$signature)"
+    croak "This document isn't locked with this signature ($document->{locked},$signature)"
       if $document->{locked} ne $signature;
 
     # reabsorb all of the desktop atoms into the document
@@ -294,7 +293,7 @@ sub relock_i_match_with {
     );
     carp q(tried to do a revert but didn't have a lock on it) if not $state;
     $self->eventSystem->control->emit(
-        Replay::Message::NoLockDuringRevert->new( $idkey->marshall ),
+        Replay::Message::NoLock::DuringRevert->new( $idkey->marshall ),
     );
     return if not $state;
     $self->revert_this_record( $idkey, $unlsignature, $state );
@@ -362,7 +361,7 @@ sub checkin {
       )
     {
         $self->eventSystem->control->emit(
-            Replay::Message::ClearedState->new( $idkey->marshall ),
+            Replay::Message::Cleared::State->new( $idkey->marshall ),
         );
     }
     return if not defined $result;

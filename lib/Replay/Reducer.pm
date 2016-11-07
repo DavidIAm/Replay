@@ -6,7 +6,7 @@ use Replay::DelayedEmitter;
 use Replay::IdKey;
 use Replay::Message;
 use Replay::Message::Reduced;
-use Replay::Message::ReducerException;
+use Replay::Message::Exception::Reducer;
 use Scalar::Util qw/blessed/;
 use Carp qw/carp/;
 use Try::Tiny;
@@ -89,7 +89,7 @@ sub reduce_wrapper {
         carp "Reverting state because there was a reduce exception\n";
         $self->storageEngine->revert($idkey, $uuid);
         $self->eventSystem->control->emit(
-            Replay::Message::ReducerException->new(
+            Replay::Message::Exception::Reducer->new(
                 $idkey->hash_list,
                 exception => (blessed $_ && $_->can('trace') ? $_->trace->as_string : $_),
             )

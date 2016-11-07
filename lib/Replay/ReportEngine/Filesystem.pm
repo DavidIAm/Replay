@@ -53,7 +53,6 @@ sub _build_name {
 sub _build_root {
     my $self      = shift;
     my $directory = abs_path $self->thisConfig->{Root};
-    use Data::Dumper;
     mkpath $directory unless -d $directory;
     confess "no exist report filesystem Root " . to_json $self->thisConfig
       unless -d $directory;

@@ -1,6 +1,6 @@
 package Replay::ReportEngine::Selector;
 use Moose;
-with qw(Replay::ReportEngine::Role::Selector);
+with qw(Replay::Role::ReportEngineSelector);
 
 sub select {
     my ( $self, $idkey ) = @_;

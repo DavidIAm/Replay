@@ -38,8 +38,12 @@ sub a_replay_config : Test(startup => 2) {
             snsService  => 'https://sns.us-east-1.amazonaws.com',
             sqsService  => 'https://sqs.us-east-1.amazonaws.com',
         },
-        Defaults      => { ReportEngine => 'Filesystem' },
-        ReportEngines => { Filesystem   => { Root => $self->{storedir}, } }
+        Defaults      => { ReportEngine => 'Filesystemtest' },
+        ReportEngines => [{ Mode =>'Filesystem',
+                            Root => $self->{storedir},
+                            Name => 'Filesystemtest',
+                            Access => 'public' } ]
+
     };
 }
 
