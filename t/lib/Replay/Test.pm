@@ -128,7 +128,6 @@ use Data::Dumper;
 use AnyEvent;
 use Test::Most;
 use Data::Dumper;
-#use Net::RabbitMQ;
 use Time::HiRes qw/gettimeofday/;
 use JSON qw/to_json from_json/;
 
@@ -357,7 +356,7 @@ sub testloop : Test(no_plan) {
 
             # Get a report for key a
             is_deeply [ $replay->reportEngine->delivery($keyA) ],
-              [ { FORMATTED => '["15"]', TYPE => 'text/plain', EMPTY => 0 } ];
+              [ { FORMATTED => '[15]', TYPE => 'text/plain', EMPTY => 0 } ];
 
             # Get a formatted summary for window early
             # (the key part is ignored in this idkey!)
@@ -402,14 +401,14 @@ sub testloop : Test(no_plan) {
     $replay->eventSystem->run;
 
     is_deeply [ $replay->reportEngine->delivery($keyA) ],
-      [ { FORMATTED => '["30"]', TYPE => 'text/plain', EMPTY => 0 } ],
+      [ { FORMATTED => '[30]', TYPE => 'text/plain', EMPTY => 0 } ],
       'doubled on extra insert';
 
     is_deeply [ $replay->reportEngine->delivery($keyC) ], [ { EMPTY => 1 } ],
       'purged data returns empty serialization';
 
     is_deeply [ $replay->reportEngine->summary($keyT) ],
-      [ { EMPTY => 0, TYPE => 'text/plain', FORMATTED => '["150"]' } ],
+      [ { EMPTY => 0, TYPE => 'text/plain', FORMATTED => '[150]' } ],
       'expected summary';
     is_deeply [ $replay->reportEngine->globsummary($keyT) ],
       [ { EMPTY => 0, TYPE => 'text/plain', FORMATTED => '[180]' } ],

@@ -45,13 +45,13 @@ sub rule {
 sub notify_purge {
     my ( $self, $idkey, $part ) = @_;
     return $self->eventSystem->control->emit(
-        Replay::Message::Report::PurgedDelivery->new( $idkey->marshall ) )
+        Replay::Message::Report::Purged::Delivery->new( $idkey->marshall ) )
       if ( $part eq 'delivery' );
     return $self->eventSystem->control->emit(
-        Replay::Message::Report::PurgedSummary->new( $idkey->marshall ) )
+        Replay::Message::Report::Purged::Summary->new( $idkey->marshall ) )
       if ( $part eq 'summary' );
     return $self->eventSystem->control->emit(
-        Replay::Message::Report::PurgedGlobSummary->new( $idkey->marshall ) )
+        Replay::Message::Report::Purged::GlobSummary->new( $idkey->marshall ) )
       if ( $part eq 'globsummary' );
 }
 
@@ -64,13 +64,13 @@ sub notify_new {
 sub notify_new_generic {
     my ( $self, $channel, $idkey, $part ) = @_;
     return $channel->emit(
-        Replay::Message::Report::NewDelivery->new( $idkey->marshall ) )
+        Replay::Message::Report::New::Delivery->new( $idkey->marshall ) )
       if ( $part eq 'delivery' );
     return $channel->emit(
-        Replay::Message::Report::NewSummary->new( $idkey->marshall ) )
+        Replay::Message::Report::New::Summary->new( $idkey->marshall ) )
       if ( $part eq 'summary' );
     return $channel->emit(
-        Replay::Message::Report::NewGlobSummary->new( $idkey->marshall ) )
+        Replay::Message::Report::New::GlobSummary->new( $idkey->marshall ) )
       if ( $part eq 'globsummary' );
 }
 

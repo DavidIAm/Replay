@@ -23,14 +23,21 @@ sub t_environment_reset : Test(startup) {
 }
 =cut
 
-sub t_environment_reset : Test(startup) {
+sub t_environment_reset : Test(startup=>2) {
   my $self = shift;
+  
+  
+ 
+  
    `rm -rf $self->{storedir}`;
 
 }
 
-sub a_replay_config : Test(startup) {
+sub a_replay_config : Test(startup=>2) {
     my $self = shift;
+    
+    eval {'use Net::RabbitMQ'};
+    plan skip_all => 'Net::RabbitMQ Not present ' if $@;
     $self->{storedir} = '/tmp/testscript-07-' . $ENV{USER};
     $self->{config} = {
         stage       => 'tests',

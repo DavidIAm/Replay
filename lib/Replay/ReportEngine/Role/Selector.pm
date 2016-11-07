@@ -1,4 +1,4 @@
-package Replay::Role::ReportEngineSelector;
+package Replay::ReportEngine::Role::Selector;
 
 use Replay::Role::ReportEngine;
 

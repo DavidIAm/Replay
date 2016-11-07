@@ -8,8 +8,10 @@ use YAML;
 use File::Slurp;
 use Test::Most;
 our $REPLAY_TEST_CONFIG =  $ENV{REPLAY_TEST_CONFIG};
+
 sub t_environment_reset : Test(startup => 2) {
     my $self   = shift;
+  
     my $replay = $self->{replay};
     `rm -rf $self->{storedir}`;
     ok !-d $self->{storedir};
@@ -19,9 +21,13 @@ sub t_environment_reset : Test(startup => 2) {
 
 sub a_replay_config : Test(startup => 2) {
     my $self = shift;
-    $self->{identity} = YAML::LoadFile($REPLAY_TEST_CONFIG);
-    ok exists $self->{identity}{access};
-    ok exists $self->{identity}{secret};
+    plan skip_all => 'REPLAY_TEST_CONFIG Env var not present ' 
+     unless ($REPLAY_TEST_CONFIG );
+    $self->{awsconfig} = YAML::LoadFile($REPLAY_TEST_CONFIG);
+    ok exists $self->{awsconfig}->{Replay}->{awsIdentity}->{access};
+    ok exists $self->{awsconfig}->{Replay}->{awsIdentity}->{secret};
+    ok exists $self->{awsconfig}->{Replay}->{snsService};
+    ok exists $self->{awsconfig}->{Replay}->{sqsService};
     $self->{idfile}   = $REPLAY_TEST_CONFIG;
     $self->{storedir} = '/tmp/testscript-03-' . $ENV{USER};
     $self->{config}   = {
@@ -34,9 +40,9 @@ sub a_replay_config : Test(startup => 2) {
         },
         EventSystem => {
             Mode        => 'AWSQueue',
-            awsIdentity => $self->{identity},
-            snsService  => 'https://sns.us-east-1.amazonaws.com',
-            sqsService  => 'https://sqs.us-east-1.amazonaws.com',
+            awsIdentity => $self->{awsconfig}->{Replay}->{awsIdentity},
+            snsService  =>  $self->{awsconfig}->{Replay}->{snsService},
+            sqsService  =>  $self->{awsconfig}->{Replay}->{sqsService},
         },
         Defaults      => { ReportEngine => 'Filesystemtest' },
         ReportEngines => [{ Mode =>'Filesystem',

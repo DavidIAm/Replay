@@ -52,10 +52,17 @@ sub _build_name {
 
 sub _build_root {
     my $self      = shift;
-    my $directory = abs_path $self->thisConfig->{Root};
-    mkpath $directory unless -d $directory;
+    
+    my $directory = abs_path($self->thisConfig->{Root});
+    
+    unless ($directory) {
+        my @test = mkpath  $self->thisConfig->{Root};
+        $directory =  shift(@test);
+    }
+  
     confess "no exist report filesystem Root " . to_json $self->thisConfig
       unless -d $directory;
+      
     return $directory;
 }
 
