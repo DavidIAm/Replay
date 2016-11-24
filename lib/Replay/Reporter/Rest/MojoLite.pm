@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-package Replay::ReportREST;
+package Replay::Reporter::Rest::MojoLite;
 BEGIN { warn '---------------' }
 
 use Mojolicious::Lite;
@@ -16,7 +16,7 @@ my $replay = Replay->new(
         EventSystem   => { Mode => 'Null' },
         StorageEngine => { Mode => 'Memory' },
         ReportEngine  => {
-            Mode                 => 'Filesystem',
+            Mode                 => 'Filesystem', 
             reportFilesystemRoot => './reports',
         },
 
@@ -37,7 +37,7 @@ app->stash(
     rev      => 1
 );
 
-under '/replay/reports';
+under '/replay/reports'; #should be in Config
 
 get '/domain/:domain/rule/:name/version/:version/window/:window/key/:key/rev/:rev' => {
     domain  => 'empty',
