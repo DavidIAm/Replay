@@ -359,10 +359,10 @@ sub _build_uuid {    ## no critic (ProhibitUnusedPrivateSubroutines)
     return Data::UUID->new;
 }
 
-sub generate_uuid {
-    my ($self) = @_;
-    return $self->uuid->to_string( $self->uuid->create );
-}
+# sub generate_uuid {
+    # my ($self) = @_;
+    # return $self->uuid->to_string( $self->uuid->create );
+# }
 
 sub unlock {
     my ( $self, $idkey, $uuid, $state ) = @_;

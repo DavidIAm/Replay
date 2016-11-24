@@ -1,7 +1,7 @@
 package Replay::StorageEngine::Mongo;
 
 use Moose;
-with 'Replay::Role::StorageEngine';
+with qw (Replay::Role::MongoDB Replay::Role::StorageEngine );
 use MongoDB;
 use MongoDB::OID;
 use Replay::IdKey;
@@ -15,18 +15,18 @@ use Replay::Message;
 
 our $VERSION = 0.02;
 
-has mongo => (
-    is      => 'ro',
-    isa     => 'MongoDB::MongoClient',
-    builder => '_build_mongo',
-    lazy    => 1,
-);
+# has mongo => (
+    # is      => 'ro',
+    # isa     => 'MongoDB::MongoClient',
+    # builder => '_build_mongo',
+    # lazy    => 1,
+# );
 
-has db       => ( is => 'ro', builder => '_build_db',       lazy => 1, );
-has dbname   => ( is => 'ro', builder => '_build_dbname',   lazy => 1, );
-has dbauthdb => ( is => 'ro', builder => '_build_dbauthdb', lazy => 1, );
-has dbuser   => ( is => 'ro', builder => '_build_dbuser',   lazy => 1, );
-has dbpass   => ( is => 'ro', builder => '_build_dbpass',   lazy => 1, );
+# has db       => ( is => 'ro', builder => '_build_db',       lazy => 1, );
+# has dbname   => ( is => 'ro', builder => '_build_dbname',   lazy => 1, );
+# has dbauthdb => ( is => 'ro', builder => '_build_dbauthdb', lazy => 1, );
+# has dbuser   => ( is => 'ro', builder => '_build_dbuser',   lazy => 1, );
+# has dbpass   => ( is => 'ro', builder => '_build_dbpass',   lazy => 1, );
 
 my $store = {};    #dave what is this for???
 
@@ -72,76 +72,76 @@ sub absorb {
     return $r;
 }
 
-sub revert_this_record {
-    my ( $self, $idkey, $signature, $document ) = @_;
+# sub revert_this_record {
+    # my ( $self, $idkey, $signature, $document ) = @_;
 
-    croak "This document isn't locked with this signature ($document->{locked},$signature)"
-      if $document->{locked} ne $signature;
+    # croak "This document isn't locked with this signature ($document->{locked},$signature)"
+      # if $document->{locked} ne $signature;
 
-    # reabsorb all of the desktop atoms into the document
-    foreach my $atom ( @{ $document->{'desktop'} || [] } ) {
-        $self->absorb( $idkey, $atom );
-    }
+    # # reabsorb all of the desktop atoms into the document
+    # foreach my $atom ( @{ $document->{'desktop'} || [] } ) {
+        # $self->absorb( $idkey, $atom );
+    # }
 
-    # and clear the desktop state
-    my $unlockresult =
-      $self->collection($idkey)
-      ->update( { idkey => $idkey->cubby, locked => $signature } =>
-          { q^$^ . 'unset' => { desktop => 1 } } );
-    croak q(UNABLE TO RESET DESKTOP AFTER REVERT ) if $unlockresult->{n} == 0;
-    return $unlockresult;
-}
+    # # and clear the desktop state
+    # my $unlockresult =
+      # $self->collection($idkey)
+      # ->update( { idkey => $idkey->cubby, locked => $signature } =>
+          # { q^$^ . 'unset' => { desktop => 1 } } );
+    # croak q(UNABLE TO RESET DESKTOP AFTER REVERT ) if $unlockresult->{n} == 0;
+    # return $unlockresult;
+# }
 
-sub checkout_record {
-    my ( $self, $idkey, $signature, $timeout ) = @_;
+# sub checkout_record {
+    # my ( $self, $idkey, $signature, $timeout ) = @_;
 
-    # try to get lock
-    my $lockresult = $self->collection($idkey)->find_and_modify(
-        {
-            query => {
-                idkey   => $idkey->cubby,
-                desktop => { q^$^ . 'exists' => 0 },
-                q^$^
-                  . 'or' => [
-                    { locked => { q^$^ . 'exists' => 0 } },
-                    {
-                        q^$^
-                          . 'and' => [
-                            { locked => $signature },
-                            {
-                                q^$^
-                                  . 'or' => [
-                                    {
-                                        lockExpireEpoch =>
-                                          { q^$^ . 'gt' => time }
-                                    },
-                                    {
-                                        lockExpireEpoch =>
-                                          { q^$^ . 'exists' => 0 }
-                                    }
-                                  ]
-                            }
-                          ]
-                    }
-                  ]
-            },
-            update => {
-                q^$^
-                  . 'set' => {
-                    locked            => $signature,
-                    lockExpireEpoch   => time + $timeout,
-                    reducable_emitted => 0
-                  },
-                q^$^ . 'rename' => { 'inbox' => 'desktop' },
-                q^$^ . 'rename' => { 'inbox' => 'desktop' },
-            },
-            upsert => 0,
-            new    => 1,
-        }
-    );
+    # # try to get lock
+    # my $lockresult = $self->collection($idkey)->find_and_modify(
+        # {
+            # query => {
+                # idkey   => $idkey->cubby,
+                # desktop => { q^$^ . 'exists' => 0 },
+                # q^$^
+                  # . 'or' => [
+                    # { locked => { q^$^ . 'exists' => 0 } },
+                    # {
+                        # q^$^
+                          # . 'and' => [
+                            # { locked => $signature },
+                            # {
+                                # q^$^
+                                  # . 'or' => [
+                                    # {
+                                        # lockExpireEpoch =>
+                                          # { q^$^ . 'gt' => time }
+                                    # },
+                                    # {
+                                        # lockExpireEpoch =>
+                                          # { q^$^ . 'exists' => 0 }
+                                    # }
+                                  # ]
+                            # }
+                          # ]
+                    # }
+                  # ]
+            # },
+            # update => {
+                # q^$^
+                  # . 'set' => {
+                    # locked            => $signature,
+                    # lockExpireEpoch   => time + $timeout,
+                    # reducable_emitted => 0
+                  # },
+                # q^$^ . 'rename' => { 'inbox' => 'desktop' },
+                # q^$^ . 'rename' => { 'inbox' => 'desktop' },
+            # },
+            # upsert => 0,
+            # new    => 1,
+        # }
+    # );
 
-    return $lockresult;
-}
+    # return $lockresult;
+# }
 
 sub relock_expired {
     my ( $self, $idkey, $signature, $timeout ) = @_;
@@ -171,27 +171,27 @@ sub relock_expired {
     return $unlockresult;
 }
 
-sub relock {
-    my ( $self, $idkey, $current_signature, $new_signature, $timeout ) = @_;
+# sub relock {
+    # my ( $self, $idkey, $current_signature, $new_signature, $timeout ) = @_;
 
-    # Lets try to get an expire lock, if it has timed out
-    my $unlockresult = $self->collection($idkey)->find_and_modify(
-        {
-            query  => { idkey => $idkey->cubby, locked => $current_signature },
-            update => {
-                q^$^
-                  . 'set' => {
-                    locked          => $new_signature,
-                    lockExpireEpoch => time + $timeout,
-                  },
-            },
-            upsert => 0,
-            new    => 1,
-        }
-    );
+    # # Lets try to get an expire lock, if it has timed out
+    # my $unlockresult = $self->collection($idkey)->find_and_modify(
+        # {
+            # query  => { idkey => $idkey->cubby, locked => $current_signature },
+            # update => {
+                # q^$^
+                  # . 'set' => {
+                    # locked          => $new_signature,
+                    # lockExpireEpoch => time + $timeout,
+                  # },
+            # },
+            # upsert => 0,
+            # new    => 1,
+        # }
+    # );
 
-    return $unlockresult;
-}
+    # return $unlockresult;
+# }
 
 =pod
 # Locking states
@@ -273,76 +273,76 @@ override checkout => sub {
 };
 =cut
 
-sub relock_i_match_with {
-    my ( $self, $idkey, $oldsignature, $newsignature ) = @_;
-    my $unluuid      = $self->generate_uuid;
-    my $unlsignature = $self->state_signature( $idkey, [$unluuid] );
-    my $state        = $self->collection($idkey)->find_and_modify(
-        {
-            query  => { idkey => $idkey->cubby, locked => $oldsignature, },
-            update => {
-                q^$^
-                  . 'set' => {
-                    locked          => $unlsignature,
-                    lockExpireEpoch => time + $self->timeout,
-                  },
-            },
-            upsert => 0,
-            new    => 1,
-        }
-    );
-    carp q(tried to do a revert but didn't have a lock on it) if not $state;
-    $self->eventSystem->control->emit(
-        Replay::Message::NoLock::DuringRevert->new( $idkey->marshall ),
-    );
-    return if not $state;
-    $self->revert_this_record( $idkey, $unlsignature, $state );
-    my $result = $self->unlock( $idkey, $unluuid, $state );
-    return defined $result;
-}
+# sub relock_i_match_with {
+    # my ( $self, $idkey, $oldsignature, $newsignature ) = @_;
+    # my $unluuid      = $self->generate_uuid;
+    # my $unlsignature = $self->state_signature( $idkey, [$unluuid] );
+    # my $state        = $self->collection($idkey)->find_and_modify(
+        # {
+            # query  => { idkey => $idkey->cubby, locked => $oldsignature, },
+            # update => {
+                # q^$^
+                  # . 'set' => {
+                    # locked          => $unlsignature,
+                    # lockExpireEpoch => time + $self->timeout,
+                  # },
+            # },
+            # upsert => 0,
+            # new    => 1,
+        # }
+    # );
+    # carp q(tried to do a revert but didn't have a lock on it) if not $state;
+    # $self->eventSystem->control->emit(
+        # Replay::Message::NoLock::DuringRevert->new( $idkey->marshall ),
+    # );
+    # return if not $state;
+    # $self->revert_this_record( $idkey, $unlsignature, $state );
+    # my $result = $self->unlock( $idkey, $unluuid, $state );
+    # return defined $result;
+# }
 
-sub lockreport {
-    my ( $self, $idkey ) = @_;
-    return [
-        $self->collection($idkey)->find( { idkey => $idkey->cubby },
-            { locked => JSON::true, lockExpireEpoch => JSON::true } )->all
-    ];
-}
+# sub lockreport {
+    # my ( $self, $idkey ) = @_;
+    # return [
+        # $self->collection($idkey)->find( { idkey => $idkey->cubby },
+            # { locked => JSON::true, lockExpireEpoch => JSON::true } )->all
+    # ];
+# }
 
-sub update_and_unlock {
-    my ( $self, $idkey, $uuid, $state ) = @_;
-    my $signature = $self->state_signature( $idkey, [$uuid] );
-    my @unsetcanon = ();
-    if ($state) {
-        delete $state->{_id};         # cannot set _id!
-        delete $state->{inbox};       # we must not affect the inbox on updates!
-        delete $state->{desktop};     # there is no more desktop on checkin
-        delete
-          $state->{lockExpireEpoch};  # there is no more expire time on checkin
-        delete $state->{locked};  # there is no more locked signature on checkin
-        if ( @{ $state->{canonical} || [] } == 0 ) {
-            delete $state->{canonical};
-            @unsetcanon = ( canonical => 1 );
-        }
-    }
-    return $self->collection($idkey)->find_and_modify(
-        {
-            query  => { idkey => $idkey->cubby, locked => $signature },
-            update => {
-                ( $state ? ( q^$^ . 'set' => $state ) : () ),
-                q^$^
-                  . 'unset' => {
-                    desktop         => 1,
-                    lockExpireEpoch => 1,
-                    locked          => 1,
-                    @unsetcanon
-                  }
-            },
-            upsert => 0,
-            new    => 1
-        }
-    );
-}
+# sub update_and_unlock {
+    # my ( $self, $idkey, $uuid, $state ) = @_;
+    # my $signature = $self->state_signature( $idkey, [$uuid] );
+    # my @unsetcanon = ();
+    # if ($state) {
+        # delete $state->{_id};         # cannot set _id!
+        # delete $state->{inbox};       # we must not affect the inbox on updates!
+        # delete $state->{desktop};     # there is no more desktop on checkin
+        # delete
+          # $state->{lockExpireEpoch};  # there is no more expire time on checkin
+        # delete $state->{locked};  # there is no more locked signature on checkin
+        # if ( @{ $state->{canonical} || [] } == 0 ) {
+            # delete $state->{canonical};
+            # @unsetcanon = ( canonical => 1 );
+        # }
+    # }
+    # return $self->collection($idkey)->find_and_modify(
+        # {
+            # query  => { idkey => $idkey->cubby, locked => $signature },
+            # update => {
+                # ( $state ? ( q^$^ . 'set' => $state ) : () ),
+                # q^$^
+                  # . 'unset' => {
+                    # desktop         => 1,
+                    # lockExpireEpoch => 1,
+                    # locked          => 1,
+                    # @unsetcanon
+                  # }
+            # },
+            # upsert => 0,
+            # new    => 1
+        # }
+    # );
+# }
 
 sub checkin {
     my ( $self, $idkey, $uuid, $state ) = @_;
@@ -454,22 +454,22 @@ sub _build_db {          ## no critic (ProhibitUnusedPrivateSubroutines)
     return $db;
 }
 
-sub collection {
-    my ( $self, $idkey ) = @_;
-    my $name = $idkey->collection();
-    return $self->db->get_collection($name);
-}
+# sub collection {
+    # my ( $self, $idkey ) = @_;
+    # my $name = $idkey->collection();
+    # return $self->db->get_collection($name);
+# }
 
-sub document {
-    my ( $self, $idkey ) = @_;
-    return $self->collection($idkey)->find( { idkey => $idkey->cubby } )->next
-      || $self->new_document($idkey);
-}
+# sub document {
+    # my ( $self, $idkey ) = @_;
+    # return $self->collection($idkey)->find( { idkey => $idkey->cubby } )->next
+      # || $self->new_document($idkey);
+# }
 
-sub generate_uuid {
-    my ($self) = @_;
-    return $self->uuid->to_string( $self->uuid->create );
-}
+# sub generate_uuid {
+    # my ($self) = @_;
+    # return $self->uuid->to_string( $self->uuid->create );
+# }
 
 1;
 
