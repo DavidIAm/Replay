@@ -1,10 +1,18 @@
 package Replay::Message::Reverted;
 
 use Moose;
-extends ('Replay::Message');
+extends('Replay::Message');
+with ('Replay::Role::IdKey');
+our $VERSION = '0.03';
 
-has '+MessageType' => ( default => 'Reverted' );
-has '+Message' => ( isa => 'IdKey', coerce => 1);
+has '+MessageType' => (default => 'Reverted');
+
+1;
+
+__END__
+
+=pod 
+
 =head1 NAME
 
 Replay::Message::Reverted - signal that a state is currently being reduced
@@ -110,7 +118,6 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 =cut
 
 1;
-
 
 1;
 1;

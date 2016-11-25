@@ -1,29 +1,28 @@
 package Replay::DelayedEmitter::Channeled;
 
 use Moose;
+our $VERSION = q(0.2);
 
-has 'delemitter' => (
-	is => 'ro',
-	isa => 'Replay::DelayedEmitter',
-	required => 1,
-);
+has 'delemitter' =>
+    (is => 'ro', isa => 'Replay::DelayedEmitter', required => 1,);
 
-has 'channel' => (
-	is => 'ro',
-	isa => 'Str',
-	required => 1,
-);
-
+has 'channel' => (is => 'ro', isa => 'Str', required => 1,);
 
 sub emit {
-	my $self = shift;
-	my $message = shift;
-	$self->delemitter->emit($self->channel, $message);
+    my ($self, $message) = @_;
+
+    return $self->delemitter->emit($self->channel, $message);
 }
+
+1;
+
+__END__
+
+=pod
 
 =head1 NAME
 
-Replay::DelayedEmitter - buffers up emits until given clearance to transmit
+Replay::DelayedEmitter::Channeled - buffers up emits until given clearance to transmit
 
 =head1 VERSION
 
@@ -39,8 +38,8 @@ my $emitter = new Replay::DelayedEmitter(
     Ruleversions => $stateMeta->{Ruleversions},
 );
 
-$emitter->emit('origin',  "new data");
-$emitter->emit('derived', "derivative data");
+$emitter->emit('origin',  q(new data));
+$emitter->emit('map', q(derivative data));
 
 if (success) {
     $emitter->release();
@@ -62,7 +61,7 @@ We didn't process this atom.  Give it back to the inbox.
 =head2 emit(message)
 =head2 emit(channel, message)
 
-Buffer up an emit for the appropriate channel (derived is default)
+Buffer up an emit for the appropriate channel (map is default)
 
 =head2 release
 

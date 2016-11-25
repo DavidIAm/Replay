@@ -1,10 +1,18 @@
 package Replay::Message::Reducing;
 
 use Moose;
-extends ('Replay::Message');
+extends('Replay::Message');
+with ('Replay::Role::IdKey');
 
-has '+MessageType' => ( default => 'Reducing' );
-has '+Message' => ( isa => 'IdKey', coerce => 1);
+our $VERSION = '0.03';
+
+has '+MessageType' => (default => 'Reducing');
+
+1;
+
+__END__
+
+=pod 
 
 =head1 NAME
 
@@ -111,7 +119,6 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 =cut
 
 1;
-
 
 1;
 1;

@@ -1,8 +1,9 @@
 package Replay::DelayedEmitter;
 
 use Moose;
+use Carp qw/confess/;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 has eventSystem  => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
 has Timeblocks   => (is => 'rw', isa => 'ArrayRef',            required => 1);
@@ -17,10 +18,26 @@ sub defer {
     return;
 }
 
-sub derived {
+sub map {
     my $self = shift;
     return Replay::DelayedEmitter::Channeled->new(
-        channel => 'derived',
+        channel => 'map',
+        emitter => $self
+    );
+}
+
+sub reduce {
+    my $self = shift;
+    return Replay::DelayedEmitter::Channeled->new(
+        channel => 'reduce',
+        emitter => $self
+    );
+}
+
+sub report {
+    my $self = shift;
+    return Replay::DelayedEmitter::Channeled->new(
+        channel => 'report',
         emitter => $self
     );
 }
@@ -42,38 +59,44 @@ sub origin {
 }
 
 sub emit {
-    my $self    = shift;
-    my $channel = shift;
-    my $message = shift;
+    my ($self, $channel, $message) = @_;
 
+    #warn(" Replay::EventSystem::Null emit $message");
     # handle single argument construct
     if (blessed $channel && $channel->isa('Replay::Message')) {
         $message = $channel;
-        $channel = 'derived';
+        $channel = 'map';
     }
+
+    $message = Replay::Message->new($message) unless blessed $message;
+
+    # THIS MUST DOES A Replay::Role::Envelope
+    confess "Can only emit Replay::Role::Envelope consumer"
+        unless $message->does('Replay::Role::Envelope');
 
     #    die "Must emit a Replay message" unless $message->isa('Replay::Message');
 
-    if (blessed $message) {
+    # augment message with metadata from storage
+    $message->Timeblocks($self->Timeblocks);
+    $message->Ruleversions($self->Ruleversions);
 
-        # augment message with metadata from storage
-        $message->Timeblocks($self->Timeblocks);
-        $message->Ruleversions($self->Ruleversions);
-    }
-    else {
-        $message->{Timeblocks}   = $self->Timeblocks;
-        $message->{Ruleversions} = $self->Ruleversions;
-    }
     push @{ $self->messagesToSend },
         sub { $self->eventSystem->emit($channel, $message) };
-    return 1;
+
+    return $message->UUID;
 }
 
 sub release {
     my $self = shift;
-    $_->() foreach (@{ $self->messagesToSend });
+    foreach (@{ $self->messagesToSend }) { $_->(); }
     return;
 }
+
+1;
+
+__END__
+
+=pod
 
 =head1 NAME
 
@@ -94,7 +117,7 @@ my $emitter = new Replay::DelayedEmitter(
 );
 
 $emitter->emit('origin',  "new data");
-$emitter->emit('derived', "derivative data");
+$emitter->emit('map', "derivative data");
 
 if (success) {
     $emitter->release();
@@ -116,9 +139,9 @@ on the next go around immediately
 
 =head2 emit(channel, message)
 
-=head2 derived
+=head2 map
 
-returns a similar object configured to send to the derived channel the message 
+returns a similar object configured to send to the map channel the message 
 passed to its ->emit method
 
 =head2 control
@@ -134,7 +157,7 @@ passed to its ->emit method
 =head2 emit(message)
 =head2 emit(channel, message)
 
-Buffer up an emit for the appropriate channel (derived is default)
+Buffer up an emit for the appropriate channel (map is default)
 
 =head2 release
 

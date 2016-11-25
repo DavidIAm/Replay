@@ -1,6 +1,8 @@
 Revision history for Replay
 
-0.01    Date/time
+0.01    2014-08-08 initial version
         First version, released on an unsuspecting world.
-0.01.01 Date/time
-        Upped the version.
+0.02    2014-09-12 method names and some roles
+        modified api to keep all lower case method names and 
+        allow the use of roles for defining business rules
+

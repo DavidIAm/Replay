@@ -1,75 +1,171 @@
 package Replay::IdKey;
 
 use Moose;
-use MongoDB;
 use MooseX::Storage;
+with Storage('format' => 'JSON');
+use MongoDB;
 use MongoDB::OID;
 use Digest::MD5 qw/md5_hex/;
+use Readonly;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
-has name    => (is => 'rw', isa => 'Str', required => 1,);
-has version => (is => 'rw', isa => 'Str', required => 1,);
-has window  => (is => 'rw', isa => 'Str', required => 1,);
-has key     => (is => 'rw', isa => 'Str', required => 1,);
+has domain => (
+    is          => 'rw',
+    isa         => 'Str',
+    required    => 0,
+    predicate   => 'has_domain',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
 
-with Storage('format' => 'JSON');
+has name => (
+    is          => 'rw',
+    isa         => 'Str',
+    required    => 1,
+    predicate   => 'has_name',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
+has version => (
+    is          => 'rw',
+    isa         => 'Str',
+    required    => 1,
+    predicate   => 'has_version',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
+has window => (
+    is          => 'rw',
+    isa         => 'Str',
+    required    => 0,
+    predicate   => 'has_window',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
+has key => (
+    is          => 'rw',
+    isa         => 'Str',
+    required    => 0,
+    predicate   => 'has_key',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
+has revision => (
+    is          => 'rw',
+    isa         => 'Num',
+    predicate   => 'has_revision',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
+
+
+sub BUILD {
+    my $self = shift;
+    confess "WTF" if $self->has_revision && !defined $self->revision;
+}
+
+around BUILDARGS => sub {
+    my $orig  = shift;
+    my $class = shift;
+    my %args  = 'HASH' eq ref $_[0] ? %{ $_[0] } : @_;
+    delete $args{window} if exists $args{window} && (!defined $args{window});
+    delete $args{key}    if exists $args{key}    && (!defined $args{key});
+    delete $args{revision}
+        if exists $args{revision}
+        && (!defined $args{revision}
+        || $args{revision} eq 'latest'
+        || $args{revision} eq '');
+    return $class->$orig(%args);
+};
 
 sub collection {
     my ($self) = @_;
     return 'replay-' . $self->name . $self->version;
 }
 
-sub parseCubby {
+sub parse_cubby {
     my ($class,  $cubby) = @_;
-    my ($window, $key)   = $cubby =~ /^wind-(.+)-key-(.+)$/ix;
+    my ($window, $key)   = $cubby =~ /^wind-(.+)-key-(.+)$/smix;
     return window => $window, key => $key;
 }
 
-sub windowPrefix {
+sub window_prefix {
     my ($self) = @_;
-    return 'wind-' . $self->window . '-key-';
+    return 'wind-' . ($self->window || '') . '-key-';
 }
 
 sub cubby {
     my ($self) = @_;
-    return $self->windowPrefix . $self->key;
+    return $self->window_prefix . ($self->key || '');
 }
 
-sub ruleSpec {
+sub full_spec {
+  my ($self) = @_;
+  return join q{-}, $self->domain, $self->rule_spec, $self->cubby, $self->revision;
+}
+
+sub rule_spec {
     my ($self) = @_;
     return 'rule-' . $self->name . '-version-' . $self->version;
 }
 
-sub hashList {
+sub delivery {
     my ($self) = @_;
-    return $self->marshall;
+    return ref($self)->new(
+        name    => $self->name,
+        version => $self->version,
+        ($self->has_window   ? (window   => $self->window)   : ()),
+        ($self->has_key      ? (key      => $self->key)      : ()),
+        ($self->has_revision ? (revision => $self->revision) : ()),
+    );
 }
 
-sub checkstring {
+sub summary {
     my ($self) = @_;
-    $self->name($self->name . '');
-    $self->version($self->version . '');
-    $self->window($self->window . '');
-    $self->key($self->key . '');
-    return;
+    return ref($self)->new(
+        name    => $self->name,
+        version => $self->version,
+        ($self->has_window   ? (window   => $self->window)   : ()),
+        ($self->has_revision ? (revision => $self->revision) : ()),
+    );
 }
 
-sub hash {
+sub globsummary {
     my ($self) = @_;
-    $self->checkstring;
-    return md5_hex($self->freeze);
+    return ref($self)->new(
+        name    => $self->name,
+        version => $self->version,
+        ($self->has_revision ? (revision => $self->revision) : ()),
+    );
 }
 
 sub marshall {
     my ($self) = @_;
+    return { $self->hash_list };
+}
+
+sub hash {
+    my ($self) = @_;
+    return md5_hex(join ':', $self->hash_list);
+}
+
+sub hash_list {
+    my ($self) = @_;
     return (
-        name    => $self->name,
-        version => $self->version,
-        window  => $self->window,
-        key     => $self->key
+        name    => $self->name . '',
+        version => $self->version . '',
+        ($self->has_window     ? (window     => $self->window . '')     : ()),
+        ($self->has_key        ? (key        => $self->key . '')        : ()),
+        ($self->has_revision   ? (revision   => $self->revision . '')   : ()),
     );
 }
+
+1;
+
+__END__
+
+=pod
 
 =head1 NAME
 
@@ -94,11 +190,11 @@ key
 
 used to name the collection in which this part of the hierarchy will be found
 
-=head2 windowPrefix
+=head2 window_prefix
 
 The window based prefix for the cubby key
 
-=head2 parseCubby
+=head2 parse_cubby
 
 static
 
@@ -108,11 +204,11 @@ translate a cubby name to a window => $window, key => $key sequence
 
 The window-and-key part - where the document reflecting the state is found
 
-=head2 ruleSpec
+=head2 rule_spec
 
 the rule-and-version part - the particular business rule this state will be useing
 
-=head2 hashList
+=head2 hash_list
 
 alias for marshall
 
@@ -127,6 +223,18 @@ Provides an md5 sum that is distinct for this location
 =head2 marshall
 
 Arrange the fields in a list for passing to various other locations
+
+=head2 delivery
+
+Returns the key in delivery mode - all the components intact
+
+=head2 summary
+
+Clips the key for summary mode - no key mentioned
+
+=head2 globsummary
+
+Clips the key for global summary mode - no window or key mentioned
 
 =cut
 

@@ -1,10 +1,18 @@
 package Replay::Message::RulesReady;
 
 use Moose;
-extends ('Replay::Message');
+extends('Replay::Message');
+with ('Replay::Role::IdKey');
 
-has '+MessageType' => ( default => 'RulesReady' );
-has '+Message' => ( isa => 'IdKey', coerce => 1);
+our $VERSION = '0.03';
+
+has '+MessageType' => (default => 'RulesReady');
+
+1;
+
+__END__
+
+=pod 
 
 =head1 NAME
 
@@ -109,7 +117,6 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 =cut
 
 1;
-
 
 1;
 1;

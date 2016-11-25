@@ -1,16 +1,16 @@
 package Replay::StorageEngine;
 
-use Replay::BaseStorageEngine;
 use Moose;
 use Try::Tiny;
+use English '-no_match_vars';
 use Carp qw/croak/;
 
-our $VERSION = '0.1';
+our $VERSION = '0.03';
 
 has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
 has engine => (
     is      => 'ro',
-    isa     => 'Replay::BaseStorageEngine',
+    isa     => 'Object',
     builder => '_build_engine',
     lazy    => 1,
 );
@@ -19,10 +19,10 @@ has mode => (
     isa      => 'Str',
     required => 1,
     builder  => '_build_mode',
-    lazy     => 1
+    lazy     => 1,
 );
-has ruleSource  => (is => 'ro', isa => 'Replay::RuleSource',  required => 1);
-has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
+has ruleSource  => (is => 'ro', isa => 'Replay::RuleSource',  required => 1,);
+has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1,);
 
 # Delegate the api points
 sub retrieve {
@@ -35,14 +35,14 @@ sub absorb {
     return $self->engine->absorb(@args);
 }
 
-sub fetchCanonicalState {
+sub fetch_canonical_state {
     my ($self, @args) = @_;
-    return $self->engine->fetchCanonicalState(@args);
+    return $self->engine->fetch_canonical_state(@args);
 }
 
-sub fetchTransitionalState {
+sub fetch_transitional_state {
     my ($self, @args) = @_;
-    return $self->engine->fetchTransitionalState(@args);
+    return $self->engine->fetch_transitional_state(@args);
 }
 
 sub revert {
@@ -50,24 +50,30 @@ sub revert {
     return $self->engine->revert(@args);
 }
 
-sub storeNewCanonicalState {
+sub store_new_canonical_state {
     my ($self, @args) = @_;
-    return $self->engine->storeNewCanonicalState(@args);
+    return $self->engine->store_new_canonical_state(@args);
 }
 
-sub windowAll {
+sub window_all {
     my ($self, @args) = @_;
-    return $self->engine->windowAll(@args);
+    return $self->engine->window_all(@args);
 }
 
-sub findKeysNeedReduce {
+sub find_keys_need_reduce {
     my ($self, @args) = @_;
-    return $self->engine->findKeysNeedReduce(@args);
+    return $self->engine->find_keys_need_reduce(@args);
 }
 
 sub _build_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self, @args) = @_;
     my $classname = $self->mode;
+ 
+    unless($classname->does('Replay::Role::StorageEngine')){
+        croak $classname.q( -->Must use the Replay::Role::StorageEngin 'Role' );
+        
+    }    
+    
     return $classname->new(
         config      => $self->config,
         ruleSource  => $self->ruleSource,
@@ -77,20 +83,30 @@ sub _build_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
 
 sub _build_mode {      ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self, @args) = @_;
-    croak "No StorageMode?" unless $self->config->{StorageMode};
-    my $class = 'Replay::StorageEngine::' . $self->config->{StorageMode};
+    if (not $self->config->{StorageEngine}{Mode}) {
+        croak q(No StorageMode?);
+    }
+    my $class = 'Replay::StorageEngine::' . $self->config->{StorageEngine}{Mode};
     try {
-        croak $@ unless eval "require $class";
+        if (eval "require $class") {
+        }
+        else {
+            croak $EVAL_ERROR;
+        }
     }
     catch {
-        confess "No such storage mode available "
-            . $self->config->{StorageMode}
+        confess q(No such storage mode available )
+            . $self->config->{StorageEngine}{Mode}
             . " --> $_";
     };
     return $class;
 }
 
 1;
+
+__END__
+
+=pod
 
 =head1 NAME
 
@@ -133,7 +149,7 @@ on the control channel 'Replay::Message::Reducable' indicating that a state
 transition is possible within this idkey slot.
 
 When a worker hears the Reducable message, it may call the storage engine with the
-fetchTransitionalState method.  This may be called by all workers almost 
+fetch_transitional_state method.  This may be called by all workers almost 
 simultaneously as all workers are available.  If there is no inbox available 
 due to being gotten by a previous caller, nothing will be returned.  This lock
 transitions the idkey slot to reducing state.  The merge of the inbox and the
@@ -142,7 +158,7 @@ reduction state is persisted.  A 'Replay::Message::Reducing' message will be
 emitted on the control channel.
 
 When a worker has completed its reduction process, it calls the storage engine
-with the storeNewCanonicalState method.  The previously supplied signature
+with the store_new_canonical_state method.  The previously supplied signature
 will be used to validate that it is operating on the latest delivered state.  
 (it is possible that the reduce timed out, and more entries were added to the
 inbox and merged in!)  If the signature does not match, the data is dropped,
@@ -153,7 +169,7 @@ is stored and success is returned.  Upon successful commit, a
 'Replay::Message::NewCanonical' message will be emitted on the control channel
 
 When any system wishes to get the current canonical state it may call the 
-fetchCanonicalState method.  The current canonical state and signature is 
+fetch_canonical_state method.  The current canonical state and signature is 
 returned to the client. Upon successful commit, a 'Replay::Message::Fetched'
 message is emitted on the control channel
 
@@ -189,14 +205,14 @@ ensure the meta->{Windows} member are in the 'Windows' set in the state document
 ensure the meta->{Ruleversions} members are in the 'Ruleversions' set in the state document referenced
 ensure the meta->{Timeblocks} members are in the 'Timeblocks' set in the state document referenced
 
-=head2 (@state) = fetchCanonicalState(idkey)
+=head2 (@state) = fetch_canonical_state(idkey)
 
 call engine retrieve an return the canonical list
 
 retrieve the list of atoms defining the canonical state for this idkey
 no locking is performed
 
-=head2 (uuid, @state) = fetchTransitionalState(idkey)
+=head2 (uuid, @state) = fetch_transitional_state(idkey)
 
 call engine checkout
 
@@ -227,19 +243,19 @@ desktop - deleted
 lock - deleted
 lockExpireEpoch - deleted
 
-=head2 storeNewCanonicalState(idkey, uuid, emitter, @state)
+=head2 store_new_canonical_state(idkey, uuid, emitter, @state)
 
-see BaseStorageEngine storeNewCanonicalState
+see BaseStorageEngine store_new_canonical_state
 
 
 
-=head2 windowAll(idkey)
+=head2 window_all(idkey)
 
-see BaseStorageEngine windowAll
+see BaseStorageEngine window_all
 
-=head2 findKeysNeedReduce(idkey)
+=head2 find_keys_need_reduce(idkey)
 
-see BaseStorageEngine findKeysNeedReduce
+see BaseStorageEngine find_keys_need_reduce
 
 =head1 AUTHOR
 
@@ -335,7 +351,7 @@ STATE DOCUMENT GENERAL TO STORAGE ENGINE
 
 inbox: [ Array of Atoms ] - freshly arrived atoms are stored here.
 canonical: [ Array of Atoms ] - the current reduced 
-canonSignature: "SIGNATURE" - a sanity check to see if this canonical has been mucked with
+canonSignature: q(SIGNATURE) - a sanity check to see if this canonical has been mucked with
 Timeblocks: [ Array of input timeblock names ]
 Ruleversions: [ Array of objects like { name: <rulename>, version: <ruleversion> } ]
 
@@ -346,7 +362,7 @@ collection is determined by idkey->collection
 idkey is determined by idkey->cubby
 
 desktop: [ Array of Atoms ] - the previously arrived atoms that are currently being processed
-locked: "SIGNATURE" - if this is set, only a worker who knows the signature may update this
+locked: q(SIGNATURE) - if this is set, only a worker who knows the signature may update this
 lockExpireEpoch: TIMEINT - used in case of processing timeout to unlock the record
 
 STATE TRANSITIONS IN THIS IMPLEMENTATION 

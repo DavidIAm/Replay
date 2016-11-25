@@ -7,35 +7,62 @@ package Replay::EventSystem::Null;
 
 use Scalar::Util qw/blessed/;
 use Moose;
-use Carp qw/croak/;
-with 'Replay::EventSystem::Base';
+use Carp qw/croak confess/;
+with 'Replay::Role::EventSystem';
 
-our $VERSION = '0.01';
-
+our $VERSION = '0.02';
 
 has subscribers => (is => 'ro', isa => 'ArrayRef', default => sub { [] },);
+
+use Try::Tiny;
 
 sub poll {
     my $self = shift;
     my $c    = 0;
     while (my $message = shift @{ $self->{events} }) {
         $c++;
-        $_->($message) foreach (@{ $self->subscribers });
+        foreach (@{ $self->subscribers }) {
+            try {
+                $_->($message);
+            }
+            catch {
+                warn "EXCEPTION SUBSCRIBER STYLE $_";
+            }
+        }
     }
     return $c;
 }
 
 sub emit {
     my ($self, $message) = @_;
-    return push @{ $self->{events} }, $message->pack if blessed $message;
-    return push @{ $self->{events} }, $message;
+
+    $message = Replay::Message->new($message) unless blessed $message;
+
+    # THIS MUST DOES A Replay::Role::Envelope
+    confess "Can only emit Replay::Role::Envelope consumer"
+        unless $message->does('Replay::Role::Envelope');
+
+    #warn(" Replay::EventSystem::Null emit $message");
+
+    push @{ $self->{events} }, $message->marshall;
+    return $message->UUID;
 }
 
 sub subscribe {
     my ($self, $callback) = @_;
-    croak 'callback must be code' unless 'CODE' eq ref $callback;
+    croak 'callback must be code' if 'CODE' ne ref $callback;
     return push @{ $self->subscribers }, $callback;
 }
+
+sub done {
+    my ($self) = @_;
+}
+
+1;
+
+__END__
+
+=pod
 
 =head1 NAME
 

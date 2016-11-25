@@ -74,7 +74,7 @@ use Test::MockObject;
 use Replay::Rules::AtDomain;
 my $r = new Replay::Rules::AtDomain;
 is $r->name,    'AtDomain', 'rule name defined';
-is $r->version, 1,          'rule version defined';
+is $r->version, 2,          'rule version defined';
 ok $r->match({ MessageType => 'SendMessageWhen' }), 'matches SendMessageWhen';
 ok $r->match({ MessageType => 'SentMessageAt' }), 'matches SentMessageAt';
 ok $r->match({ MessageType => 'Timing' }),        'matches Timing';
@@ -82,7 +82,7 @@ ok !$r->match({ MessageType => 'SomethingElse' }),
     'doesnt match other things';
 is $r->window, 'alltime', 'window is alltime';
 is_deeply [
-    $r->keyValueSet(
+    $r->key_value_set(
         {   MessageType => 'SendMessageWhen',
             Message     => { atdomain => 'adomain', newmin => 5, newmax => 5, window => '1000' }
         }
@@ -100,7 +100,7 @@ is_deeply [
     ],
     'SendMessageWhen mutates state';
 is_deeply [
-    $r->keyValueSet(
+    $r->key_value_set(
         {   MessageType => 'SentMessageAt',
             Message => { atdomain => 'bdomain', newmin => 2, newmax => 8, window => 1000 }
         }
@@ -118,7 +118,7 @@ is_deeply [
     ],
     'SentMessageAt mutates state';
 is_deeply [
-    $r->keyValueSet({ MessageType => 'Timing', Message => { epoch => '6' } }) ],
+    $r->key_value_set({ MessageType => 'Timing', Message => { epoch => '6' } }) ],
     [ '-', { __TYPE__ => 'trigger', sendnow => 1, epoch => 6 } ],
     'timing message mutates state';
 
@@ -151,7 +151,7 @@ $e->mock('emit');
 # timing when there is nothing to do
 {
     my ($key, $value)
-        = $r->keyValueSet({ MessageType => 'Timing', Message => { epoch => 5 } });
+        = $r->key_value_set({ MessageType => 'Timing', Message => { epoch => 5 } });
     my @results = $r->reduce($e, $value);
     is_deeply [@results], [], 'timing does not change state';
     my ($name, $args) = $e->next_call;
@@ -160,7 +160,7 @@ $e->mock('emit');
 
 # sendmessageat when there is nothing yet
 {
-    my ($key, $value) = $r->keyValueSet(
+    my ($key, $value) = $r->key_value_set(
         {   MessageType => 'SendMessageWhen',
             Message     => { atdomain => 'adomain', newmax => 5, newmin => 5, window => 1000 }
         }
@@ -179,7 +179,7 @@ $e->mock('emit');
 
 # sendmessageat when there is something already in that domain
 {
-    my ($key, $value) = $r->keyValueSet(
+    my ($key, $value) = $r->key_value_set(
         {   MessageType => 'SendMessageWhen',
             Message     => { atdomain => 'adomain', newmax => 5, newmin => 4, window => 1000 }
         }
@@ -203,7 +203,7 @@ $e->mock('emit');
 
 # sendmessagewhen there is something already in another domain
 {
-    my ($key, $value) = $r->keyValueSet(
+    my ($key, $value) = $r->key_value_set(
         {   MessageType => 'SendMessageWhen',
             Message     => { atdomain => 'bdomain', newmax => 6, newmin => 6, window => 1000 }
         }
@@ -230,7 +230,7 @@ $e->mock('emit');
 
 # sentmessageat causes decrement and dissappear
 {
-    my ($key, $value) = $r->keyValueSet(
+    my ($key, $value) = $r->key_value_set(
         {   MessageType => 'SentMessageAt',
             Message     => {
                 atdomain  => 'bdomain',
@@ -265,7 +265,7 @@ $e->mock('emit');
 
 # sentmessageat causes decrement and minmax reset
 {
-    my ($key, $value) = $r->keyValueSet(
+    my ($key, $value) = $r->key_value_set(
         {   MessageType => 'SentMessageAt',
             Message     => {
                 atdomain  => 'adomain',
@@ -297,7 +297,7 @@ $e->mock('emit');
 # timing causes emit of SendMessageNow for matching entries
 {
     my ($key, $value)
-        = $r->keyValueSet(
+        = $r->key_value_set(
         { MessageType => 'Timing', Message => { epoch => '5' } });
     my @results = $r->reduce(
         $e, $value,

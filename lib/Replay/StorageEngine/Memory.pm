@@ -1,81 +1,242 @@
 package Replay::StorageEngine::Memory;
 
 use Moose;
+with 'Replay::Role::StorageEngine';
 use Scalar::Util qw/blessed/;
+use Replay::Message::NoLock::DuringRevert;
+use Replay::Message::Cleared::State;
 use Replay::IdKey;
-use Carp qw/croak/;
+use Carp qw/croak carp cluck/;
 
-extends 'Replay::BaseStorageEngine';
+has 'debug' => ( is => 'rw' );
+our $VERSION = q(0.02);
 
 my $store = {};
 
-override retrieve => sub {
-    my ($self, $idkey) = @_;
-    super();
-    return $store->{ $idkey->collection }{ $idkey->cubby }
-        ||= $self->new_document($idkey);
-};
+sub retrieve {
+    my ( $self, $idkey ) = @_;
+    return $self->collection($idkey)->{ $idkey->cubby } ||=
+      $self->new_document($idkey);
+}
 
 # State transition = add new atom to inbox
-override absorb => sub {
-    my ($self, $idkey, $atom, $meta) = @_;
+sub absorb {
+    my ( $self, $idkey, $atom, $meta ) = @_;
     $meta ||= {};
-    my $state = $store->{ $idkey->collection }{ $idkey->cubby }
-        ||= $self->new_document($idkey);
+    my $state = $self->retrieve($idkey);
 
     # unique list of Windows
     my %windows = map { $_ => 1 } @{ $state->{Windows} }, $idkey->window;
     $state->{Windows} = [ keys %windows ];
 
     # unique list of Timeblocks
-    my %timeblocks = map { $_ => 1 } grep {$_} @{ $state->{Timeblocks} },
-        $meta->{timeblock};
+    my %timeblocks = map { $_ => 1 } grep { $_ } @{ $state->{Timeblocks} },
+      $meta->{timeblock};
     $state->{Timeblocks} = [ keys %timeblocks ];
 
     # unique list of Ruleversions
     my %ruleversions = ();
-    foreach my $m (@{ $state->{Ruleversions} }, $meta->{ruleversion}) {
-        $ruleversions{ join('+', map { $_ . '-' . $m->{$_} } sort keys %{$m}) } = $m;
+    foreach my $m ( @{ $state->{Ruleversions} }, $meta->{ruleversion} ) {
+        $ruleversions{ join q(+),
+            map { $_ . q(-) . $m->{$_} } sort keys %{$m} } = $m;
     }
     $state->{Ruleversions} = [ values %ruleversions ];
     push @{ $state->{inbox} ||= [] }, $atom;
-    super();
+    my $already = $state->{reducable_emitted};
+    $state->{reducable_emitted} = 1;
     return 1;
-};
+}
 
-#}}}}}
-override checkout => sub {
-    my ($self, $idkey) = @_;
-    my $hash = $idkey->hash;
-    return if exists $self->{checkouts}{$hash};
-    $self->{checkouts}{$hash} = $store->{ $idkey->collection }{ $idkey->cubby }
-        ||= {};
-    $self->{checkouts}{$hash}{desktop} = delete $self->{checkouts}{$hash}{inbox};
-    super();
-    return $hash, $self->{checkouts}{$hash};
-};
+sub checkout_record {
+    my ( $self, $idkey, $signature, $timeout ) = @_;
 
-override checkin => sub {
-    my ($self, $idkey, $uuid, $state) = @_;
-    croak "not checked out" unless exists $self->{checkouts}{$uuid};
-    my $data = delete $self->{checkouts}{$uuid};
-    delete $data->{desktop};
-    super();
-    $store->{ $idkey->collection }{ $idkey->cubby } = $data;
-};
+    # try to get lock
+    my $state = $self->retrieve($idkey);
+    use Data::Dumper;
+    warn "PRECHECKOUT STATE" . $state if $self->{debug};
+    return                            if exists $state->{desktop};
+    return                            if exists $state->{locked};
+    $state->{locked}            = $signature;
+    $state->{lockExpireEpoch}   = time + $timeout;
+    $state->{desktop}           = delete $state->{inbox} || [];
+    $state->{reducable_emitted} = 0;
+    warn "POSTCHECKOUT STATE" . $state if $self->{debug};
 
-override windowAll => sub {
-    my ($self, $idkey) = @_;
+#    warn "POSTCHECKOUT STATE" . Dumper $self->collection($idkey) if $self->{debug};
+    return $state;
+}
+
+sub relock {
+    my ( $self, $idkey, $current_signature, $new_signature, $timeout ) = @_;
+
+    # Lets try to get an expire lock, if it has timed out
+    my $state = $self->retrieve($idkey);
+    return unless $state;
+    return unless $state->{locked} eq $current_signature;
+    $state->{locked}          = $new_signature;
+    $state->{lockExpireEpoch} = time + $timeout;
+
+    return $state;
+}
+
+sub purge {
+    my ( $self, $idkey ) = @_;
+    return delete $self->collection($idkey)->{ $idkey->cubby };
+}
+
+sub exists {
+    my ( $self, $idkey ) = @_;
+    return exists $self->collection($idkey)->{ $idkey->cubby };
+}
+
+sub relock_expired {
+    my ( $self, $idkey, $signature, $timeout ) = @_;
+
+    # Lets try to get an expire lock, if it has timed out
+    return unless $self->exists($idkey);
+    my $state = $self->retrieve($idkey);
+    return $state if $state->{locked} eq $signature;
+    warn "NOT LOCKED" unless exists $state->{locked};
+    warn "NO EPOCH"   unless exists $state->{lockExpireEpoch};
+    warn "UNEXPIRED ( $state->{lockExpireEpoch})"
+      if $state->{lockExpireEpoch} > time;
+    return unless exists $state->{locked};
+    return
+      if exists $state->{lockExpireEpoch} && $state->{lockExpireEpoch} >= time;
+    $state->{locked}          = $signature;
+    $state->{lockExpireEpoch} = time + $timeout;
+
+    return $state;
+}
+
+sub checkin {
+    my ( $self, $idkey, $uuid, $state ) = @_;
+
+    my $result = $self->update_and_unlock( $idkey, $uuid, $state );
+
+    # if any of these three exist, we maintain state
+    return $result if exists $result->{inbox};
+    return $result if exists $result->{desktop};
+    return $result if exists $result->{canonical};
+
+    # otherwise we clear it entirely
+    $self->purge($idkey);
+
+    $self->eventSystem->control->emit(
+        Replay::Message::Cleared::State->new( $idkey->hash_list ),
+    );
+
+    return;
+}
+
+sub window_all {
+    my ( $self, $idkey ) = @_;
+    my $collection = $self->collection($idkey);
     return {
-        map {
-            $store->{ $idkey->collection }{$_}{idkey}{key} =>
-                $store->{ $idkey->collection }{$_}{canonical}
-            } grep { 0 == index $_, $idkey->windowPrefix }
-            keys %{ $store->{ $idkey->collection } }
+        map { $collection->{$_}{idkey}{key} => $collection->{$_}{canonical} }
+        grep { 0 == index $_, $idkey->window_prefix } keys %{$collection}
     };
-};
+}
 
-#}}}}}}}}}}}}}}}}}}}}
+sub revert {
+    my ( $self, $idkey, $uuid ) = @_;
+    my $signature    = $self->state_signature( $idkey, [$uuid] );
+    my $unluuid      = $self->generate_uuid;
+    my $unlsignature = $self->state_signature( $idkey, [$unluuid] );
+    my $state        = $self->retrieve($idkey);
+    if ( exists $state->{locked} && $state->{locked} ne $signature ) {
+        carp q(tried to do a revert but didn't have a lock on it);
+        $self->eventSystem->control->emit(
+            Replay::Message::NoLock::DuringRevert->new( $idkey->hash_list ),
+        );
+    }
+
+    $state->{locked}          = $unlsignature;
+    $state->{lockExpireEpoch} = time + $self->timeout;
+
+    $self->revert_this_record( $idkey, $unlsignature, $state );
+    my $result = $self->unlock( $idkey, $unluuid, $state );
+    return defined $result;
+}
+
+sub revert_this_record {
+    my ( $self, $idkey, $signature, $document ) = @_;
+
+    my $state = $self->retrieve($idkey);
+    croak
+"This document isn't locked with this signature ($document->{locked},$signature)"
+      if $document->{locked} ne $signature;
+
+    # reabsorb all of the desktop atoms into the document
+    foreach my $atom ( @{ $document->{'desktop'} || [] } ) {
+        $self->absorb( $idkey, $atom );
+    }
+
+    # and clear the desktop state
+    my $desktop = delete $state->{desktop};
+    return $desktop;
+}
+
+sub update_and_unlock {
+    my ( $self, $idkey, $uuid, $state ) = @_;
+    my $signature = $self->state_signature( $idkey, [$uuid] );
+    return unless exists $state->{locked};
+    warn "LOCKED" . $state->{locked} if $self->debug;
+    return unless $state->{locked} eq $signature;
+    delete $state->{desktop};          # there is no more desktop on checkin
+    delete $state->{lockExpireEpoch};  # there is no more expire time on checkin
+    delete $state->{locked};    # there is no more locked signature on checkin
+
+    if ( @{ $state->{canonical} || [] } == 0 ) {
+        delete $state->{canonical};
+    }
+    return $state;
+}
+
+sub collection {
+    my ( $self, $idkey ) = @_;
+    my $name = $idkey->collection();
+    use Data::Dumper;
+    warn "POSTIION NAME" . $name . " - " . $idkey->cubby if $self->{debug};
+    return $store->{$name} ||= {};
+}
+
+sub find_keys_need_reduce {
+
+    my ($self) = @_;
+
+    #    warn("Replay::StorageEngine::Memory  find_keys_need_reduce $self" );
+    my @idkeys = ();
+    my $rule;
+    while ( $rule = $rule ? $self->ruleSource->next : $self->ruleSource->first )
+    {
+        my $idkey = Replay::IdKey->new(
+            name    => $rule->name,
+            version => $rule->version,
+            window  => q^-^,
+            key     => q^-^
+        );
+        push @idkeys, map {
+            Replay::IdKey->new(
+                name    => $rule->name,
+                version => $rule->version,
+                Replay::IdKey->parse_cubby( $_->{idkey} )
+            );
+          } grep {
+            exists $_->{inbox}
+              || exists $_->{desktop}
+              || exists $_->{locked}
+              || exists $_->{lockExpireEpoch}
+          } values %{$store};
+    }
+    return @idkeys;
+}
+
+1;
+
+__END__
+
+=pod
 
 =head1 NAME
 
@@ -105,7 +266,7 @@ faster.
 
 =head2 checkin - update and unlock document
 
-=head2 windowAll - get documents for a particular window
+=head2 window_all - get documents for a particular window
 
 =head1 AUTHOR
 
@@ -205,7 +366,7 @@ STATE DOCUMENT GENERAL TO STORAGE ENGINE
 
 inbox: [ Array of Atoms ] - freshly arrived atoms are stored here.
 canonical: [ Array of Atoms ] - the current reduced 
-canonSignature: "SIGNATURE" - a sanity check to see if this canonical has been mucked with
+canonSignature: q(SIGNATURE) - a sanity check to see if this canonical has been mucked with
 Timeblocks: [ Array of input timeblock names ]
 Ruleversions: [ Array of objects like { name: <rulename>, version: <ruleversion> } ]
 
@@ -216,7 +377,7 @@ collection is determined by idkey->collection
 idkey is determined by idkey->cubby
 
 desktop: [ Array of Atoms ] - the previously arrived atoms that are currently being processed
-locked: "SIGNATURE" - if this is set, only a worker who knows the signature may update this
+locked: q(SIGNATURE) - if this is set, only a worker who knows the signature may update this
 lockExpireEpoch: TIMEINT - used in case of processing timeout to unlock the record
 
 STATE TRANSITIONS IN THIS IMPLEMENTATION 
