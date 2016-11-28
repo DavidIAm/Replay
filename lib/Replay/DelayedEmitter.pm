@@ -11,6 +11,7 @@ has Ruleversions => (is => 'rw', isa => 'ArrayRef',            required => 1);
 has messagesToSend => (is => 'rw', isa => 'ArrayRef', default => sub { [] });
 has atomsToDefer => (is => 'rw', isa => 'ArrayRef', default => sub { [] });
 
+
 sub defer {
     my $self = shift;
     my $atom = shift;
@@ -18,15 +19,29 @@ sub defer {
     return;
 }
 
-sub map {
+has map => (
+    is      => 'ro',
+    isa     => 'Replay::DelayedEmitter::Channeled',
+    lazy_build    => 1,
+    weak_ref  => 1,
+);
+
+sub _build_map {
     my $self = shift;
     return Replay::DelayedEmitter::Channeled->new(
         channel => 'map',
         emitter => $self
     );
-}
+}    
 
-sub reduce {
+has reduce => (
+    is      => 'ro',
+    isa     => 'Replay::DelayedEmitter::Channeled',
+    lazy_build    => 1,
+    weak_ref  => 1,
+);
+
+sub _build_reduce {
     my $self = shift;
     return Replay::DelayedEmitter::Channeled->new(
         channel => 'reduce',
@@ -34,7 +49,14 @@ sub reduce {
     );
 }
 
-sub report {
+has report => (
+    is      => 'ro',
+    isa     => 'Replay::DelayedEmitter::Channeled',
+    lazy_build    => 1,
+    weak_ref  => 1,
+);
+
+sub _build_report {
     my $self = shift;
     return Replay::DelayedEmitter::Channeled->new(
         channel => 'report',
@@ -42,7 +64,13 @@ sub report {
     );
 }
 
-sub control {
+has control => (
+    is      => 'ro',
+    isa     => 'Replay::DelayedEmitter::Channeled',
+    lazy_build    => 1,
+    weak_ref  => 1,
+);
+sub _build_control {
     my $self = shift;
     return Replay::DelayedEmitter::Channeled->new(
         channel => 'control',
@@ -50,7 +78,13 @@ sub control {
     );
 }
 
-sub origin {
+has origin => (
+    is      => 'ro',
+    isa     => 'Replay::DelayedEmitter::Channeled',
+    lazy_build    => 1,
+    weak_ref  => 1,
+);
+sub _build_origin {
     my $self = shift;
     return Replay::DelayedEmitter::Channeled->new(
         channel => 'origin',
