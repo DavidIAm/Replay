@@ -110,13 +110,20 @@ around BUILDARGS => sub {
     return $class->$orig(%args);
 };
 
+sub layer_name_for_field {
+    my ( $self, $field ) = @_;
+    ( $field->can('description') ? $field->description->{layer} : '' )
+        || 'sloppy'
+
+}
+
 sub marshall {
     my $self       = shift;
     my $buffer     = q();
     my $row        = 1;
     my $layers     = {};
     my %attributes = map { $_->{name} => $_ } $self->meta->get_all_attributes;
-    foreach my $attr (sort { $a cmp $b } keys %attributes) {
+    foreach my $attr ( sort { $a cmp $b } keys %attributes ) {
 
         my $field = $attributes{$attr};
 
@@ -126,20 +133,14 @@ sub marshall {
                 . Dumper ref $attributes{$attr}
                 and next;
         } unless defined $field;
-        my $thislayer
-            = ($field->can('description') ? $field->description->{layer} : '')
-            || 'sloppy';
 
-        my $node = $layers->{$thislayer} ||= {};
-
-        my $value = $self->$attr
-            ; #$field->can('associated_role') ? $field->associated_role->get_value($self) : $field->get_value($self);
-        next if not defined $value;
-
-        $node->{$attr} = $value;
+        $layers->{ $self->layer_name_for_field($field) }{$attr} = $self->$attr
+            if defined $self->$attr;
     }
-    my $curmessage = $layers->{envelope}{Message} ||= {};
-    %{$curmessage} = (%{$curmessage}, %{ $layers->{message} || {} });
+    %{$layers->{envelope}{Message}} = (
+        %{ $layers->{envelope}{Message} || {} },
+        %{ $layers->{message} || {} }
+    );
     return $layers->{envelope};
 }
 
