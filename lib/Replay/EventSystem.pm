@@ -106,10 +106,10 @@ sub BUILD {
     if ( not $self->config->{EventSystem}->{Mode} ) {
         use Data::Dumper;
         confess
-          q(NO EventSystem Mode CONFIG!?  Make sure its in the locale files)
-          . Dumper $self->config;
+            q(NO EventSystem Mode CONFIG!?  Make sure its in the locale files)
+            . Dumper $self->config;
     }
-    $self->{stop} = AnyEvent->condvar( cb => sub { exit } );
+    $self->{stop} = AnyEvent->condvar( cb => sub {exit} );
     return;
 }
 
@@ -163,7 +163,7 @@ sub run {
             }
         );
         carp q(Setting loop timeout to ) . $self->config->{timeout}
-          if $ENV{DEBUG_REPLAY_TEST};
+            if $ENV{DEBUG_REPLAY_TEST};
     }
 
     $self->{polltimer} = AnyEvent->timer(
@@ -196,7 +196,8 @@ sub clear {
     $self->clear_reduce_sniffer;
     $self->clear_report_sniffer;
     $self->clear_origin_sniffer;
-    my $class = 'Replay::EventSystem::' . $self->config->{EventSystem}->{Mode};
+    my $class
+        = 'Replay::EventSystem::' . $self->config->{EventSystem}->{Mode};
     $class->done;
     return;
 }
@@ -208,7 +209,7 @@ sub emit {
 
     # THIS MUST DOES A Replay::Role::Envelope
     confess "Can only emit Replay::Role::Envelope consumer"
-      unless $message->does('Replay::Role::Envelope');
+        unless $message->does('Replay::Role::Envelope');
 
     confess "Unknown channel $channel" unless $self->can($channel);
 
@@ -259,10 +260,12 @@ sub clock {
         cb       => sub {
             my $this_minute = time - time % $SECS_IN_MINUTE;
             return if $last_seen_minute == $this_minute;
-            carp "Clock tick on minute $this_minute" if $ENV{DEBUG_REPLAY_TEST};
+            carp "Clock tick on minute $this_minute"
+                if $ENV{DEBUG_REPLAY_TEST};
             $last_seen_minute = $this_minute;
-            my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst ) =
-              localtime time;
+            my ($sec,  $min,  $hour, $mday, $mon,
+                $year, $wday, $yday, $isdst
+            ) = localtime time;
             $self->emit(
                 'origin',
                 Replay::Message::Timing->new(
@@ -290,15 +293,16 @@ sub _build_mode {    ## no critic (ProhibitUnusedPrivateSubroutines)
     if ( not $self->config->{EventSystem}->{Mode} ) {
         croak q(No EventSystem Mode?);
     }
-    my $class = 'Replay::EventSystem::' . $self->config->{EventSystem}->{Mode};
+    my $class
+        = 'Replay::EventSystem::' . $self->config->{EventSystem}->{Mode};
     try {
         eval "require $class"
-          or croak qq(error requiring class $class : ) . $EVAL_ERROR;
+            or croak qq(error requiring class $class : ) . $EVAL_ERROR;
     }
     catch {
         confess q(No such event system mode available )
-          . $self->config->{EventSystem}
-          . " --> $_";
+            . $self->config->{EventSystem}
+            . " --> $_";
     };
     return $class;
 }
@@ -320,8 +324,8 @@ sub _build_queue {
     }
     catch {
         croak q(Unable to load queue class )
-          . $self->config->{EventSystem}->{Mode}
-          . " --> $_ ";
+            . $self->config->{EventSystem}->{Mode}
+            . " --> $_ ";
     };
     my $queue = $classname->new(
         purpose => $purpose,

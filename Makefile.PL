@@ -12,11 +12,16 @@ WriteMakefile(
     PL_FILES           => {},
     MIN_PERL_VERSION   => 5.8.8,
     CONFIGURE_REQUIRES => { 'ExtUtils::MakeMaker' => 0, },
-    BUILD_REQUIRES =>
-        { 'Test::More' => 0, 'Test::More' => 1.001003, 'Test::Most' => 0.33, },
+    TEST_REQUIRES      => {
+        'Test::More'        => 1.001003,
+        'Test::Most'        => 0.33,
+        'Test::Mock::Class' => 0,
+        'Test::Continuous'  => 0,
+        'Test::MockObject'  => 1.20161202,
+    },
     PREREQ_PM => {
         'Amazon::SNS'                          => '1.2',
-        'Amazon::SQS::Simple'                  => '2.04',
+#        'Amazon::SQS::Simple'                  => '2.04',
         'AnyEvent'                             => '7.12',
         'Config::Locale'                       => '0.05',
         'Data::Dumper'                         => '2.121_08',

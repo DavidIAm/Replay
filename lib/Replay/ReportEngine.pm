@@ -10,10 +10,11 @@ our $VERSION = '0.03';
 
 has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, );
 
-has ruleSource  => ( is => 'ro', isa => 'Replay::RuleSource',  required => 1, );
-has eventSystem => ( is => 'ro', isa => 'Replay::EventSystem', required => 1, );
+has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1, );
+has eventSystem =>
+    ( is => 'ro', isa => 'Replay::EventSystem', required => 1, );
 has storageEngine =>
-  ( is => 'ro', isa => 'Replay::StorageEngine', required => 1, );
+    ( is => 'ro', isa => 'Replay::StorageEngine', required => 1, );
 
 has reportEngineSelector => (
     is      => 'ro',
@@ -56,20 +57,20 @@ sub globsummary_data {
 sub update_delivery {
     my ( $self, $idkey ) = @_;
     return $self->engine($idkey)
-      ->update_delivery( $idkey,
+        ->update_delivery( $idkey,
         $self->storageEngine->fetch_canonical_state($idkey) );
 }
 
 sub update_summary {
     my ( $self, $idkey ) = @_;
     return $self->engine($idkey)
-      ->update_summary( $idkey, $self->get_all_delivery_data($idkey) );
+        ->update_summary( $idkey, $self->get_all_delivery_data($idkey) );
 }
 
 sub update_globsummary {
     my ( $self, $idkey ) = @_;
     return $self->engine($idkey)
-      ->update_globsummary( $idkey, $self->get_all_summary_data($idkey) );
+        ->update_globsummary( $idkey, $self->get_all_summary_data($idkey) );
 }
 
 sub copydomain {
@@ -81,7 +82,7 @@ sub get_all_delivery_data {
     my ( $self, $idkey ) = @_;
     my @out;
     foreach
-      my $delkey ( $self->engine($idkey)->delivery_keys( $idkey->summary ) )
+        my $delkey ( $self->engine($idkey)->delivery_keys( $idkey->summary ) )
     {
         my $data = $self->delivery_data($delkey);
         next if $data->{EMPTY};
@@ -93,8 +94,8 @@ sub get_all_delivery_data {
 sub get_all_summary_data {
     my ( $self, $idkey ) = @_;
     my @out;
-    foreach
-      my $sumkey ( $self->engine($idkey)->summary_keys( $idkey->globsummary ) )
+    foreach my $sumkey (
+        $self->engine($idkey)->summary_keys( $idkey->globsummary ) )
     {
         my $data = $self->delivery_data($sumkey);
         next if $data->{EMPTY};
@@ -122,11 +123,11 @@ sub engine {
     return $self->reportEngineSelector->select($idkey);
 }
 
-sub _build_report_selector {    ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_report_selector {   ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
 
-    # TODO : This should decide more reasonably which Selector to load, probably
-    # using a configuration directive
+  # TODO : This should decide more reasonably which Selector to load, probably
+  # using a configuration directive
     return Replay::ReportEngine::Selector->new(
         config        => $self->config,
         ruleSource    => $self->ruleSource,

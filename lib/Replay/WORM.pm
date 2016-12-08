@@ -14,9 +14,11 @@ use Readonly;
 Readonly my $UMASK => 6;
 
 has eventSystem => (is => 'ro', required => 1,);
-has directory   => (is => 'ro', required => 0, default => '/var/log/replay');
+has directory   => (is => 'ro', required => 0, lazy => 1, builder => '_build_log_dir' );
 has filehandles => (is => 'ro', isa      => 'HashRef', default => sub { {} });
 has UUID => (is => 'ro', isa => 'Data::UUID', builder => '_build_uuid');
+has config => (is => 'ro', required => 1,);
+
 
 # dummy implimentation - Log them to a file
 sub BUILD {
@@ -71,7 +73,7 @@ sub log {    ## no critic (ProhibitBuiltinHomonyms)
 sub path {
     my $self = shift;
     return File::Spec->catfile($self->directory,
-        $self->timeblock . q(-) . $self->eventSystem->config->{stage} || 'nostage');
+        $self->timeblock . q(-) . $self->config->{stage} || 'nostage');
 }
 
 sub filehandle {
@@ -95,6 +97,11 @@ sub timeblock {
 sub _build_uuid {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self;
     return $self->{UUID} ||= Data::UUID->new;
+}
+
+sub _build_log_dir {
+  my ($self) = @_;
+  return $self->config->{WORM}->{'Directory'} || '/var/log/replay'
 }
 
 1;
@@ -145,6 +152,10 @@ resolves the current time into a particular timeblock
 =head2 _build_uuid
 
 creates the uuid object for creating uuids with on demand
+
+=head2 _build_log_dir
+
+grabs the configuration of the log directory
 
 =head2 new_uuid
 

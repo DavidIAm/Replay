@@ -7,15 +7,30 @@ use Carp qw/croak carp cluck/;
 use MongoDB;
 use MongoDB::OID;
 
-with(qw(Replay::Role::ReportEngine Replay::Role::MongoDB));
 our $VERSION = q(0.03);
+
+has 'Name' =>
+    ( is => 'ro', isa => 'Str', builder => '_build_name', lazy => 1, );
+
+has 'thisConfig' => ( is => 'ro', isa => 'HashRef', required => 1, );
+
+my $store = {};
+with( 'Replay::Role::MongoDB', 'Replay::Role::ReportEngine' );
 
 has '+mode' => ( default => 'Mongo' );
 
+sub _build_name {
+    my ($self) = @_;
+    return $self->thisConfig->{Name};
+}
+
 sub _build_mongo {
     my ($self) = @_;
-    my $db = MongoDB::MongoClient->new();
-    $db->authenticate($self->dbauthdb, $self->dbuser, $self->dbpass);
+    my $db = MongoDB::MongoClient->new(
+        db_name  => $self->dbauthdb,
+        username => $self->dbuser,
+        password => $self->dbpass
+    );
     return $db;
 }
 
@@ -43,69 +58,75 @@ sub _build_dbname {
 sub _build_db {
     my ($self) = @_;
     my $config = $self->config;
-    my $db     = $self->mongo->get_database($self->dbname);
+    my $db     = $self->mongo->get_database( $self->dbname );
     return $db;
 }
 
 # does the work of actually getting a report from the DB
 # returns { DATA => <reference>, FORMATTED => <scalar> }
 sub retrieve {
-    my ($self, $idkey, $structured) = @_;
+    my ( $self, $idkey, $structured ) = @_;
 
     my $revision = $self->revision($idkey) || 0;
     my $r = $self->collection($idkey)->find_one(
         my $e = { $self->idkey_where_doc($idkey), REVISION => $revision, },
-        { ($structured ? (DATA => 1) : ()), ($structured ? () : (FORMATTED => 1)) }
+        {   ( $structured ? ( DATA => 1 ) : () ),
+            ( $structured ? () : ( FORMATTED => 1 ) )
+        }
     );
     return { EMPTY => 1 } unless defined $r;
     delete $r->{_id};
     $r->{EMPTY} = 0;
+    $r->{TYPE} = 'text/plain';
     return $r;
 }
 
 sub latest {
-    my ($self, $idkey) = @_;
-    my $result
-        = $self->collection($idkey)
-        ->find_one(
-        { idkey => $idkey->cubby, NEXT_REVISION => { q/$/ . 'exists' => 1 }, },
-        { CURRENT_REVISION => 1, NEXT_REVISION => 1, });
+    my ( $self, $idkey ) = @_;
+    my $result = $self->collection($idkey)->find_one(
+        {   idkey         => $idkey->cubby,
+            NEXT_REVISION => { q/$/ . 'exists' => 1 },
+        },
+        { CURRENT_REVISION => 1, NEXT_REVISION => 1, }
+    );
     return $result->{CURRENT_REVISION} || $result->{NEXT_REVISION} || 0;
 }
 
 sub delete_latest_revision {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     my $current = $self->current($idkey);
 
     # if current is a thing, we need to remove the current version note
-    if (defined $current) {
-        $self->collection($idkey)->update(
+    if ( defined $current ) {
+        $self->collection($idkey)->update_many(
             { $self->idkey_where_doc($idkey), CURRENT_REVISION => $current, },
             { q/$/ . 'unset' => { CURRENT_REVISION => undef }, },
             { upsert => 0, multiple => 0 },
         );
     }
-    if ($self->latest($idkey) == 0) {
+    if ( $self->latest($idkey) == 0 ) {
 
-        # if latest is zero we never froze, just nuke the whole report status as noise
-        $self->collection($idkey)->remove({ $self->idkey_where_doc($idkey) });
+# if latest is zero we never froze, just nuke the whole report status as noise
+        $self->collection($idkey)
+            ->delete_one( { $self->idkey_where_doc($idkey) } );
     }
     else {
         # if latest is not zero we did freeze, just delete the report itself
-        $self->collection($idkey)
-            ->remove(
-            { idkey => $idkey->cubby, NEXT_REVISION => { q/$/ . 'exists' => 0 }, },
-            );
+        $self->collection($idkey)->delete_one(
+            {   idkey         => $idkey->cubby,
+                NEXT_REVISION => { q/$/ . 'exists' => 0 },
+            },
+        );
     }
     return;
 }
 
 #Api
 sub store {
-    my ($self, $idkey, $reportdata, $formatted) = @_;
+    my ( $self, $idkey, $reportdata, $formatted ) = @_;
     confess "WHUT DATA" if scalar @{$reportdata} && !defined $reportdata->[0];
     my $revision = $self->revision($idkey) || 0;
-    my $r = $self->collection($idkey)->update(
+    my $r = $self->collection($idkey)->update_many(
         { idkey => $idkey->cubby, REVISION => $revision },
         {   q^$^ . 'set' => { FORMATTED => $formatted, DATA => $reportdata, },
             q^$^
@@ -117,8 +138,10 @@ sub store {
         },
         { upsert => 1, multiple => 0 },
     );
-    $self->collection($idkey)->update(
-        { idkey => $idkey->cubby, NEXT_REVISION => { q/$/ . 'exists' => 1 }, },
+    $self->collection($idkey)->update_many(
+        {   idkey         => $idkey->cubby,
+            NEXT_REVISION => { q/$/ . 'exists' => 1 },
+        },
         {   q^$^
                 . 'setOnInsert' => {
                 CURRENT_REVISION => $revision,
@@ -136,7 +159,7 @@ sub store {
 
 #Api
 sub delivery_keys {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     my @r = map {
         Replay::IdKey->new(
             name     => $_->{IdKey}->{name},
@@ -159,7 +182,7 @@ sub delivery_keys {
 
 #Api
 sub summary_keys {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     return map {
         Replay::IdKey->new(
             name     => $_->{IdKey}->{name},
@@ -179,19 +202,19 @@ sub summary_keys {
 }
 
 sub idkey_where_doc {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     return 'IdKey.name' => $idkey->name . '',
         'IdKey.version' => $idkey->version . '',
-        'IdKey.window' =>
-        ($idkey->has_window ? ($idkey->window . '') : ({ q/$/ . 'exists' => 0 })),
-        'IdKey.key' =>
-        ($idkey->has_key ? ($idkey->key . '') : ({ q/$/ . 'exists' => 0 })),
+        'IdKey.window' => ( $idkey->has_window ? ( $idkey->window . '' )
+        : ( { q/$/ . 'exists' => 0 } ) ),
+        'IdKey.key' => ( $idkey->has_key ? ( $idkey->key . '' )
+        : ( { q/$/ . 'exists' => 0 } ) ),
         ;
 }
 
 #Api
 sub current {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     return (
         $self->collection($idkey)->find_one(
             {   $self->idkey_where_doc($idkey),
@@ -206,37 +229,45 @@ sub current {
 # get a report and keep a copy
 # ie invoice
 sub freeze_delivery {
-    my ($self, $idkey) = @_;
-    return $self->freeze($idkey->delivery);
+    my ( $self, $idkey ) = @_;
+    return $self->freeze( $idkey->delivery );
 }
 
 sub freeze_summary {
-    my ($self, $idkey) = @_;
-    return $self->freeze($idkey->summary);
+    my ( $self, $idkey ) = @_;
+    return $self->freeze( $idkey->summary );
 }
 
 sub freeze_globsummary {
-    my ($self, $idkey) = @_;
-    return $self->freeze($idkey->globsummary);
+    my ( $self, $idkey ) = @_;
+    return $self->freeze( $idkey->globsummary );
 }
 
 sub freeze {
     confess "unimplimented";
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     $idkey->revision();
     my $newrevision = $self->revision($idkey) + 1;
-    $self->collection($idkey)->update(
-        { idkey => $idkey->cubby, NEXT_REVISION => { q/$/ . 'exists' => 1 }, },
+    $self->collection($idkey)->update_many(
+        {   idkey         => $idkey->cubby,
+            NEXT_REVISION => { q/$/ . 'exists' => 1 },
+        },
         {   q/$/
-                . 'set' =>
-                { CURRENT_REVISION => $newrevision, NEXT_REVISION => $newrevision, },
-            q^$^ . 'setOnInsert' => { idkey => $idkey->cubby, IdKey => $idkey->marshall },
+                . 'set' => {
+                CURRENT_REVISION => $newrevision,
+                NEXT_REVISION    => $newrevision,
+                },
+            q^$^
+                . 'setOnInsert' =>
+                { idkey => $idkey->cubby, IdKey => $idkey->marshall },
         },
         { upsert => 1, multiple => 0 },
     );
 
     # this should copy the current report to a new one, and increment CURRENT.
 }
+
+__PACKAGE__->meta->make_immutable;
 
 1;
 

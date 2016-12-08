@@ -31,7 +31,8 @@ has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, );
 
 has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1 );
 
-has eventSystem => ( is => 'ro', isa => 'Replay::EventSystem', required => 1 );
+has eventSystem =>
+    ( is => 'ro', isa => 'Replay::EventSystem', required => 1 );
 has mode => ( is => 'ro', isa => 'Str', required => 1 );
 
 # accessor - how to get the rule for an idkey
@@ -46,13 +47,13 @@ sub notify_purge {
     my ( $self, $idkey, $part ) = @_;
     return $self->eventSystem->control->emit(
         Replay::Message::Report::Purged::Delivery->new( $idkey->marshall ) )
-      if ( $part eq 'delivery' );
+        if ( $part eq 'delivery' );
     return $self->eventSystem->control->emit(
         Replay::Message::Report::Purged::Summary->new( $idkey->marshall ) )
-      if ( $part eq 'summary' );
+        if ( $part eq 'summary' );
     return $self->eventSystem->control->emit(
-        Replay::Message::Report::Purged::GlobSummary->new( $idkey->marshall ) )
-      if ( $part eq 'globsummary' );
+        Replay::Message::Report::Purged::GlobSummary->new( $idkey->marshall )
+    ) if ( $part eq 'globsummary' );
 }
 
 sub notify_new {
@@ -65,13 +66,13 @@ sub notify_new_generic {
     my ( $self, $channel, $idkey, $part ) = @_;
     return $channel->emit(
         Replay::Message::Report::New::Delivery->new( $idkey->marshall ) )
-      if ( $part eq 'delivery' );
+        if ( $part eq 'delivery' );
     return $channel->emit(
         Replay::Message::Report::New::Summary->new( $idkey->marshall ) )
-      if ( $part eq 'summary' );
+        if ( $part eq 'summary' );
     return $channel->emit(
         Replay::Message::Report::New::GlobSummary->new( $idkey->marshall ) )
-      if ( $part eq 'globsummary' );
+        if ( $part eq 'globsummary' );
 }
 
 sub notify_new_report {
@@ -96,7 +97,7 @@ sub update {
     my $rule = $self->rule($idkey);
     return unless $rule->can($part);
     return $self->delete_latest( $idkey, $part )
-      if 0 == scalar @state && defined $self->current($idkey);
+        if 0 == scalar @state && defined $self->current($idkey);
     $self->store( $idkey, $rule->can($part)->( $rule, @state ) );
     $self->notify_new( $idkey, $part );
 }
@@ -157,17 +158,17 @@ sub do_retrieve {
     my ( $self, $idkey, $structured ) = @_;
     my $result = $self->retrieve( $idkey, $structured );
     confess "retrieve in storage engine implimentation must return hash"
-      unless 'HASH' eq ref $result;
+        unless 'HASH' eq ref $result;
     return $result if $result->{EMPTY};
     if ($structured) {
         confess
-"retrieve in storage engine implimentation must have DATA key for structured"
-          unless exists $result->{DATA};
+            "retrieve in storage engine implimentation must have DATA key for structured"
+            unless exists $result->{DATA};
     }
     else {
         confess
-"retrieve in storage engine implimentation must have FORMATTED key for unstructured"
-          unless exists $result->{FORMATTED};
+            "retrieve in storage engine implimentation must have FORMATTED key for unstructured"
+            unless exists $result->{FORMATTED};
     }
     return $result;
 }
@@ -176,7 +177,7 @@ sub do_retrieve {
 sub revision {
     my ( $self, $idkey ) = @_;
     confess "This isn't an idkey"
-      unless UNIVERSAL::isa( $idkey, 'Replay::IdKey' );
+        unless UNIVERSAL::isa( $idkey, 'Replay::IdKey' );
     return $idkey->revision if $idkey->has_revision;
     return $self->current($idkey);
 }
@@ -199,7 +200,8 @@ sub checkpoint {
         $idkey->hash . 'Reducable',
         sub {
             $self->eventSystem->control->emit(
-                Replay::Message::Report::Checkpoint->new( $idkey->marshall ) );
+                Replay::Message::Report::Checkpoint->new( $idkey->marshall )
+            );
         }
     );
 }

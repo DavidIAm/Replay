@@ -1,29 +1,29 @@
-package Test::Replay::AWSQueue::Mongo::Filesystem;
+package Test::Replay::Null::Memory::Filesystem;
 
 use lib 't/lib';
+use File::Temp qw/tempdir/;
 
 use base qw/Replay::Test Test::Class/;
 
 use Test::Most;
 
-sub t_environment_reset : Test(startup => 1) {
+
+sub t_environment_reset : Test(startup) {
     my $self   = shift;
     my $replay = $self->{replay};
-    `rm -rf $self->{storedir}`;
-    ok !-d $self->{storedir};
 }
 
 sub a_replay_config : Test(startup) {
     my $self = shift;
-    $self->{storedir} = '/tmp/testscript-01-' . $ENV{USER};
     $self->{config}   = {
         stage         => 'testscript-01-' . $ENV{USER},
         EventSystem   => { Mode => 'Null' },
         StorageEngine => { Mode => 'Memory' },
+        WORM          => { Directory => tempdir },
         timeout       => 50,
         Defaults      => { ReportEngine => 'Filesystemtest' },
         ReportEngines => [{ Mode =>'Filesystem',
-                            Root => $self->{storedir},
+                            Root => tempdir,
                             Name => 'Filesystemtest',
                             Access => 'public' } ]
 
@@ -31,6 +31,7 @@ sub a_replay_config : Test(startup) {
 }
 
 sub alldone : Test(teardown) {
+    File::Temp::cleanup;
 }
 
 Test::Class->runtests();

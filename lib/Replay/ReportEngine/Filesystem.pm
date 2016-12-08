@@ -19,25 +19,13 @@ our $VERSION = q(0.03);
 Readonly my $CURRENTFILE  => 'CURRENT';
 Readonly my $WRITABLEFILE => 'WRITABLE';
 
-has 'Root' => (
-    is      => 'ro',
-    isa     => 'Str',
-    builder => '_build_root',
-    lazy    => 1,
-);
+has 'Root' =>
+    ( is => 'ro', isa => 'Str', builder => '_build_root', lazy => 1, );
 
-has 'Name' => (
-    is      => 'ro',
-    isa     => 'Str',
-    builder => '_build_name',
-    lazy    => 1,
-);
+has 'Name' =>
+    ( is => 'ro', isa => 'Str', builder => '_build_name', lazy => 1, );
 
-has 'thisConfig' => (
-    is       => 'ro',
-    isa      => 'HashRef',
-    required => 1,
-);
+has 'thisConfig' => ( is => 'ro', isa => 'HashRef', required => 1, );
 
 with 'Replay::Role::ReportEngine';
 
@@ -51,18 +39,18 @@ sub _build_name {
 }
 
 sub _build_root {
-    my $self      = shift;
-    
-    my $directory = abs_path($self->thisConfig->{Root});
-    
+    my $self = shift;
+
+    my $directory = abs_path( $self->thisConfig->{Root} );
+
     unless ($directory) {
-        my @test = mkpath  $self->thisConfig->{Root};
-        $directory =  shift(@test);
+        my @test = mkpath $self->thisConfig->{Root};
+        $directory = shift(@test);
     }
-  
+
     confess "no exist report filesystem Root " . to_json $self->thisConfig
-      unless -d $directory;
-      
+        unless -d $directory;
+
     return $directory;
 }
 
@@ -71,9 +59,10 @@ sub retrieve {
     my $directory = $self->directory($idkey);
     my $revision  = $self->revision($idkey);
     use Data::Dumper;
-    return { EMPTY => 1 } unless defined $revision;    # CASE: NO CURRENT REPORT
+    return { EMPTY => 1 } unless defined $revision;  # CASE: NO CURRENT REPORT
     if ($structured) {
-        my $dfile = $self->filename_data( $directory, $self->revision($idkey) );
+        my $dfile
+            = $self->filename_data( $directory, $self->revision($idkey) );
         return { EMPTY => 0, DATA => Storable::retrieve $dfile } if -f $dfile;
         return { EMPTY => 1 };
     }
@@ -83,8 +72,8 @@ sub retrieve {
         TYPE      => mimetype($ffile),
         FORMATTED => join '',
         read_file($ffile)
-      }
-      if -f $ffile;
+        }
+        if -f $ffile;
     return { EMPTY => 1 };
 }
 
@@ -140,8 +129,8 @@ sub subdirs {
 sub current_subdirs {
     my ( $self, $parentDir ) = @_;
     return
-      grep { -f catfile $parentDir, $_, $CURRENTFILE }
-      $self->subdirs($parentDir);
+        grep { -f catfile $parentDir, $_, $CURRENTFILE }
+        $self->subdirs($parentDir);
 }
 
 # retrieves all the valid keys in the list for the next layer down in the reports
@@ -181,10 +170,10 @@ sub delivery_keys {
             window   => $sumkey->window,
             key      => $_->[0],
             revision => $_->[1],
-          )
-      } grep { defined $_->[1] }
-      map { [ $_ => $self->current_revision( catdir $parentDir, $_ ) ] }
-      $self->current_subdirs($parentDir);
+            )
+        } grep { defined $_->[1] }
+        map { [ $_ => $self->current_revision( catdir $parentDir, $_ ) ] }
+        $self->current_subdirs($parentDir);
 }
 
 sub summary_keys {
@@ -196,10 +185,10 @@ sub summary_keys {
             version  => $sumkey->version,
             window   => $_->[0],
             revision => $_->[1],
-          )
-      } grep { defined $_->[1] }
-      map { [ $_ => $self->current_revision( catdir $parentDir, $_ ) ] }
-      $self->current_subdirs($parentDir);
+            )
+        } grep { defined $_->[1] }
+        map { [ $_ => $self->current_revision( catdir $parentDir, $_ ) ] }
+        $self->current_subdirs($parentDir);
 }
 
 sub filename_data {
@@ -228,15 +217,16 @@ sub delete_latest_revision {
     my ( $self, $idkey ) = @_;
     my $directory = $self->directory($idkey);
     $self->lock($directory);
-    unlink $self->filename( $directory, $self->writable_revision($directory) );
+    unlink $self->filename( $directory,
+        $self->writable_revision($directory) );
     unlink $self->filename_data( $directory,
         $self->writable_revision($directory) );
     unlink catfile $directory, $CURRENTFILE;
 
-    # if there was a freeze then the writable revision is greater than zero and
-    # we are obligated to keep the directory around. Otherwise, drop it.
+   # if there was a freeze then the writable revision is greater than zero and
+   # we are obligated to keep the directory around. Otherwise, drop it.
     unlink catfile $directory, $WRITABLEFILE
-      if $self->writable_revision($directory) == 0;
+        if $self->writable_revision($directory) == 0;
     rmdir $directory;
     $self->unlock($directory);
     return;
@@ -246,9 +236,9 @@ sub store {
     my ( $self, $idkey, $data, $formatted ) = @_;
     use Data::Dumper;
     confess
-"second return value from delivery/summary/globsummary function does not appear to be an array ref"
-      . Dumper $data
-      unless 'ARRAY' eq ref $data;
+        "second return value from delivery/summary/globsummary function does not appear to be an array ref"
+        . Dumper $data
+        unless 'ARRAY' eq ref $data;
     my $directory = $self->directory($idkey);
     return $self->delete_latest_revision($idkey) unless scalar @{$data};
     mkpath $directory unless -d $directory;
@@ -274,21 +264,21 @@ sub store {
 
     # TODO: make this thread safe writes with temp name and renames
     {
-        my $datafilename =
-          $self->filename_data( $directory,
+        my $datafilename = $self->filename_data( $directory,
             $self->writable_revision($directory) );
         my $dfh = IO::File->new( $datafilename, 'w' );
         store_fd $data, $dfh
-          or confess "NO DATA $$ $? $! PRINT " . to_json $data;
+            or confess "NO DATA $$ $? $! PRINT " . to_json $data;
     }
 
     if ( defined $formatted ) {
 
         # TODO: make this thread safe writes with temp name and renames
-        my $filename =
-          $self->filename( $directory, $self->writable_revision($directory) );
+        my $filename = $self->filename( $directory,
+            $self->writable_revision($directory) );
         my $fh = IO::File->new( $filename, 'w' );
-        print $fh $formatted or confess "NO DATA $$ $? $! PRINT " . $formatted;
+        print $fh $formatted
+            or confess "NO DATA $$ $? $! PRINT " . $formatted;
     }
 
     $self->unlock($directory);

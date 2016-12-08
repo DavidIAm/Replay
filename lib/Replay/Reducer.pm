@@ -13,12 +13,36 @@ use Try::Tiny;
 
 our $VERSION = '0.02';
 
-has ruleSource => (is => 'ro', isa => 'Replay::RuleSource', required => 1);
+has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1 );
 
-has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
+has eventSystem =>
+    ( is => 'ro', isa => 'Replay::EventSystem', required => 1 );
 
 has storageEngine =>
-    (is => 'ro', isa => 'Replay::StorageEngine', required => 1,);
+    ( is => 'ro', isa => 'Replay::StorageEngine', required => 1, );
+
+has config => ( is => 'ro', isa => 'HashRef[Item]', required => 0, default => sub { {} } );
+
+sub ARRAYREF_FLATTEN_ENABLED_DEFAULT {1}
+sub NULL_FILTER_ENABLED_DEFAULT      {1}
+
+sub NULL_FILTER_ENABLED {
+    my ($self) = @_;
+    unless ( $self->config || exists $self->config->{null_filter_enabled} ) {
+        return NULL_FILTER_ENABLED_DEFAULT;
+    }
+    $self->config->{null_filter_enabled};
+}
+
+sub ARRAYREF_FLATTEN_ENABLED {
+    my ($self) = @_;
+    unless ( $self->config
+        || exists $self->config->{arrayref_flatten_enabled} )
+    {
+        return ARRAYREF_FLATTEN_ENABLED_DEFAULT;
+    }
+    $self->config->{arrayref_flatten_enabled};
+}
 
 sub BUILD {
     my $self = shift;
@@ -32,70 +56,92 @@ sub BUILD {
 
 # accessor - how to get the rule for an idkey
 sub rule {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     return $self->ruleSource->by_idkey($idkey);
 }
 
+sub normalize_envelope {
+  my ($self, $first, @input) = @_;
+  return () unless defined $first;
+  my $ref = blessed $first ? $first : ref $first ? $first : { $first, @input };
+  return $ref if blessed $ref;
+  return Replay::Message->new($ref);
+}
+
+sub reducable_message {
+ my ($self, $envelope) = @_;
+ return $envelope->MessageType eq 'Reducable';
+}
+
+sub identify {
+    my ($self, $message) = @_;
+    my $idkey   = Replay::IdKey->new(
+        {   name    => $message->Message->{name},
+            version => $message->Message->{version},
+            window  => $message->Message->{window},
+            key     => $message->Message->{key},
+        }
+    );
+}
+
 sub reduce_wrapper {
-    my ($self, $first, @input) = @_;
-    my $envelope
-        = blessed $first ? $first : ref $first ? $first : { $first, @input };
-    my $type
-        = blessed $envelope ? $envelope->MessageType : $envelope->{MessageType};
-    return if $type ne 'Reducable';
-    my $idkey;
-    my $message;
-    if (blessed $envelope) {
-        $message = $envelope->Message;
-        $idkey   = Replay::IdKey->new(
-            {   name    => $message->name,
-                version => $message->version,
-                window  => $message->window,
-                key     => $message->key,
-            }
-        );
-    }
-    elsif (blessed $envelope->{Message}) {
-        $message = $envelope->{Message};
-        $idkey   = Replay::IdKey->new(
-            {   name    => $message->name,
-                version => $message->version,
-                window  => $message->window,
-                key     => $message->key,
-            }
-        );
-    }
-    else {
+    my ( $self, @input ) = @_;
+    my $envelope = $self->normalize_envelope (@input);
+    return unless $self->reducable_message($envelope);
+    $self->execute_reduce($self->identify($envelope));
+}
 
-        $message = $envelope->{Message};
-        $idkey   = Replay::IdKey->new($message);
+sub execute_reduce {
+    my ($self, $idkey) = @_;
 
-    }
-    my ($uuid, $meta, @state);
+    my ( $uuid, $meta, @state );
     try {
-        ($uuid, $meta, @state)
+        ( $uuid, $meta, @state )
             = $self->storageEngine->fetch_transitional_state($idkey);
-        if (!$uuid || !$meta) {return}    # there was nothing to do, apparently
-        my $emitter = Replay::DelayedEmitter->new(eventSystem => $self->eventSystem,
-            %{$meta});
+        if ( !$uuid || !$meta ) {return} # there was nothing to do, apparently
+        my $emitter = Replay::DelayedEmitter->new(
+            eventSystem => $self->eventSystem,
+            %{$meta}
+        );
 
-        $self->storageEngine->store_new_canonical_state($idkey, $uuid, $emitter,
-            $self->rule($idkey)->reduce($emitter, @state));
+        $self->storageEngine->store_new_canonical_state(
+            $idkey, $uuid, $emitter,
+            $self->arrayref_flatten(
+                $self->null_filter(
+                    $self->rule($idkey)->reduce( $emitter, @state )
+                )
+            )
+        );
         $self->eventSystem->control->emit(
-            Replay::Message::Reduced->new($idkey->marshall));
+            Replay::Message::Reduced->new( $idkey->marshall ) );
     }
     catch {
         carp "REDUCING EXCEPTION: $_";
         carp "Reverting state because there was a reduce exception\n";
-        $self->storageEngine->revert($idkey, $uuid);
+        $self->storageEngine->revert( $idkey, $uuid );
         $self->eventSystem->control->emit(
             Replay::Message::Exception::Reducer->new(
                 $idkey->hash_list,
-                exception => (blessed $_ && $_->can('trace') ? $_->trace->as_string : $_),
+                exception => (
+                    blessed $_
+                        && $_->can('trace') ? $_->trace->as_string : $_
+                ),
             )
         );
     };
     return;
+}
+
+sub arrayref_flatten {
+    my ( $self, @args ) = @_;
+    return @args unless $self->ARRAYREF_FLATTEN_ENABLED;
+    map { 'ARRAY' eq ref $_ ? @{$_} : $_ } @args;
+}
+
+sub null_filter {
+    my ( $self, @args ) = @_;
+    return @args unless $self->NULL_FILTER_ENABLED;
+    map { defined $_ ? $_ : () } @args;
 }
 
 1;

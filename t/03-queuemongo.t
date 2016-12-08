@@ -7,11 +7,11 @@ use JSON;
 use YAML;
 use File::Slurp;
 use Test::Most;
-our $REPLAY_TEST_CONFIG =  $ENV{REPLAY_TEST_CONFIG};
+our $REPLAY_TEST_CONFIG = $ENV{REPLAY_TEST_CONFIG};
 
 sub t_environment_reset : Test(startup => 2) {
-    my $self   = shift;
-  
+    my $self = shift;
+
     my $replay = $self->{replay};
     `rm -rf $self->{storedir}`;
     ok !-d $self->{storedir};
@@ -19,10 +19,11 @@ sub t_environment_reset : Test(startup => 2) {
     $replay->storageEngine->engine->db->drop;
 }
 
-sub a_replay_config : Test(startup => 2) {
+sub a_replay_config : Test(startup) {
     my $self = shift;
-    plan skip_all => 'REPLAY_TEST_CONFIG Env var not present ' 
-     unless ($REPLAY_TEST_CONFIG );
+    unless ($REPLAY_TEST_CONFIG) {
+        $self->SKIP_ALL('REPLAY_TEST_CONFIG Env var not present ');
+    }
     $self->{awsconfig} = YAML::LoadFile($REPLAY_TEST_CONFIG);
     ok exists $self->{awsconfig}->{Replay}->{awsIdentity}->{access};
     ok exists $self->{awsconfig}->{Replay}->{awsIdentity}->{secret};
@@ -31,24 +32,24 @@ sub a_replay_config : Test(startup => 2) {
     $self->{idfile}   = $REPLAY_TEST_CONFIG;
     $self->{storedir} = '/tmp/testscript-03-' . $ENV{USER};
     $self->{config}   = {
-        timeout       => 400,
-        stage         => 'testscript-03-' . $ENV{USER},
-        StorageEngine => {
-            Mode => 'Mongo',
-            User => 'replayuser',
-            Pass => 'replaypass',
-        },
+        timeout => 400,
+        stage   => 'testscript-03-' . $ENV{USER},
+        StorageEngine =>
+            { Mode => 'Mongo', User => 'replayuser', Pass => 'replaypass', },
         EventSystem => {
             Mode        => 'AWSQueue',
             awsIdentity => $self->{awsconfig}->{Replay}->{awsIdentity},
-            snsService  =>  $self->{awsconfig}->{Replay}->{snsService},
-            sqsService  =>  $self->{awsconfig}->{Replay}->{sqsService},
+            snsService  => $self->{awsconfig}->{Replay}->{snsService},
+            sqsService  => $self->{awsconfig}->{Replay}->{sqsService},
         },
         Defaults      => { ReportEngine => 'Filesystemtest' },
-        ReportEngines => [{ Mode =>'Filesystem',
-                            Root => $self->{storedir},
-                            Name => 'Filesystemtest',
-                            Access => 'public' } ]
+        ReportEngines => [
+            {   Mode   => 'Filesystem',
+                Root   => $self->{storedir},
+                Name   => 'Filesystemtest',
+                Access => 'public'
+            }
+            ]
 
     };
 }

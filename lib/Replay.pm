@@ -14,11 +14,11 @@ use Replay::RuleSource 0.02;
 use Replay::Reporter 0.03;
 use Replay::Reducer 0.02;
 use Replay::Mapper 0.02;
-use Replay::Types 0.02;
+use Replay::Types::Types 0.02;
 use Replay::WORM 0.02;
 use Carp qw/croak/;
 
-has rules => (is => 'ro', isa => 'ArrayRef[BusinessRule]', required => 1,);
+has rules => ( is => 'ro', isa => 'ArrayRef[BusinessRule]', required => 1, );
 
 has ruleSource => (
     is      => 'ro',
@@ -44,7 +44,7 @@ has eventSystem => (
 
 sub _build_event_system {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return Replay::EventSystem->new(config => $self->config);
+    return Replay::EventSystem->new( config => $self->config );
 }
 
 has reportEngine => (
@@ -57,9 +57,9 @@ has reportEngine => (
 sub _build_report_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return Replay::ReportEngine->new(
-        config      => $self->config,
-        eventSystem => $self->eventSystem,
-        ruleSource  => $self->ruleSource,
+        config        => $self->config,
+        eventSystem   => $self->eventSystem,
+        ruleSource    => $self->ruleSource,
         storageEngine => $self->storageEngine,
     );
 }
@@ -71,7 +71,7 @@ has storageEngine => (
     lazy    => 1,
 );
 
-has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
+has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, );
 
 sub _build_storage_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
@@ -114,12 +114,19 @@ sub _build_mapper {    ## no critic (ProhibitUnusedPrivateSubroutines)
     );
 }
 
-has worm =>
-    (is => 'ro', isa => 'Replay::WORM', builder => '_build_worm', lazy => 1,);
+has worm => (
+    is      => 'ro',
+    isa     => 'Replay::WORM',
+    builder => '_build_worm',
+    lazy    => 1,
+);
 
-sub _build_worm {      ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_worm {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return Replay::WORM->new(eventSystem => $self->eventSystem);
+    return Replay::WORM->new(
+        eventSystem => $self->eventSystem,
+        config      => $self->config,
+    );
 }
 
 has reporter => (
@@ -135,7 +142,7 @@ sub _build_reporter {    ## no critic (ProhibitUnusedPrivateSubroutines)
         eventSystem   => $self->eventSystem,
         ruleSource    => $self->ruleSource,
         storageEngine => $self->storageEngine,
-        reportEngine => $self->reportEngine,
+        reportEngine  => $self->reportEngine,
     );
 }
 

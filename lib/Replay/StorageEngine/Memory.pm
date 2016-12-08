@@ -15,8 +15,8 @@ my $store = {};
 
 sub retrieve {
     my ( $self, $idkey ) = @_;
-    return $self->collection($idkey)->{ $idkey->cubby } ||=
-      $self->new_document($idkey);
+    return $self->collection($idkey)->{ $idkey->cubby }
+        ||= $self->new_document($idkey);
 }
 
 # State transition = add new atom to inbox
@@ -30,8 +30,8 @@ sub absorb {
     $state->{Windows} = [ keys %windows ];
 
     # unique list of Timeblocks
-    my %timeblocks = map { $_ => 1 } grep { $_ } @{ $state->{Timeblocks} },
-      $meta->{timeblock};
+    my %timeblocks = map { $_ => 1 } grep {$_} @{ $state->{Timeblocks} },
+        $meta->{timeblock};
     $state->{Timeblocks} = [ keys %timeblocks ];
 
     # unique list of Ruleversions
@@ -99,10 +99,11 @@ sub relock_expired {
     warn "NOT LOCKED" unless exists $state->{locked};
     warn "NO EPOCH"   unless exists $state->{lockExpireEpoch};
     warn "UNEXPIRED ( $state->{lockExpireEpoch})"
-      if $state->{lockExpireEpoch} > time;
+        if $state->{lockExpireEpoch} > time;
     return unless exists $state->{locked};
     return
-      if exists $state->{lockExpireEpoch} && $state->{lockExpireEpoch} >= time;
+        if exists $state->{lockExpireEpoch}
+        && $state->{lockExpireEpoch} >= time;
     $state->{locked}          = $signature;
     $state->{lockExpireEpoch} = time + $timeout;
 
@@ -134,8 +135,8 @@ sub window_all {
     my $collection = $self->collection($idkey);
     return {
         map { $collection->{$_}{idkey}{key} => $collection->{$_}{canonical} }
-        grep { 0 == index $_, $idkey->window_prefix } keys %{$collection}
-    };
+            grep { 0 == index $_, $idkey->window_prefix }
+            keys %{$collection} };
 }
 
 sub revert {
@@ -164,8 +165,8 @@ sub revert_this_record {
 
     my $state = $self->retrieve($idkey);
     croak
-"This document isn't locked with this signature ($document->{locked},$signature)"
-      if $document->{locked} ne $signature;
+        "This document isn't locked with this signature ($document->{locked},$signature)"
+        if $document->{locked} ne $signature;
 
     # reabsorb all of the desktop atoms into the document
     foreach my $atom ( @{ $document->{'desktop'} || [] } ) {
@@ -183,14 +184,20 @@ sub update_and_unlock {
     return unless exists $state->{locked};
     warn "LOCKED" . $state->{locked} if $self->debug;
     return unless $state->{locked} eq $signature;
-    delete $state->{desktop};          # there is no more desktop on checkin
-    delete $state->{lockExpireEpoch};  # there is no more expire time on checkin
+    delete $state->{desktop};    # there is no more desktop on checkin
+    delete $state->{lockExpireEpoch}
+        ;                        # there is no more expire time on checkin
     delete $state->{locked};    # there is no more locked signature on checkin
 
     if ( @{ $state->{canonical} || [] } == 0 ) {
         delete $state->{canonical};
     }
     return $state;
+}
+
+sub collections {
+    my $self = @_;
+    return keys %{$store};
 }
 
 sub collection {
@@ -208,7 +215,8 @@ sub find_keys_need_reduce {
     #    warn("Replay::StorageEngine::Memory  find_keys_need_reduce $self" );
     my @idkeys = ();
     my $rule;
-    while ( $rule = $rule ? $self->ruleSource->next : $self->ruleSource->first )
+    while ( $rule
+        = $rule ? $self->ruleSource->next : $self->ruleSource->first )
     {
         my $idkey = Replay::IdKey->new(
             name    => $rule->name,
@@ -222,12 +230,12 @@ sub find_keys_need_reduce {
                 version => $rule->version,
                 Replay::IdKey->parse_cubby( $_->{idkey} )
             );
-          } grep {
+            } grep {
             exists $_->{inbox}
-              || exists $_->{desktop}
-              || exists $_->{locked}
-              || exists $_->{lockExpireEpoch}
-          } values %{$store};
+                || exists $_->{desktop}
+                || exists $_->{locked}
+                || exists $_->{lockExpireEpoch}
+            } values %{$store};
     }
     return @idkeys;
 }

@@ -42,8 +42,6 @@ sub emit {
     confess "Can only emit Replay::Role::Envelope consumer"
         unless $message->does('Replay::Role::Envelope');
 
-    #warn(" Replay::EventSystem::Null emit $message");
-
     push @{ $self->{events} }, $message->marshall;
     return $message->UUID;
 }

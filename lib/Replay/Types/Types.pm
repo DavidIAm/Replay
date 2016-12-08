@@ -1,9 +1,9 @@
-package Replay::Types;
+package Replay::Types::Types;
 
 use Moose;
 use Moose::Util::TypeConstraints;
 
-use Replay::Role;     # include our roles
+use Replay::Role::BusinessRule;     # include our roles
 use Replay::IdKey;    # one of our central types
 
 our $VERSION = '0.02';
@@ -19,7 +19,7 @@ __END__
 
 =head1 NAME
 
-Replay::Types
+Replay::Types::Types
 
 =head1 VERSION
 
