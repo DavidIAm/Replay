@@ -8,7 +8,6 @@ our $VERSION = '0.02';
 has domain => (
     is          => 'rw',
     isa         => 'Str',
-    required    => 0,
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'message' },
 );
@@ -29,14 +28,12 @@ has version => (
 has window => (
     is          => 'rw',
     isa         => 'Str',
-    required    => 0,
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'message' },
 );
 has key => (
     is          => 'rw',
     isa         => 'Str',
-    required    => 0,
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'message' },
 );

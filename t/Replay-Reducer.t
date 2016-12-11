@@ -34,15 +34,20 @@ sub make_support : Test(setup) {
         window  => 'serta',
         key     => 'schlage'
     );
-    $self->{idkey}->mock_return(marshall => sub  {
-        name    => 'nm',
-        version => '11',
-        window  => 'serta',
-        key     => 'schlage',
-        UUID => 'mockuuid/',
-      });
-    $self->{reducedmessage}
-        = Replay::Message::Reduced::Mock->new( $self->{idkey} );
+    $self->{idkey}->mock_return(
+        marshall => sub {
+            (   name    => 'nm',
+                version => '11',
+                window  => 'serta',
+                key     => 'schlage',
+                UUID    => 'mockuuid/',
+            );
+        }
+    );
+    $self->{reducedmessage} = Replay::Message::Reduced->new(
+name    => 'mn',
+        version => 'vrsn',
+    );
     $self->{eventsystem} = Replay::EventSystem->new(
         reduce  => $self->{reducevents},
         control => $self->{controlevents},
@@ -402,7 +407,7 @@ sub execute_reduce_exception_reduce : Test(5) {
     $self->{controlevents}->mock_tally;
 }
 
-sub execute_reduce_success : Test(10) {
+sub execute_reduce_success : Test(11) {
     my ($self) = @_;
 
     $self->{idkey} = Test::MockObject::Extends->new( $self->{idkey} );
@@ -439,8 +444,8 @@ sub execute_reduce_success : Test(10) {
             is_deeply [@_], [15];
         }
         );
-    $self->{controlevents}
-        ->mock_expect_minimum_call_count( 'emit', 1, [ $self->{reducedmessage}] );
+    $self->{controlevents}->mock_expect_minimum_call_count( 'emit', 1,
+        [ $self->{reducedmessage} ] );
     my $rule = Test::MockObject::Extends->new( bless {}, 'Rule' );
     $rule->mock(
         reduce => sub {
@@ -453,21 +458,25 @@ sub execute_reduce_success : Test(10) {
     my $reducer = Test::MockObject::Extends->new( $self->make_reducer );
     $reducer->mock(
         make_delayed_emitter => sub {
+            isnt $self->{delayedemitter}, undef, 'delayed emitter defined';
             $self->{delayedemitter};
         }
         )->mock(
         rule => sub {
             shift;
             is +shift, $self->{idkey}, 'rule called with idkey';
+            isnt $rule, undef, 'rule defined';
             $rule;
         }
         )->mock(
         make_reduced_message => sub {
+            isnt $self->{reducedmessage}, undef, 'reduced message defined';
             $self->{reducedmessage};
         }
         );
     is_deeply [], [ $reducer->execute_reduce( $self->{idkey} ) ];
-    qr/dgo/, 'successful reduce';
+
+    #    qr/dgo/, 'successful reduce';
     $self->{controlevents}->mock_tally;
 }
 
