@@ -25,9 +25,9 @@ sub a_replay_config : Test(startup) {
                 Access => 'public'
             },
             {   Mode      => 'Mongo',
-                MongoUser => 'replayuser',
+                User => 'replayuser',
                 Name      => 'MongoTest',
-                MongoPass => 'replaypass'
+                Pass => 'replaypass'
             },
         ],
         timeout => 10,

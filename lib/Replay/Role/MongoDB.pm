@@ -1,9 +1,24 @@
 package Replay::Role::MongoDB;
 
-#all you need to get a Mogo up and running
+#all you need to get a Mogo up and running from blank unauthed
+# - create a myUserAdmin
+# use admin
+# db.createUser( {
+#       user: "myUserAdmin",
+#       pwd: "abc123",
+#       roles: [ { role: "userAdminAnyDatabase", db: "admin" } ] } )
+# - enable user auth on the db and restart it (auth=true in mongodb.conf)
+# - log in as that user
+# mongo -u myUserAdmin -p abc123 admin
+# - create the replay user
+# db.createUser( { user: "replayuser", pwd: "replaypass", roles: [ { role:
+# "dbAdminAnyDatabase" ,db: "admin" }, { role: "readWriteAnyDatabase", db:
+# "admin" } ] } )
 
 use Moose::Role;
 use Carp qw/croak confess carp cluck/;
+use MongoDB;
+use MongoDB::OID;
 use JSON;
 requires(
     qw(_build_mongo
@@ -28,6 +43,16 @@ has mongo => (
     builder => '_build_mongo',
     lazy    => 1,
 );
+
+sub _build_mongo {    ## no critic (ProhibitUnusedPrivateSubroutines)
+    my ($self) = @_;
+    my $db = MongoDB::MongoClient->new(
+        db_name  => $self->dbauthdb,
+        username => $self->dbuser,
+        password => $self->dbpass
+    );
+    return $db;
+}
 
 sub checkout_record {
     my ( $self, $idkey, $signature, $timeout ) = @_;
@@ -84,7 +109,8 @@ sub lockreport {
     my ( $self, $idkey ) = @_;
     return $self->collection($idkey)->find_one( { idkey => $idkey->cubby },
         { locked => 1, lockExpireEpoch => 1, } );
-#        { locked => JSON::true, lockExpireEpoch => JSON::true } );
+
+    #        { locked => JSON::true, lockExpireEpoch => JSON::true } );
 }
 
 sub relock {

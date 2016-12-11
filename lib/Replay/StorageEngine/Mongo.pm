@@ -2,8 +2,6 @@ package Replay::StorageEngine::Mongo;
 
 use Moose;
 with qw (Replay::Role::MongoDB Replay::Role::StorageEngine );
-use MongoDB;
-use MongoDB::OID;
 use Replay::IdKey;
 use Readonly;
 use JSON;
@@ -120,7 +118,7 @@ sub window_all {
 
     return {
         map { $_->{IdKey}->{key} => $_->{canonical} || [] }
-        grep { defined $_->{IdKey}->{key} }
+            grep { defined $_->{IdKey}->{key} }
             $self->collection($idkey)->find(
             { idkey => { q^$^ . 'regex' => q(^) . $idkey->window_prefix } }
             )->all
@@ -166,16 +164,6 @@ sub find_keys_need_reduce {
         }
     }
     return @idkeys;
-}
-
-sub _build_mongo {    ## no critic (ProhibitUnusedPrivateSubroutines)
-    my ($self) = @_;
-    my $db = MongoDB::MongoClient->new(
-        db_name  => $self->dbauthdb,
-        username => $self->dbuser,
-        password => $self->dbpass
-    );
-    return $db;
 }
 
 sub _build_dbpass {    ## no critic (ProhibitUnusedPrivateSubroutines)

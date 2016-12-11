@@ -76,10 +76,10 @@ sub reducable_message {
 sub identify {
     my ($self, $message) = @_;
     my $idkey   = Replay::IdKey->new(
-        {   name    => $message->Message->{name},
-            version => $message->Message->{version},
-            window  => $message->Message->{window},
-            key     => $message->Message->{key},
+        {   name    => $message->name,
+            version => $message->version,
+            window  => $message->window,
+            key     => $message->key,
         }
     );
 }
@@ -91,6 +91,19 @@ sub reduce_wrapper {
     $self->execute_reduce($self->identify($envelope));
 }
 
+sub make_delayed_emitter {
+    my ( $self, $meta ) = @_;
+    return Replay::DelayedEmitter->new(
+        eventSystem => $self->eventSystem,
+        %{$meta}
+    );
+}
+
+sub make_reduced_message {
+    my ( $self, $idkey ) = @_;
+    Replay::Message::Reduced->new( $idkey->marshall );
+}
+
 sub execute_reduce {
     my ($self, $idkey) = @_;
 
@@ -99,10 +112,7 @@ sub execute_reduce {
         ( $uuid, $meta, @state )
             = $self->storageEngine->fetch_transitional_state($idkey);
         if ( !$uuid || !$meta ) {return} # there was nothing to do, apparently
-        my $emitter = Replay::DelayedEmitter->new(
-            eventSystem => $self->eventSystem,
-            %{$meta}
-        );
+        my $emitter = $self->make_delayed_emitter($meta);
 
         $self->storageEngine->store_new_canonical_state(
             $idkey, $uuid, $emitter,
@@ -112,8 +122,7 @@ sub execute_reduce {
                 )
             )
         );
-        $self->eventSystem->control->emit(
-            Replay::Message::Reduced->new( $idkey->marshall ) );
+        $self->eventSystem->control->emit($self->make_reduced_message);
     }
     catch {
         carp "REDUCING EXCEPTION: $_";

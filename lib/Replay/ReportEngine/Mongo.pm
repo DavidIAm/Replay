@@ -24,41 +24,30 @@ sub _build_name {
     return $self->thisConfig->{Name};
 }
 
-sub _build_mongo {
-    my ($self) = @_;
-    my $db = MongoDB::MongoClient->new(
-        db_name  => $self->dbauthdb,
-        username => $self->dbuser,
-        password => $self->dbpass
-    );
-    return $db;
-}
-
 sub _build_dbpass {
     my $self = shift;
-    return $self->config->{Pass};
+    return $self->thisConfig->{Pass};
 }
 
 sub _build_dbuser {
     my $self = shift;
-    return $self->config->{User};
+    return $self->thisConfig->{User};
 }
 
 sub _build_dbauthdb {
     my $self = shift;
-    return $self->config->{AuthDB} || 'admin';
+    return $self->thisConfig->{AuthDB} || 'admin';
 }
 
 sub _build_dbname {
     my $self = shift;
-    return $self->config->{Name}
-        || $self->config->{stage} . "-report-" . '-replay';
+    return $self->thisConfig->{Name}
+        || $self->thisConfig->{stage} . "-report-" . '-replay';
 }
 
 sub _build_db {
     my ($self) = @_;
-    my $config = $self->config;
-    my $db     = $self->mongo->get_database( $self->dbname );
+    my $db = $self->mongo->get_database( $self->dbname );
     return $db;
 }
 
@@ -77,7 +66,7 @@ sub retrieve {
     return { EMPTY => 1 } unless defined $r;
     delete $r->{_id};
     $r->{EMPTY} = 0;
-    $r->{TYPE} = 'text/plain';
+    $r->{TYPE}  = 'text/plain';
     return $r;
 }
 

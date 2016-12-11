@@ -12,9 +12,8 @@ sub t_environment_reset : Test(startup) {
         config => {
             ReportEngine => {
                 Mode      => 'Mongo',
-                Mode      => 'Mongo',
-                MongoUser => 'replayuser',
-                MongoPass => 'replaypass',
+                User => 'replayuser',
+                Pass => 'replaypass',
             },
         },
         rule => []

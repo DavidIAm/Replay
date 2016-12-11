@@ -2,9 +2,7 @@ package Test::RabbitMQ;
 
 use Test::Most;
 use Data::Dumper;
-
-eval 'use Net::RabbitMQ';
-plan skip_all => 'Net::RabbitMQ Not present ' if $@;
+use Test::Needs 'Net::RabbitMQ';
 
 use JSON qw/to_json from_json/;
 

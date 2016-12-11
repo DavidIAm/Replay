@@ -21,54 +21,76 @@ Readonly my $WRITABLEFILE => 'WRITABLE';
 
 has '+mode' => ( default => 'Memory' );
 
+has file_typer =>
+    ( is => 'ro', isa => 'File::Type', builder => '_build_file_typer' );
+
+sub _build_file_typer {
+    my ($self) = @_;
+    File::Type->new();
+}
+
 my $store = {};
 
 sub retrieve {
-    my ($self, $idkey, $structured) = @_;
+    my ( $self, $idkey, $structured ) = @_;
     my $directory = $self->directory($idkey);
     my $revision  = $self->revision($idkey);
-    return { EMPTY => 1 } unless defined $revision;    # CASE: NO CURRENT REPORT
+    return { EMPTY => 1 } unless defined $revision;  # CASE: NO CURRENT REPORT
     if ($structured) {
-        return { EMPTY => 0, DATA => $directory->{REVISIONS}{$revision}{DATA} } if exists $directory->{REVISIONS}{$revision}{DATA};
+        return {
+            EMPTY => 0,
+            TYPE  => $self->file_typer->mime_type(
+                $directory->{REVISIONS}{$revision}{DATA}
+            ),
+            DATA => $directory->{REVISIONS}{$revision}{DATA}
+            }
+            if exists $directory->{REVISIONS}{$revision}{DATA};
         return { EMPTY => 1 };
     }
-    return { EMPTY => 0, FORMATTED => $directory->{REVISIONS}{$revision}{FORMATTED} } if exists $directory->{REVISIONS}{$revision}{FORMATTED};
+    return {
+        EMPTY => 0,
+        TYPE  => $self->file_typer->mime_type(
+            $directory->{REVISIONS}{$revision}{FORMATTED}
+        ),
+        FORMATTED => $directory->{REVISIONS}{$revision}{FORMATTED}
+        }
+        if exists $directory->{REVISIONS}{$revision}{FORMATTED};
     return { EMPTY => 1 };
 }
 
 sub writable_revision_path {
-    my ($self, $directory) = @_;
-    return $directory->{REVISIONS}{$directory->{WRITABLE}}||={};
+    my ( $self, $directory ) = @_;
+    return $directory->{REVISIONS}{ $directory->{WRITABLE} } ||= {};
 }
 
 sub current_revision_path {
-    my ($self, $directory) = @_;
-    return $directory->{REVISIONS}{$directory->{CURRENT}} ||={};
+    my ( $self, $directory ) = @_;
+    return $directory->{REVISIONS}{ $directory->{CURRENT} } ||= {};
 }
 
 sub writable_revision {
-    my ($self, $directory) = @_;
+    my ( $self, $directory ) = @_;
     return 0 unless exists $directory->{WRITABLE};
     return $directory->{WRITABLE} || 0;
 }
 
 sub current_revision {
-    my ($self, $directory) = @_;
+    my ( $self, $directory ) = @_;
     return undef unless exists $directory->{CURRENT};
     return $directory->{CURRENT} || 0;
 }
 
 sub current {
-    my ($self, $idkey) = @_;
-    return $self->current_revision($self->directory($idkey));
+    my ( $self, $idkey ) = @_;
+    return $self->current_revision( $self->directory($idkey) );
 }
 
 # retrieves all the keys that point to valid deliveries in the current window
 sub subdirs {
-    my ($self, $parentDir) = @_;
+    my ( $self, $parentDir ) = @_;
     my @subdirs;
     confess "not a ref" unless 'HASH' eq ref $parentDir;
-    foreach my $entry (keys %{$parentDir}) {
+    foreach my $entry ( keys %{$parentDir} ) {
         next if $entry eq 'CURRENT';
         next if $entry eq 'REVISIONS';
         next if $entry eq 'WRITABLE';
@@ -79,16 +101,15 @@ sub subdirs {
 
 # filters a list of directories by those which contain a CURRENT file
 sub current_subdirs {
-    my ($self, $parentDir) = @_;
+    my ( $self, $parentDir ) = @_;
     return
-        grep { exists $parentDir->{$_}{CURRENT} }
-        $self->subdirs($parentDir);
+        grep { exists $parentDir->{$_}{CURRENT} } $self->subdirs($parentDir);
 }
 
 # retrieves all the keys that point to valid summaries in the current
 # rule-version
 sub delivery_keys {
-    my ($self, $sumkey) = @_;
+    my ( $self, $sumkey ) = @_;
     my $parentDir = $self->directory($sumkey);
     confess "not a ref" unless 'HASH' eq ref $parentDir;
     map {
@@ -100,12 +121,12 @@ sub delivery_keys {
             revision => $_->[1],
             )
         } grep { defined $_->[1] }
-        map { [ $_ => $self->current_revision($parentDir->{$_}||={}) ] }
+        map { [ $_ => $self->current_revision( $parentDir->{$_} ||= {} ) ] }
         $self->current_subdirs($parentDir);
 }
 
 sub summary_keys {
-    my ($self, $sumkey) = @_;
+    my ( $self, $sumkey ) = @_;
     my $parentDir = $self->directory($sumkey);
     map {
         Replay::IdKey->new(
@@ -115,27 +136,27 @@ sub summary_keys {
             revision => $_->[1],
             )
         } grep { defined $_->[1] }
-        map { [ $_ => $self->current_revision($parentDir->{$_}) ] }
+        map { [ $_ => $self->current_revision( $parentDir->{$_} ) ] }
         $self->current_subdirs($parentDir);
 }
 
 sub directory {
-    my ($self, $idkey) = @_;
-    my $s = $store->{$idkey->name}{$idkey->version} ||= {};
-    $s = $s->{$idkey->{window}} ||= {} if $idkey->has_window;
-    $s = $s->{$idkey->{key}} ||= {} if $idkey->has_key;
+    my ( $self, $idkey ) = @_;
+    my $s = $store->{ $idkey->name }{ $idkey->version } ||= {};
+    $s = $s->{ $idkey->{window} } ||= {} if $idkey->has_window;
+    $s = $s->{ $idkey->{key} }    ||= {} if $idkey->has_key;
     return $s;
 }
 
 sub delete_latest_revision {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     my $directory = $self->directory($idkey);
     $self->lock($directory);
-    delete $directory->{REVISIONS}{$self->writable_revision($directory)};
+    delete $directory->{REVISIONS}{ $self->writable_revision($directory) };
     delete $directory->{CURRENT};
 
-    # if there was a freeze then the writable revision is greater than zero and
-    # we are obligated to keep the directory around. Otherwise, drop it.
+   # if there was a freeze then the writable revision is greater than zero and
+   # we are obligated to keep the directory around. Otherwise, drop it.
     delete $directory->{WRITABLE}
         if $self->writable_revision($directory) == 0;
     $self->unlock($directory);
@@ -143,7 +164,7 @@ sub delete_latest_revision {
 }
 
 sub store {
-    my ($self, $idkey, $data, $formatted) = @_;
+    my ( $self, $idkey, $data, $formatted ) = @_;
     confess
         "first return value from delivery/summary/globsummary function does not appear to be an array ref"
         unless 'ARRAY' eq ref $data;
@@ -154,11 +175,12 @@ sub store {
     $directory->{WRITABLE} = $self->writable_revision($directory);
     $directory->{CURRENT}  = $self->writable_revision($directory);
 
-    $directory->{REVISIONS}{ $self->writable_revision($directory) }{DATA} = $data;
+    $directory->{REVISIONS}{ $self->writable_revision($directory) }{DATA}
+        = $data;
 
-    if (defined $formatted) {
-        $directory->{REVISIONS}{ $self->writable_revision($directory) }{FORMATTED}
-            = $formatted;
+    if ( defined $formatted ) {
+        $directory->{REVISIONS}{ $self->writable_revision($directory) }
+            {FORMATTED} = $formatted;
 
     }
 
@@ -166,17 +188,17 @@ sub store {
 }
 
 sub lock {
-    my ($self, $directory) = @_;
+    my ( $self, $directory ) = @_;
 }
 
 sub unlock {
-    my ($self, $directory) = @_;
+    my ( $self, $directory ) = @_;
 }
 
 # State transition = add new atom to inbox
 
 sub freeze {
-    my ($self, $part, $idkey) = @_;
+    my ( $self, $part, $idkey ) = @_;
 
     # this should copy the current report to a new one, and increment CURRENT
     # AND WRITABLE.
@@ -189,13 +211,10 @@ sub freeze {
 
     $directory->{CURRENT} = $directory->{WRITABLE} = $new_revision;
 
-    my $deepcopy = thaw(Storable::freeze($self->current_revision_path($directory)));
+    my $deepcopy = thaw(
+        Storable::freeze( $self->current_revision_path($directory) ) );
 
-    $self->store(
-        $part, $idkey,
-        $deepcopy->{DATA},
-        $deepcopy->{FORMATTED},
-    );
+    $self->store( $part, $idkey, $deepcopy->{DATA}, $deepcopy->{FORMATTED}, );
 
     $self->notify_freeze($idkey);
     $self->unlock($directory);

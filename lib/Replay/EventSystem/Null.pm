@@ -12,16 +12,16 @@ with 'Replay::Role::EventSystem';
 
 our $VERSION = '0.02';
 
-has subscribers => (is => 'ro', isa => 'ArrayRef', default => sub { [] },);
+has subscribers => ( is => 'ro', isa => 'ArrayRef', default => sub { [] }, );
 
 use Try::Tiny;
 
 sub poll {
     my $self = shift;
     my $c    = 0;
-    while (my $message = shift @{ $self->{events} }) {
+    while ( my $message = shift @{ $self->{events} } ) {
         $c++;
-        foreach (@{ $self->subscribers }) {
+        foreach ( @{ $self->subscribers } ) {
             try {
                 $_->($message);
             }
@@ -34,7 +34,7 @@ sub poll {
 }
 
 sub emit {
-    my ($self, $message) = @_;
+    my ( $self, $message ) = @_;
 
     $message = Replay::Message->new($message) unless blessed $message;
 
@@ -47,7 +47,7 @@ sub emit {
 }
 
 sub subscribe {
-    my ($self, $callback) = @_;
+    my ( $self, $callback ) = @_;
     croak 'callback must be code' if 'CODE' ne ref $callback;
     return push @{ $self->subscribers }, $callback;
 }
