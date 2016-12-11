@@ -18,6 +18,8 @@ WriteMakefile(
         'Test::Mock::Class' => 0,
         'Test::Continuous'  => 0,
         'Test::MockObject'  => 1.20161202,
+        'Test::Pod::Coverage' => 1.08,
+        'Test::Pod' => 1.22,
     },
     PREREQ_PM => {
         'Amazon::SNS'                          => '1.2',

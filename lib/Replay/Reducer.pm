@@ -21,7 +21,12 @@ has eventSystem =>
 has storageEngine =>
     ( is => 'ro', isa => 'Replay::StorageEngine', required => 1, );
 
-has config => ( is => 'ro', isa => 'HashRef[Item]', required => 0, default => sub { {} } );
+has config => (
+    is       => 'ro',
+    isa      => 'HashRef[Item]',
+    required => 0,
+    default  => sub { {} }
+);
 
 sub ARRAYREF_FLATTEN_ENABLED_DEFAULT {1}
 sub NULL_FILTER_ENABLED_DEFAULT      {1}
@@ -61,34 +66,35 @@ sub rule {
 }
 
 sub normalize_envelope {
-  my ($self, $first, @input) = @_;
-  return () unless defined $first;
-  my $ref = blessed $first ? $first : ref $first ? $first : { $first, @input };
-  return $ref if blessed $ref;
-  return Replay::Message->new($ref);
+    my ( $self, $first, @input ) = @_;
+    return () unless defined $first;
+    my $ref
+        = blessed $first ? $first : ref $first ? $first : { $first, @input };
+    return $ref if blessed $ref;
+    return Replay::Message->new($ref);
 }
 
 sub reducable_message {
- my ($self, $envelope) = @_;
- return $envelope->MessageType eq 'Reducable';
+    my ( $self, $envelope ) = @_;
+    return $envelope->MessageType eq 'Reducable';
 }
 
 sub identify {
-    my ($self, $message) = @_;
-    my $idkey   = Replay::IdKey->new(
-        {   name    => $message->name,
-            version => $message->version,
-            window  => $message->window,
-            key     => $message->key,
+    my ( $self, $message ) = @_;
+    my $idkey = Replay::IdKey->new(
+        {   name    => $message->{Message}->{name},
+            version => $message->{Message}->{version},
+            window  => $message->{Message}->{window},
+            key     => $message->{Message}->{key},
         }
     );
 }
 
 sub reduce_wrapper {
     my ( $self, @input ) = @_;
-    my $envelope = $self->normalize_envelope (@input);
+    my $envelope = $self->normalize_envelope(@input);
     return unless $self->reducable_message($envelope);
-    $self->execute_reduce($self->identify($envelope));
+    $self->execute_reduce( $self->identify($envelope) );
 }
 
 sub make_delayed_emitter {
@@ -105,7 +111,7 @@ sub make_reduced_message {
 }
 
 sub execute_reduce {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
 
     my ( $uuid, $meta, @state );
     try {
@@ -122,7 +128,8 @@ sub execute_reduce {
                 )
             )
         );
-        $self->eventSystem->control->emit($self->make_reduced_message);
+        $self->eventSystem->control->emit(
+            $self->make_reduced_message($idkey) );
     }
     catch {
         carp "REDUCING EXCEPTION: $_";

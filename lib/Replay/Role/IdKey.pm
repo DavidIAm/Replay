@@ -4,7 +4,6 @@ use Moose::Role;
 use MooseX::Storage;
 our $VERSION = '0.02';
 
-
 has domain => (
     is          => 'rw',
     isa         => 'Str',

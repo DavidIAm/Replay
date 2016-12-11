@@ -134,7 +134,7 @@ sub ARRAYREF_FLATTEN_ENABLED : Test(3) {
         'arrayref flatten enabled when enabled';
 }
 
-sub rule : Test(2) {
+sub rule : Test(1) {
     my ($self) = @_;
     $self->{rulesource}->mock_expect_minimum_call_count( 'by_idkey', 1 );
 
@@ -152,6 +152,7 @@ sub rule : Test(2) {
         )
     );
 
+    ok 1, 'errors handled by exception on failure to call'; 
     $self->{rulesource}->mock_tally;
 }
 
@@ -195,14 +196,13 @@ sub reducable_message : Test(2) {
 sub identify : Test(5) {
     my ($self) = @_;
     my $mock = Test::MockObject::Extends->new(
-        Replay::Message->new( MessageType => 'MockMessage' ) );
-    $mock->set_always(
+        Replay::Message->new( MessageType => 'MockMessage',
         'Message' => {
             'name'    => 'mockname',
             'version' => 'mockversion',
             'window'  => 'mockwindow',
             'key'     => 'mockkey'
-        }
+        })
     );
     my $id = $self->make_reducer->identify($mock);
     isa_ok $id, 'Replay::IdKey';
@@ -215,10 +215,14 @@ sub identify : Test(5) {
 sub reduce_wrapper : Test(2) {
     my ($self) = @_;
     my $reducer = Test::MockObject::Extends->new( $self->make_reducer );
-    $reducer->set_true('reducable_message')
-        ->mock( 'normalize_envelope', sub { shift; shift } )
-        ->mock( 'execute_reduce',
-        sub { shift; is +shift, $self->{idkey}, 'mock acquired' } )->mock(
+    $reducer->mock(
+        'reducable_message' => sub {
+            shift; shift->MessageType eq 'Reducable';
+        }
+        )->mock( 'normalize_envelope', sub { shift; shift } )->mock(
+        'execute_reduce',
+        sub { shift; is +shift, $self->{idkey}, 'mock acquired' }
+        )->mock(
         'identify',
         sub {
             shift;
@@ -407,7 +411,7 @@ sub execute_reduce_exception_reduce : Test(5) {
     $self->{controlevents}->mock_tally;
 }
 
-sub execute_reduce_success : Test(11) {
+sub execute_reduce_success : Test(12) {
     my ($self) = @_;
 
     $self->{idkey} = Test::MockObject::Extends->new( $self->{idkey} );
@@ -470,6 +474,7 @@ sub execute_reduce_success : Test(11) {
         }
         )->mock(
         make_reduced_message => sub {
+            shift; isa_ok +shift, 'Replay::IdKey';
             isnt $self->{reducedmessage}, undef, 'reduced message defined';
             $self->{reducedmessage};
         }
