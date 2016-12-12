@@ -77,7 +77,6 @@ sub relock_expired {
     return $unlockresult;
 }
 
-=pod
 # Locking states
 # 1. unlocked ( lock does not exist )
 # 2. locked unexpired ( lock set to a signature, lockExpired epoch in future )
@@ -89,7 +88,6 @@ sub relock_expired {
 # lock, revert its desktop to the inbox, then try to relock it with a new
 # signature  If it relocks we are in state-2-with-signature and are able to
 # check it out
-=cut
 
 sub checkin {
     my ( $self, $idkey, $uuid, $state ) = @_;
@@ -218,17 +216,20 @@ __END__
 
 =head1 NAME
 
-Replay::StorageEngine::Mongo - storage implimentation for mongodb
+Replay::StorageEngine::Mongo - storage implementation for mongodb
 
 =head1 VERSION
 
-Version 0.01
+Version 0.04
+
+=head1 DESCRIPTION
+
+This is the Storage engine implementation for mongodb
 
 =head1 SYNOPSIS
 
-This is the Storage engine implimentation for mongodb
 
-Replay::StorageEngine::Mongo->new( ruleSoruce => $rs, eventSystem => $es, config => { Mongo => { host: ..., port: ... } } );
+Replay::StorageEngine::Mongo->new( ruleSource => $rs, eventSystem => $es, config => { Mongo => { host: ..., port: ... } } );
 
 =head1 OVERRIDES
 
@@ -250,7 +251,7 @@ Replay::StorageEngine::Mongo->new( ruleSoruce => $rs, eventSystem => $es, config
 
 =head2 revert_this_record
 
-reversion implimentation
+reversion implementation
 
 =head2 _build_mongo
 
@@ -304,7 +305,23 @@ returns the state document, or undef if the state is not locked with that signat
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
+
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'
@@ -402,7 +419,7 @@ canonSignature: q(SIGNATURE) - a sanity check to see if this canonical has been 
 Timeblocks: [ Array of input timeblock names ]
 Ruleversions: [ Array of objects like { name: <rulename>, version: <ruleversion> } ]
 
-STATE DOCUMENT SPECIFIC TO THIS IMPLIMENTATION
+STATE DOCUMENT SPECIFIC TO THIS IMPLEMENTATION
 
 db is determined by idkey->ruleversion
 collection is determined by idkey->collection
@@ -418,7 +435,7 @@ checkout
 
 rename inbox to desktop so that any new absorbs don't get confused with what is being processed
 
-=head1 STORAGE ENGINE IMPLIMENTATION METHODS 
+=head1 STORAGE ENGINE IMPLEMENTATION METHODS 
 
 =head2 (state) = retrieve ( idkey )
 

@@ -7,6 +7,7 @@ use AnyEvent;
 use Readonly;
 use English qw/-no_match_vars/;
 use Carp qw/confess carp cluck/;
+use Data::Dumper;
 use Time::HiRes;
 use Replay::Message::Timing;
 use Try::Tiny;
@@ -104,7 +105,6 @@ has domain => ( is => 'ro' );    # placeholder
 sub BUILD {
     my ($self) = @_;
     if ( not $self->config->{EventSystem}->{Mode} ) {
-        use Data::Dumper;
         confess
             q(NO EventSystem Mode CONFIG!?  Make sure its in the locale files)
             . Dumper $self->config;
@@ -205,13 +205,18 @@ sub clear {
 sub emit {
     my ( $self, $channel, $message ) = @_;
 
-    $message = Replay::Message->new($message) unless blessed $message;
+    if ( !blessed $message) {
+        $message = Replay::Message->new($message);
+    }
 
     # THIS MUST DOES A Replay::Role::Envelope
-    confess "Can only emit Replay::Role::Envelope consumer"
-        unless $message->does('Replay::Role::Envelope');
+    if ( !$message->does('Replay::Role::Envelope') ) {
+        confess 'Can only emit Replay::Role::Envelope consumer';
+    }
 
-    confess "Unknown channel $channel" unless $self->can($channel);
+    if ( !$self->can($channel) ) {
+        confess "Unknown channel $channel";
+    }
 
     $self->$channel->emit( $message->marshall );
     return $message->UUID;
@@ -296,7 +301,9 @@ sub _build_mode {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $class
         = 'Replay::EventSystem::' . $self->config->{EventSystem}->{Mode};
     try {
-        eval "require $class"
+        my $path = $class . '.pm';
+        $path =~ s{::}{/}gxsm;
+        eval { require $path }
             or croak qq(error requiring class $class : ) . $EVAL_ERROR;
     }
     catch {
@@ -312,9 +319,9 @@ sub _build_queue {
     my $classname = $self->mode;
     try {
         try {
-            if ( eval "require $classname" ) {
-            }
-            else {
+            my $path = $classname . '.pm';
+            $path =~ s{::}{/}xgsm;
+            if ( !eval { require $path } ) {
                 croak $EVAL_ERROR;
             }
         }
@@ -396,6 +403,13 @@ Version 0.01
 
 =head1 SYNOPSIS
 
+ Replay::EventSystem->new( config => { QueueClass => '...' }, [ timeout => # ] );
+
+=head1 CONFIGURATION AND ENVIRONMENT
+
+This simply is.  Its the submodule implementations that are configured
+
+=head1 DESCRIPTION
 This is the Event System interface module.  It interfaces with a set of 
 communication channels, taking a config hash with the QueueClass to 
 instantiate and any other queue class specific configuration needed
@@ -410,7 +424,7 @@ The event system has three logical channels of events
 
 =head1 Communication Channel API
 
-Any communication channel must impliment these methods.  They must be distinct
+Any communication channel must implement these methods.  They must be distinct
 objects per purpose.
 
 =head2 $channel = [QueueClass]->new( purpose => 'label', ... )
@@ -511,7 +525,19 @@ Add this subroutine to the subscribed hooks for the specified channel
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'

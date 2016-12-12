@@ -17,7 +17,7 @@ use JSON qw/from_json to_json/;
 use Carp qw/confess/;
 
 has rabbit =>
-    (is => 'ro', isa => 'Replay::EventSystem::RabbitMQ', required => 1,);
+    ( is => 'ro', isa => 'Replay::EventSystem::RabbitMQ', required => 1, );
 
 has channel => (
     is        => 'ro',
@@ -27,15 +27,15 @@ has channel => (
     predicate => 'has_channel',
 );
 
-has body => (is => 'ro', isa => 'Str|HashRef', required => 1,);
+has body => ( is => 'ro', isa => 'Str|HashRef', required => 1, );
 
-has routing_key => (is => 'ro', isa => 'Str', required => 1,);
+has routing_key => ( is => 'ro', isa => 'Str', required => 1, );
 
-has exchange => (is => 'ro', isa => 'Str', required => 1,);
+has exchange => ( is => 'ro', isa => 'Str', required => 1, );
 
-has acknowledge_multiple => (is => 'ro', isa => 'Str', default => 0, );
+has acknowledge_multiple => ( is => 'ro', isa => 'Str', default => 0, );
 
-has props => (is => 'ro', isa => 'HashRef',);
+has props => ( is => 'ro', isa => 'HashRef', );
 
 #has consumer_tag => (
 #  is => 'ro',
@@ -43,20 +43,20 @@ has props => (is => 'ro', isa => 'HashRef',);
 #  required => 1,
 #);
 
-has delivery_tag => (is => 'ro', isa => 'Str', required => 1,);
+has delivery_tag => ( is => 'ro', isa => 'Str', required => 1, );
 
-has nacked => (is => 'rw', isa => 'Bool', default => 0,);
+has nacked => ( is => 'rw', isa => 'Bool', default => 0, );
 
-has acked => (is => 'rw', isa => 'Bool', default => 0,);
+has acked => ( is => 'rw', isa => 'Bool', default => 0, );
 
 sub BUILDARGS {
-    my ($self, %frame) = @_;
-    if ($frame{body}) {
+    my ( $self, %frame ) = @_;
+    if ( $frame{body} ) {
         try {
-            $frame{body} = from_json($frame{body});
+            $frame{body} = from_json( $frame{body} );
         }
         catch {
-            warn "Unable to parse json $frame{body}";
+            carp "Unable to parse json $frame{body}";
         };
     }
     return {%frame};
@@ -65,23 +65,26 @@ sub BUILDARGS {
 sub ack {
     my ($self) = @_;
     return if $self->acked or $self->nacked;
-    return unless $self->delivery_tag;
-    $self->rabbit->ack($self->channel, $self->delivery_tag, $self->acknowledge_multiple);
-    $self->acked(1);
+    return if !$self->delivery_tag;
+    $self->rabbit->ack( $self->channel, $self->delivery_tag,
+        $self->acknowledge_multiple );
+    return $self->acked(1);
 }
 
 sub nack {
-    my ($self, $requeue) = @_;
+    my ( $self, $requeue ) = @_;
     return if $self->acked or $self->nacked;
-    $self->rabbit->reject($self->channel, $self->delivery_tag, $requeue || 0);
-    $self->nacked(1);
+    $self->rabbit->reject( $self->channel, $self->delivery_tag,
+        $requeue || 0 );
+    return $self->nacked(1);
 }
 
 sub DEMOLISH {
     my ($self) = @_;
-    if ($self->has_channel) {
-        if ($self->rabbit) {
-#            $self->rabbit->channel_close($self->channel);
+    if ( $self->has_channel ) {
+        if ( $self->rabbit ) {
+
+            #            $self->rabbit->channel_close($self->channel);
         }
     }
     return;
@@ -95,17 +98,19 @@ __END__
 
 =head1 NAME
 
-Replay::EventSystem::RabbitMQ - RabbitMQ Exchange/Queue implimentation
+Replay::EventSystem::RabbitMQ::Message - RabbitMQ Exchange/Queue implementation
 
 =head1 VERSION
 
 Version 0.01
 
-head1 SYNOPSIS
+=head1 DESCRIPTION
 
-This is an Event System implimentation module targeting the RabbitMQ service
+This is an Event System implementation module targeting the RabbitMQ service
 If you were to instantiate it independently, it might 
 look like this.
+
+=head1 SYNOPSIS
 
 my $cv = AnyEvent->condvar;
 
@@ -163,7 +168,23 @@ Makes sure to properly clean up and disconnect from queues
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
+
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'

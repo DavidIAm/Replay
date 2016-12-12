@@ -5,19 +5,19 @@ use Moose::Util::TypeConstraints;
 
 our $VERSION = '0.02';
 
-has eventSystem => (is => 'ro', isa => 'Replay::EventSystem',);
-has reportEngine=> (is => 'ro', isa => 'Str',);
+has eventSystem  => ( is => 'ro', isa => 'Replay::EventSystem', );
+has reportEngine => ( is => 'ro', isa => 'Str', );
 
 # mapper
 # [string]
-has name => (is => 'ro', required => 1,);
+has name => ( is => 'ro', required => 1, );
 
 # [string]
-has version => (is => 'ro', isa => 'Str', default => '1',);
+has version => ( is => 'ro', isa => 'Str', default => '1', );
 
 requires qw/match key_value_set window compare reduce/;
 
-has report_disposition => (is => 'ro', default => 0);
+has report_disposition => ( is => 'ro', default => 0 );
 
 # [boolean] function match ( message )
 # [timeWindowIdentifier] function window ( message )
@@ -33,7 +33,7 @@ has report_disposition => (is => 'ro', default => 0);
 #
 # used by bureaucrat
 # [diff report] function fullDiff ( ruleA, Version, ruleB, Version )
-has fullDiff => (is => 'ro', isa => 'CodeRef', required => 0,);
+has fullDiff => ( is => 'ro', isa => 'CodeRef', required => 0, );
 
 # used by clerk
 # [formatted Report] function delivery ( rule, [ keyA => arrayrefOfMessage, ... ] )
@@ -55,50 +55,15 @@ Replay::Role::BusinessRule
 
 =head1 VERSION
 
-Version 0.01
+Version 0.04
 
 =head1 SYNOPSIS
 
+with('Replay::Role::BusinessRule');
+
+=head1 DESCRIPTION
+
 Business rule role.
-
-package TESTRULE;
-
-use Moose;
-with 'Replay::Role::BusinessRule';
-
-use Replay::IdKey;
-use List::Util qw//;
-
-has '+name' => (default => __PACKAGE__,);
-
-#sub window { 'alltime' };
-sub match {
-    my ($self, $message) = @_;
-    return $message->{is_interesting};
-};
-
-sub key_value_set {
-    my ($self, $message) = @_;
-    my @keyvalues = ();
-    foreach my $key (keys %{$message}) {
-        next unless 'ARRAY' eq ref $message->{$key};
-        foreach (@{ $message->{$key} }) {
-            push @keyvalues, $key, $_;
-        }
-    }
-    return @keyvalues;
-};
-
-sub compare {
-    my ($self, $aa, $bb) = @_;
-    return ($aa || 0) <=> ($bb || 0);
-};
-
-sub reduce {
-    my ($self, $emitter, @state) = @_;
-    my $response = List::Util::reduce { $a + $b } @state;
-};
-
 
 =head1 SUBROUTINES/METHODS
 
@@ -124,7 +89,7 @@ will form the state
 
 Sort subroutine - return -1, 0, or 1 depending on how these two atoms compare
 
-Use for making particluar atoms adjacent for easy comparison.
+Use for making particular atoms adjacent for easy comparison.
 
 =head2 reduce( emitter, atoms... )
 
@@ -152,7 +117,23 @@ figure out what the window identifier is for this particular message
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
+
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .
@@ -222,7 +203,7 @@ direct or contributory patent infringement, then this Artistic License
 to you shall terminate on the date that such litigation is filed.
 
 Disclaimer of Warranty: THE PACKAGE IS PROVIDED BY THE COPYRIGHT HOLDER
-AND CONTRIBUTORS "AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
+AND CONTRIBUTORS 'AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
 THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
 PURPOSE, OR NON-INFRINGEMENT ARE DISCLAIMED TO THE EXTENT PERMITTED BY
 YOUR LOCAL LAW. UNLESS REQUIRED BY LAW, NO COPYRIGHT HOLDER OR

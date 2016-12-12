@@ -1,6 +1,7 @@
 package Replay::ReportEngine::Filesystem;
 
 use Moose;
+use English qw/ -no_match_vars /;
 use Scalar::Util qw/blessed/;
 use Replay::IdKey;
 use Carp qw/croak carp cluck/;
@@ -33,23 +34,25 @@ has '+mode' => ( default => 'Filesystem' );
 
 my $store = {};
 
-sub _build_name {
+sub _build_name {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return $self->thisConfig->{Name};
 }
 
-sub _build_root {
+sub _build_root {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
 
     my $directory = abs_path( $self->thisConfig->{Root} );
 
-    unless ($directory) {
+    if ( !$directory ) {
         my @test = mkpath $self->thisConfig->{Root};
-        $directory = shift(@test);
+        $directory = shift @test;
     }
 
-    confess "no exist report filesystem Root " . to_json $self->thisConfig
-        unless -d $directory;
+    if ( !-d $directory ) {
+        confess 'no exist report filesystem Root '
+            . to_json $self->thisConfig;
+    }
 
     return $directory;
 }
@@ -59,18 +62,19 @@ sub retrieve {
     my $directory = $self->directory($idkey);
     my $revision  = $self->revision($idkey);
     use Data::Dumper;
-    return { EMPTY => 1 } unless defined $revision;  # CASE: NO CURRENT REPORT
+    return { EMPTY => 1 } if !defined $revision;    # CASE: NO CURRENT REPORT
     if ($structured) {
         my $dfile
             = $self->filename_data( $directory, $self->revision($idkey) );
-        return { EMPTY => 0, DATA => Storable::retrieve $dfile } if -f $dfile;
+        return { EMPTY => 0, DATA => Storable::retrieve $dfile, }
+            if -f $dfile;
         return { EMPTY => 1 };
     }
     my $ffile = $self->filename( $directory, $self->revision($idkey) );
     return {
         EMPTY     => 0,
         TYPE      => mimetype($ffile),
-        FORMATTED => join '',
+        FORMATTED => join q{},
         read_file($ffile)
         }
         if -f $ffile;
@@ -89,18 +93,23 @@ sub current_revision_path {
 
 sub writable_revision {
     my ( $self, $directory ) = @_;
-    return 0 unless -d $directory;
+    return 0 if !-d $directory;
     my $wfile = $self->writable_revision_path($directory);
-    return 0 unless ( -f $wfile );
+    return 0 if !-f $wfile;
     return read_file($wfile) || 0;
 }
 
 sub current_revision {
     my ( $self, $directory ) = @_;
-    return undef unless -d $directory;
+    if ( !-d $directory ) {
+        return undef;    ## no critic (ProhibitExplicitReturnUndef)
+    }
+
     my $vfile = $self->current_revision_path($directory);
-    return undef unless ( -f $vfile );
-    return map { chomp; $_ } read_file($vfile);
+    if ( !-f $vfile ) {
+        return undef;    ## no critic (ProhibitExplicitReturnUndef)
+    }
+    return map { chomp && $_ } read_file($vfile);
 }
 
 sub current {
@@ -110,34 +119,35 @@ sub current {
 
 # retrieves all the keys that point to valid deliveries in the current window
 sub subdirs {
-    my ( $self, $parentDir ) = @_;
+    my ( $self, $parent_dir ) = @_;
     my @subdirs;
-    my $dir = IO::Dir->new($parentDir);
+    my $dir = IO::Dir->new($parent_dir);
     if ( defined $dir ) {
         my $entry;
         while ( defined( $entry = $dir->read ) ) {
-            my $path = catdir $parentDir, $entry;
-            next unless -d $path;
-            next if $entry =~ /^\./;
+            my $path = catdir $parent_dir, $entry;
+            next if !-d $path;
+            next if $entry =~ /^[.]/xsm;
             push @subdirs, $entry;
         }
     }
-    return sort @subdirs;
+    my @sorted = sort @subdirs;
+    return @sorted;
 }
 
 # filters a list of directories by those which contain a CURRENT file
 sub current_subdirs {
-    my ( $self, $parentDir ) = @_;
+    my ( $self, $parent_dir ) = @_;
     return
-        grep { -f catfile $parentDir, $_, $CURRENTFILE }
-        $self->subdirs($parentDir);
+        grep { -f catfile $parent_dir, $_, $CURRENTFILE }
+        $self->subdirs($parent_dir);
 }
 
 # retrieves all the valid keys in the list for the next layer down in the reports
 # rule-version-window-key
 sub subkeys {
     my ( $self, $key ) = @_;
-    warn "directory is " . $self->directory($key);
+    carp 'directory is ' . $self->directory($key);
     if ( $key->has_key ) {
 
         my $dir = IO::Dir->new( $self->directory($key) );
@@ -146,8 +156,8 @@ sub subkeys {
         if ( defined $dir ) {
             my $entry;
             while ( defined( $entry = $dir->read ) ) {
-                my ($revision) = $entry =~ /revision_(\d+).data/;
-                next unless defined $revision;
+                my ($revision) = $entry =~ /revision_(\d+).data/xsm;
+                next if !defined $revision;
                 push @revisions, $revision;
             }
         }
@@ -162,8 +172,8 @@ sub subkeys {
 # rule-version
 sub delivery_keys {
     my ( $self, $sumkey ) = @_;
-    my $parentDir = $self->directory($sumkey);
-    map {
+    my $parent_dir = $self->directory($sumkey);
+    return map {
         Replay::IdKey->new(
             name     => $sumkey->name,
             version  => $sumkey->version,
@@ -172,14 +182,14 @@ sub delivery_keys {
             revision => $_->[1],
             )
         } grep { defined $_->[1] }
-        map { [ $_ => $self->current_revision( catdir $parentDir, $_ ) ] }
-        $self->current_subdirs($parentDir);
+        map { [ $_ => $self->current_revision( catdir $parent_dir, $_ ) ] }
+        $self->current_subdirs($parent_dir);
 }
 
 sub summary_keys {
     my ( $self, $sumkey ) = @_;
-    my $parentDir = $self->directory($sumkey);
-    map {
+    my $parent_dir = $self->directory($sumkey);
+    return map {
         Replay::IdKey->new(
             name     => $sumkey->name,
             version  => $sumkey->version,
@@ -187,8 +197,8 @@ sub summary_keys {
             revision => $_->[1],
             )
         } grep { defined $_->[1] }
-        map { [ $_ => $self->current_revision( catdir $parentDir, $_ ) ] }
-        $self->current_subdirs($parentDir);
+        map { [ $_ => $self->current_revision( catdir $parent_dir, $_ ) ] }
+        $self->current_subdirs($parent_dir);
 }
 
 sub filename_data {
@@ -216,7 +226,7 @@ sub directory {
 sub delete_latest_revision {
     my ( $self, $idkey ) = @_;
     my $directory = $self->directory($idkey);
-    $self->lock($directory);
+    $self->lock_record($directory);
     unlink $self->filename( $directory,
         $self->writable_revision($directory) );
     unlink $self->filename_data( $directory,
@@ -225,10 +235,11 @@ sub delete_latest_revision {
 
    # if there was a freeze then the writable revision is greater than zero and
    # we are obligated to keep the directory around. Otherwise, drop it.
-    unlink catfile $directory, $WRITABLEFILE
-        if $self->writable_revision($directory) == 0;
+    if ( $self->writable_revision($directory) == 0 ) {
+        unlink catfile $directory, $WRITABLEFILE;
+    }
     rmdir $directory;
-    $self->unlock($directory);
+    $self->unlock_record($directory);
     return;
 }
 
@@ -236,29 +247,31 @@ sub store {
     my ( $self, $idkey, $data, $formatted ) = @_;
     use Data::Dumper;
     confess
-        "second return value from delivery/summary/globsummary function does not appear to be an array ref"
+        'second return value from delivery/summary/globsummary function does not appear to be an array ref'
         . Dumper $data
-        unless 'ARRAY' eq ref $data;
+        if 'ARRAY' ne ref $data;
     my $directory = $self->directory($idkey);
-    return $self->delete_latest_revision($idkey) unless scalar @{$data};
-    mkpath $directory unless -d $directory;
-    $self->lock($directory);
+    return $self->delete_latest_revision($idkey) if 0 < scalar @{$data};
+    if ( !-d $directory ) {
+        mkpath $directory ;
+    }
+    $self->lock_record($directory);
 
     # TODO: make this thread safe writes with temp name and renames
     {
         my $wfile = $self->writable_revision_path($directory);
-        unless ( -f $wfile ) {
+        if ( !-f $wfile ) {
             my $wh = IO::File->new( $wfile, 'w' );
-            print $wh $self->writable_revision($directory);
+            $wh->print( $self->writable_revision($directory) );
         }
     }
 
     # TODO: make this thread safe writes with temp name and renames
     {
         my $vfile = $self->current_revision_path($directory);
-        unless ( -f $vfile ) {
+        if ( !-f $vfile ) {
             my $vh = IO::File->new( $vfile, 'w' );
-            print $vh $self->writable_revision($directory);
+            $vh->print( $self->writable_revision($directory) );
         }
     }
 
@@ -268,54 +281,60 @@ sub store {
             $self->writable_revision($directory) );
         my $dfh = IO::File->new( $datafilename, 'w' );
         store_fd $data, $dfh
-            or confess "NO DATA $$ $? $! PRINT " . to_json $data;
+            or confess "NO DATA $PROCESS_ID $CHILD_ERROR $OS_ERROR PRINT "
+            . to_json $data;
     }
 
     if ( defined $formatted ) {
 
+      warn "WRITING FORMATTED $formatted";
         # TODO: make this thread safe writes with temp name and renames
         my $filename = $self->filename( $directory,
             $self->writable_revision($directory) );
         my $fh = IO::File->new( $filename, 'w' );
-        print $fh $formatted
-            or confess "NO DATA $$ $? $! PRINT " . $formatted;
+        $fh->print($formatted)
+            or confess "NO DATA $PROCESS_ID $CHILD_ERROR $OS_ERROR PRINT "
+            . $formatted;
     }
 
-    $self->unlock($directory);
+    return $self->unlock_record($directory);
 }
 
-sub lock {
+sub lock_record {
     my ( $self, $directory ) = @_;
+    return;
 }
 
-sub unlock {
+sub unlock_record {
     my ( $self, $directory ) = @_;
+    return;
 }
 
 # State transition = add new atom to inbox
 
 sub freeze {
-    confess "unimplimented";
     my ( $self, $idkey ) = @_;
+
+    confess 'unimplemented' if $idkey ne 'what it will never be';
 
     # this should copy the current report to a new one, and increment CURRENT
     # AND WRITABLE.
     my $directory = $self->directory($idkey);
 
-    $self->lock($directory);
+    $self->lock_record($directory);
 
     my $old_revision = $self->current_revision($directory);
     my $new_revision = $old_revision + 1;
 
     my $vfile = $self->current_revision_path($directory);
-    unless ( -f $vfile ) {
+    if ( !-f $vfile ) {
         my $vh = IO::File->new( $vfile, 'w' );
-        print $vh $new_revision;
+        $vh->print($new_revision);
     }
     my $wfile = $self->writable_revision_path($directory);
-    unless ( -f $wfile ) {
+    if ( !-f $wfile ) {
         my $wh = IO::File->new( $vfile, 'w' );
-        print $wh $new_revision;
+        $wh->print($new_revision);
     }
 
     my $oldkey = Replay::IdKey->new(
@@ -332,7 +351,8 @@ sub freeze {
         $self->retrieve($oldkey)->{FORMATTED}
     );
 
-    $self->unlock($directory);
+    return $self->unlock_record($directory);
+
 }
 
 __PACKAGE__->meta->make_immutable;
@@ -345,7 +365,7 @@ __END__
 
 =head1 NAME
 
-Replay::ReportEngine::Filesystem - report implimentation for base filesystem use
+Replay::ReportEngine::Filesystem - report implementation for base filesystem use
 
 =head1 VERSION
 
@@ -396,7 +416,7 @@ a 'purge' happens when a report or summary returns empty list, indicating 'no st
 
 a 'freeze' request acts on the latest revision.  the writable revision is moved up one and the previously latest version is copied to it. The frozen version will never be removed.
 
-=head1 METHODS
+=head1 SUBROUTINES/METHODS
 
 =head2 BUILD
 
@@ -472,13 +492,13 @@ if data is empty, purge the indicated storage slot.
 
 if it isn't, write the data to the data file and formatted to the formatted file
 
-=head2 lock(directory)
+=head2 lock_record(directory)
 
-lock so other workers don't modify this file path
+lock_record so other workers don't modify this file path
 
-=head2 unlock(directory)
+=head2 unlock_record(directory)
 
-unlock so other workers can modify this file path
+unlock_record so other workers can modify this file path
 
 =head2 freeze($idkey)
 
@@ -488,7 +508,23 @@ enact the freeze logic for filesystem
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
+
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 This does not currently properly do locking or support freeze
 
@@ -586,13 +622,13 @@ STATE DOCUMENT GENERAL TO REPORT ENGINE
 CURRENT - the current or latest revision, if any. gets overwritten on update
 WRITABLE - the revision that we can write to, exists even if there is no current report
 
-STATE DOCUMENT SPECIFIC TO THIS IMPLIMENTATION
+STATE DOCUMENT SPECIFIC TO THIS IMPLEMENTATION
 
 REVISIONS - all of the revisions are inside here.
 REVISIONS->##->DATA - the data structure for revision ##
 REVISIONS->##->FORMATTED - the blob scalar for revision ##
 
-=head1 REPORT ENGINE IMPLIMENTATION METHODS 
+=head1 REPORT ENGINE IMPLEMENTATION METHODS 
 
 =head2 (state) = retrieve ( idkey )
 

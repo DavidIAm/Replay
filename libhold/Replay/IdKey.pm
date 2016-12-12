@@ -1,43 +1,52 @@
-package Replay::RuleSource;
+package Replay::Message::IdKey;
 
 use Moose;
-use Replay::Message::RulesReady;
-use Scalar::Util qw/blessed/;
-use Replay::Types::Types;
+use MooseX::Storage;
+our $VERSION = '0.02';
+extends 'Replay::Message';
 
-our $VERSION = q(0.02);
-
-# this is the default implimentation that is simple.  This needs to be
-# different later.  The point of this layer is to instantiate and handle the
-# various execution environments for a particular rule version.
-has rules => (is => 'ro', isa => 'ArrayRef[BusinessRule]',);
-
-has index => (is => 'rw', default => 0,);
-has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
-
-sub next {    ## no critic (ProhibitBuiltinHomonyms)
-    my ($self) = @_;
-    my $i = $self->index;
-    $self->index($self->index + 1);
-    if ($#{ $self->rules } < $i) { $self->index(0) and return }
-    return $self->rules->[$i];
-}
-
-sub first {
-    my ($self) = @_;
-    $self->index(0);
-    return $self->rules->[ $self->index ];
-}
-
-sub by_idkey {
-    my ($self, $idkey) = @_;
-    if ($idkey && blessed $idkey && $idkey->can('name')) {
-        return (grep { $_->name eq $idkey->name && $_->version eq $idkey->version }
-                @{ $self->rules })[0];
-    }
-    confess("Called by_idkey without an idkey? ($idkey)");
-}
-
+has domain => (
+    is          => 'rw',
+    isa         => 'Str',
+    required    => 0,
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
+has name => (
+    is          => 'rw',
+    isa         => 'Str',
+    required    => 1,
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
+has version => (
+    is          => 'rw',
+    isa         => 'Str',
+    required    => 1,
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
+has window => (
+    is          => 'rw',
+    isa         => 'Str',
+    required    => 0,
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
+has key => (
+    is          => 'rw',
+    isa         => 'Str',
+    required    => 0,
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
+has revision => (
+    is          => 'rw',
+    isa         => 'Str',
+    default     => 'latest',
+    traits      => ['MooseX::MetaDescription::Meta::Trait'],
+    description => { layer => 'message' },
+);
 1;
 
 __END__
@@ -46,39 +55,25 @@ __END__
 
 =head1 NAME
 
-Replay::RuleSource - Provider of a set of objects of type Replay::BusinesRule
+Replay::Message::IdKey - the fields that identify a particular state in the system
+
+=head1 VERSION
+
+Version 0.01
+
+=cut
 
 =head1 SYNOPSIS
 
-my $source = new Replay::RuleSource( rules => [ $RuleInstance, $otherrule  ] );
-
-=head1 DESCRIPTION
-
-The purpose of this abstraction is to allow the dramatic scaling of these rules   Not everything needs to be in memory at the same time.
-
-Current iteration takes an array of Business Rules.  Maybe its tied?  What other options do we have here?
-
-=head1 SUBROUTINES/METHODS
-
-=head2 next 
-
-Deliver the next business rule.  Undef means the end of the list, which resets the pointer to the first.
-
-=head2 first 
-
-Reset the current rule pointer and deliver the first business rule
-
-=head2 by_idkey 
-
-The IDKey hash/object is used to identify particular rules.  Given a particular
-IdKey state, this routine should return all of the rules that match it.  This is
-expected to be a list of one or zero.
+This is a data type extensively used to communicate the particular id
+of a state in the code.  It is closely coupled with the Replay::IdKey
+class/data type.
 
 =head1 AUTHOR
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .
@@ -89,8 +84,9 @@ You can find documentation for this module with the perldoc command.
 
     perldoc Replay
 
-
 You can also look for information at:
+
+https://github.com/DavidIAm/Replay
 
 =over 4
 
@@ -159,7 +155,4 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =cut
 
-1;    # End of Replay
-
-1;
 1;

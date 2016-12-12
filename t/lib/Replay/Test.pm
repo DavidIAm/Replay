@@ -43,6 +43,7 @@ use Moose;
 use Replay::Types::Types;
 use List::Util qw//;
 use Data::Dumper;
+use Carp qw/carp/;
 use JSON qw/to_json/;
 with 'Replay::Role::BusinessRule' => { -version => 0.02 };
 
@@ -51,15 +52,15 @@ has '+name' => ( default => __PACKAGE__, );
 sub match {
     my ( $self, $message ) = @_;
 
-    #    warn "Matching against " . $message->{MessageType};
+    warn 'Matching against ' . $message->{MessageType};
     return $message->{MessageType} eq 'interesting';
 }
 
 sub window {
     my ( $self, $message ) = @_;
 
-    #    warn "Window against "
-    #        . substr( ( keys %{ $message->{Message} } )[0], 0, 1 );
+    warn 'Window against '
+        . substr( ( keys %{ $message->{Message} } )[0], 0, 1 );
     return 'early'
         if substr( ( keys %{ $message->{Message} } )[0], 0, 1 )
         =~ /[abcdefghijklm]/i;
@@ -87,7 +88,7 @@ sub compare {
 sub reduce {
     my ( $self, $emitter, @state ) = @_;
 
-    #    warn __FILE__ . ": PURGE FOUND" if grep { $_ eq 'purge' } @state;
+    warn __FILE__ . ': PURGE FOUND' if grep { $_ eq 'purge' } @state;
     return if grep { $_ eq 'purge' } @state;
     return List::Util::reduce { $a + $b } @state;
 }
@@ -95,13 +96,14 @@ sub reduce {
 sub delivery {
     my ( $self, @state ) = @_;
     use Data::Dumper;
+    warn "Delivery status: ".Dumper \@state;
     return [@state], to_json [@state];
 }
 
 sub summary {
     my ( $self, %deliverydatas ) = @_;
 
-    #    warn __FILE__ . ": SUMMARY HIT";
+    warn __FILE__ . ': SUMMARY HIT';
     my @state
         = keys %deliverydatas
         ? List::Util::reduce { $a + $b }
@@ -113,7 +115,7 @@ sub summary {
 sub globsummary {
     my ( $self, %summarydatas ) = @_;
 
-    #    warn __FILE__ . ": GLOBSUMMARY HIT";
+    warn __FILE__ . ': GLOBSUMMARY HIT';
     my @state
         = keys %summarydatas
         ? List::Util::reduce { $a + $b }
@@ -222,7 +224,7 @@ sub a_testruleoperation : Test(no_plan) {
 
 sub m_replay_construct : Test(startup => 1) {
     my $self = shift;
-    return "out of replay context" unless $self->{config};
+    return 'out of replay context' unless $self->{config};
 
     use_ok 'Replay';
 
@@ -233,7 +235,7 @@ sub m_replay_construct : Test(startup => 1) {
 
 sub y_replay_initialize : Test(startup) {
     my $self = shift;
-    return "out of replay context" unless $self->{replay};
+    return 'out of replay context' unless $self->{replay};
     my $replay = $self->{replay};
     $replay->worm;
     $replay->reducer;
@@ -244,7 +246,7 @@ sub y_replay_initialize : Test(startup) {
 sub testreporter : Test(no_plan) {
     my $self   = shift;
     my $replay = $self->{replay};
-    return "out of replay context" unless $replay;
+    return 'out of replay context' unless $replay;
     my $engine = $replay->reportEngine;
 
     isa_ok $engine, 'Replay::ReportEngine';
@@ -262,31 +264,31 @@ sub testreporter : Test(no_plan) {
 #sub testworm : Test(no_plan) {
 #    my $self   = shift;
 #    my $replay = $self->{replay};
-#    return "out of replay context" unless $replay;
+#    return 'out of replay context' unless $replay;
 #}
 
 sub testreducer : Test(no_plan) {
     my $self   = shift;
     my $replay = $self->{replay};
-    return "out of replay context" unless $replay;
+    return 'out of replay context' unless $replay;
 }
 
 sub testmapper : Test(no_plan) {
     my $self   = shift;
     my $replay = $self->{replay};
-    return "out of replay context" unless $replay;
+    return 'out of replay context' unless $replay;
 }
 
 sub teststorage : Test(no_plan) {
     my $self   = shift;
     my $replay = $self->{replay};
-    return "out of replay context" unless $replay;
+    return 'out of replay context' unless $replay;
 }
 
 sub testloop : Test(no_plan) {
     my $self   = shift;
     my $replay = $self->{replay};
-    return "out of replay context" unless $replay;
+    return 'out of replay context' unless $replay;
 
     # automatically stop once we get both new canonicals
     my $globsumcount    = -3;
@@ -297,7 +299,7 @@ sub testloop : Test(no_plan) {
             my ($message) = @_;
 
             warn __FILE__
-                . ": This is a origin message of type "
+                . ': This is a origin message of type '
                 . $message->{MessageType} . "\n";
         }
     );
@@ -305,18 +307,18 @@ sub testloop : Test(no_plan) {
         sub {
             my ($message) = @_;
 
-            #            warn __FILE__
-            #                . ": This is a map message of type "
-            #                . $message->{MessageType} . "\n";
+            warn __FILE__
+                . ': This is a map message of type '
+                . $message->{MessageType} . "\n";
         }
     );
     $replay->eventSystem->reduce->subscribe(
         sub {
             my ($message) = @_;
 
-            #            warn __FILE__
-            #                . ": This is a reduce message of type "
-            #                . $message->{MessageType} . "\n";
+            warn __FILE__
+                . ': This is a reduce message of type '
+                . $message->{MessageType} . "\n";
         }
     );
 
@@ -336,9 +338,9 @@ sub testloop : Test(no_plan) {
         sub {
             my ($message) = @_;
 
-            #            warn __FILE__
-            #                . ": This is a report message of type "
-            #                . $message->{MessageType} . "\n";
+            warn __FILE__
+                . ': This is a report message of type '
+                . $message->{MessageType} . "\n";
 
          # The behavior of this return plus the globsumcount increment is that
          # it will keep letting things run until it sees the third
@@ -353,11 +355,11 @@ sub testloop : Test(no_plan) {
 
             # Is the canonical state as expected for the window early?
             is_deeply $replay->storageEngine->window_all($keyA),
-                { a => [15], c => [40] }, "windowall returns all early";
+                { a => [15], c => [40] }, 'windowall returns all early';
 
             # Is the canonical state as expected for the window late?
             is_deeply $replay->storageEngine->window_all($keyT),
-                { t => [150] }, "windowall returns all late";
+                { t => [150] }, 'windowall returns all late';
 
     # Get a pointer to a report that does not exist, and see that it does not.
             is_deeply [ $replay->reportEngine->delivery($keyX) ],
@@ -372,19 +374,19 @@ sub testloop : Test(no_plan) {
             is_deeply [ $replay->reportEngine->summary($keyA) ],
                 [ { FORMATTED => '[55]', TYPE => 'text/plain', EMPTY => 0 } ];
 
-   #            warn __FILE__ . ": Starting subscribe to report for finishup";
+            warn __FILE__ . ': Starting subscribe to report for finishup';
 
             $replay->eventSystem->report->subscribe(
                 sub {
                     my ($message) = @_;
 
-                    #                    warn "Final subscribe message type "
-                    #                        . $message->{MessageType};
+                    warn 'Final subscribe message type '
+                        . $message->{MessageType};
                     $secglobsumcount++
                         if $message->{MessageType} eq 'ReportNewGlobSummary';
                     return if $secglobsumcount;
 
-                    #                    warn __FILE__ . ": PROPER STOP";
+                    warn __FILE__ . ': PROPER STOP';
                     $replay->eventSystem->stop;
                 }
             );

@@ -3,6 +3,7 @@ package Replay::Role::StorageEngine;
 use Moose::Role;
 requires qw(absorb retrieve find_keys_need_reduce window_all checkin);
 use Digest::MD5 qw/md5_hex/;
+use Data::Dumper;
 use Data::UUID;
 use Replay::Message::Fetched;
 use Replay::Message::FoundKeysForReduce;
@@ -48,7 +49,7 @@ sub rule {
     my ( $self, $idkey ) = @_;
     my $rule = $self->ruleSource->by_idkey($idkey);
     if ( not defined $rule ) {
-        croak "No such rule $idkey->rule_spec";
+        croak 'No such rule ' . $idkey->rule_spec;
     }
     return $rule;
 }
@@ -80,15 +81,17 @@ sub checkout {
     my $signature = $self->state_signature( $idkey, [$uuid] );
     my $lockresult = $self->checkout_record( $idkey, $signature, $timeout );
 
-    if ( exists $lockresult->{locked} && $lockresult->{locked} eq $signature ) {
+    if ( exists $lockresult->{locked} && $lockresult->{locked} eq $signature )
+    {
         super();
         return $uuid;
-    } elsif ( ! exists $lockresult->{locked} ) {
+    }
+    elsif ( !exists $lockresult->{locked} ) {
+
         # no lock, no action, all good
         return;
     }
-    use Data::Dumper;
-    warn "NOT A CLEAN LOCK: " . Dumper $lockresult;
+    carp 'NOT A CLEAN LOCK: ' . Dumper $lockresult;
 
     # if it failed, check to see if we can relock an expired record
     my $unluuid = $self->generate_uuid;
@@ -98,8 +101,8 @@ sub checkout {
 
     # If it didn't relock, give up.  Its locked by somebody else.
     if ( not defined $expire_relock ) {
-        carp
-            q(Unable to obtain lock because the current one is locked and unexpired ())
+        carp q(Unable to obtain lock because the current )
+            . q(one is locked and unexpired ())
             . $idkey->cubby
             . qq(\)\n);
         $self->eventSystem->control->emit(
@@ -123,12 +126,14 @@ sub checkout {
         Replay::Message::NoLock::PostRevert->new( $idkey->marshall ),
     );
     if ( not defined $relockresult ) {
-        carp "Unable to relock after revert ($unlsignature)? "
+        carp 'Unable to relock after revert ('
+            . $unlsignature . ')? '
             . $idkey->checkstring . qq(\n);
         return;
     }
 
-    my $lock_result = $self->checkout_record( $idkey, $newsignature, $timeout );
+    my $lock_result
+        = $self->checkout_record( $idkey, $newsignature, $timeout );
     if ( defined $lock_result->{lock} ) {
         super();
         return $newuuid;
@@ -151,7 +156,7 @@ sub checkout {
 before 'checkin' => sub {
     my ( $self, $idkey ) = @_;
 
-    #     warn("Replay::BaseStorageEnginee  before checkin");
+    #     carp('Replay::BaseStorageEnginee  before checkin');
     return $self->eventSystem->control->emit(
         Replay::Message::Unlocked->new( $idkey->marshall ) );
 };
@@ -159,7 +164,7 @@ before 'checkin' => sub {
 before 'retrieve' => sub {
     my ( $self, $idkey ) = @_;
 
-    #    warn("Replay::BaseStorageEnginee  before retrieve");
+    #    carp('Replay::BaseStorageEnginee  before retrieve');
     return $self->eventSystem->control->emit(
         Replay::Message::Fetched->new( $idkey->marshall ) );
 };
@@ -167,7 +172,7 @@ before 'retrieve' => sub {
 after 'absorb' => sub {
     my ( $self, $idkey ) = @_;
 
-    #       warn("Replay::BaseStorageEnginee  after absorb $self, $idkey");
+  #       carp('Replay::BaseStorageEnginee  after absorb '.$self.', .'$idkey);
     return $self->eventSystem->reduce->emit(
         Replay::Message::Reducable->new( $idkey->marshall ) );
 };
@@ -185,7 +190,7 @@ sub revert {
     return if not $state;
     $self->revert_this_record( $idkey, $unlsignature, $state );
     my $result = $self->unlock( $idkey, $unluuid, $state );
-    return unless defined $result;
+    return if !defined $result;
     return $self->eventSystem->control->emit(
         Replay::Message::Reverted->new( $idkey->marshall ) );
 }
@@ -205,8 +210,7 @@ sub delay_to_do_once {
 # accessor - given a state, generate a signature
 sub state_signature {
     my ( $self, $idkey, $list ) = @_;
-    return undef
-        if not defined $list;    ## no critic (ProhibitExplicitReturnUndef)
+    return if !defined $list;
     my $newlist = $self->stringtouch($list);
     my $sig     = md5_hex( $idkey->hash . freeze($newlist) );
     return $sig;
@@ -247,13 +251,13 @@ sub stringtouch {
 sub fetch_transitional_state {
     my ( $self, $idkey ) = @_;
 
-    my ( $uuid ) = $self->checkout( $idkey, $REDUCE_TIMEOUT );
+    my ($uuid) = $self->checkout( $idkey, $REDUCE_TIMEOUT );
 
-    if (!defined $uuid) {
+    if ( !defined $uuid ) {
         return;
     }
 
-    my $cubby = $self->retrieve( $idkey );
+    my $cubby = $self->retrieve($idkey);
 
     # drop the checkout if we don't have any items to reduce
     if ( 0 == scalar @{ $cubby->{desktop} || [] } ) {
@@ -268,7 +272,8 @@ sub fetch_transitional_state {
             $cubby->{canonical} || [] );
     }
     catch {
-        carp "Reverting because doing the merge caused an exception $_\n";
+        carp 'Reverting because doing the merge caused an exception ' . $_
+            . "\n";
         $self->revert( $idkey, $uuid );
         return;
     };
@@ -319,10 +324,11 @@ sub fetch_canonical_state {
 
     my $e = $self->state_signature( $idkey, $cubby->{canonical} ) || q();
     if ( ( $cubby->{canonSignature} || q() ) ne ( $e || q() ) ) {
-      #  use Data::Dumper;
 
-      #        carp "dump of idkey=" . Dumper($idkey);
-      #        carp "canonical corruption $cubby->{canonSignature} vs. " . $e;
+        #  use Data::Dumper;
+
+  #        carp 'dump of idkey=' . Dumper($idkey);
+  #        carp 'canonical corruption '.$cubby->{canonSignature}.' vs. ' . $e;
     }
 
     #    $self->eventSystem->control->emit(
@@ -362,8 +368,8 @@ sub _build_uuid {    ## no critic (ProhibitUnusedPrivateSubroutines)
 }
 
 sub generate_uuid {
-  my ($self) = @_;
-  return $self->uuid->to_string( $self->uuid->create );
+    my ($self) = @_;
+    return $self->uuid->to_string( $self->uuid->create );
 }
 
 sub unlock {
@@ -379,7 +385,7 @@ __END__
 
 =head1 NAME
 
-Replay::BaseStorageEngine - wrappers for the storage engine implimentation
+Replay::Role::StorageEngine - wrappers for the storage engine implementation
 
 =head1 VERSION
 
@@ -387,13 +393,16 @@ Version 0.01
 
 =head1 SYNOPSIS
 
-This is the base class for the implimentation specific parts of the Replay system.
-
-    IMPLIMENTATIONCLASS->new(
+    IMPLEMENTATIONCLASS->new(
         config      => $self->config,
         ruleSource  => $self->ruleSource,
         eventSystem => $self->eventSystem,
     );
+
+=head1 DESCRIPTION
+
+This is the role definition for the storage engine implementation 
+specific parts of the Replay system.
 
 =head1 SUBROUTINES/METHODS
 
@@ -449,9 +458,9 @@ check in a state for transition if uuid matches.  unlocks record if success.
   - None
 
 
-=head1 STORAGE ENGINE IMPLIMENTATION METHODS 
+=head1 STORAGE ENGINE IMPLEMENTATION METHODS 
 
-These methods must be overridden by the specific implimentation
+These methods must be overridden by the specific implementation
 
 They should call super() to cause the emit of control messages when they succeed
 
@@ -470,7 +479,7 @@ This is expected to be something like:
 , desktop => [ <atoms in processing ]
 , canonical => [ a
 , locked => signature of a secret uuid with the idkey required to unlock.  presence indicates record is locked.
-, lockExpireEpoch => epoch time after which the lock has expired.  not presnet when not locked
+, lockExpireEpoch => epoch time after which the lock has expired.  not present when not locked
 } 
 
 =head2 (success) = absorb ( idkey, message, meta )
@@ -533,20 +542,20 @@ specified window, in a hash keyed by the key within the window
 =head2 objectlist = find_keys_need_reduce(idkey)
 
 returns a list of idkey objects which represent all of the keys in the replay
-system that appear to be locked, in progress, or have outstanding absorbtions
+system that appear to be locked, in progress, or have outstanding absorptions
 that need reduced.
 
 =head1 INTERNAL METHODS
 
 =head2 enumerate_keys
 
-not yet implimented
+not yet implemented
 
 A possible interface that lets a consumer get a list of keys within a window
 
 =head2 enumerate_windows
 
-not yet implimented
+not yet implemented
 
 A possible interface that lets a consumer get a list of Windows within a domain rule version
 
@@ -582,7 +591,23 @@ point
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
+
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'
@@ -654,7 +679,7 @@ direct or contributory patent infringement, then this Artistic License
 to you shall terminate on the date that such litigation is filed.
 
 Disclaimer of Warranty: THE PACKAGE IS PROVIDED BY THE COPYRIGHT HOLDER
-AND CONTRIBUTORS "AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
+AND CONTRIBUTORS 'AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
 THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
 PURPOSE, OR NON-INFRINGEMENT ARE DISCLAIMED TO THE EXTENT PERMITTED BY
 YOUR LOCAL LAW. UNLESS REQUIRED BY LAW, NO COPYRIGHT HOLDER OR

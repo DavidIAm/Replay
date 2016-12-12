@@ -158,7 +158,7 @@ Replay - A bitemporal finite state machine engine
 
 =head1 VERSION
 
-Version 0.01
+0.04
 
 =head1 SYNOPSIS
 
@@ -182,8 +182,8 @@ my $replay = Replay->new(
         AWS => {
             Identity => {
                 name   => 'webserver',
-                access => 'AKIAJUZLBY2RIDB6LSJA',
-                secret => '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',
+                access => 'not really a key',
+                secret => 'not really a secret',
             },
             snsIdentity => 'webserver',
             snsService  => 'https://sns.us-east-1.amazonaws.com',
@@ -220,6 +220,21 @@ override reduce => sub {
 
 ...
 
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Replay is instantiated with a 'config' key which has a key for 
+each of its pieces, and each of those pieces have its own configuration.
+
+=head1 DESCRIPTION
+
+Replay is a rules engine designed to operate in a scalable manner, 
+particularly for further development of one's application because
+every rule only interacts with any other rule through message passing.
+
+The lack of any single model which many business rules interact with
+provides the unusual characteristics of this system in making it easy
+to modify and extend as the application matures.
+
 =head1 SUBROUTINES/METHODS
 
 =head2 _build_rule_source
@@ -234,13 +249,28 @@ override reduce => sub {
 
 =head2 _build_worm
 
-=cut
+=head1 DIAGNOSTICS
+
+Mostly, the log file consists of exception outputs for troubleshooting
+
+Merely carping things out should cause them to end up in the log file
+
+=head1 DEPENDENCIES
+
+Probably the single most significant dependency is some operating 
+implementation of the AnyEvent module.
+
+=head1 INCOMPATIBILITIES
+
+Probably with the brain of non-object oriented non-functional programmers
+who have difficulty seeing beyond the paradigm of their previous
+applications
 
 =head1 AUTHOR
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .

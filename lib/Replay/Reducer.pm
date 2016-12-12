@@ -25,28 +25,26 @@ has config => (
     is       => 'ro',
     isa      => 'HashRef[Item]',
     required => 0,
-    default  => sub { {} }
+    default  => sub { {} },
 );
 
-sub ARRAYREF_FLATTEN_ENABLED_DEFAULT {1}
-sub NULL_FILTER_ENABLED_DEFAULT      {1}
+sub ARRAYREF_FLATTEN_ENABLED_DEFAULT { return 1 }
+sub NULL_FILTER_ENABLED_DEFAULT      { return 1 }
 
 sub NULL_FILTER_ENABLED {
     my ($self) = @_;
-    unless ( $self->config || exists $self->config->{null_filter_enabled} ) {
-        return NULL_FILTER_ENABLED_DEFAULT;
+    if ( $self->config || exists $self->config->{null_filter_enabled} ) {
+        return $self->config->{null_filter_enabled};
     }
-    $self->config->{null_filter_enabled};
+    return NULL_FILTER_ENABLED_DEFAULT;
 }
 
 sub ARRAYREF_FLATTEN_ENABLED {
     my ($self) = @_;
-    unless ( $self->config
-        || exists $self->config->{arrayref_flatten_enabled} )
-    {
-        return ARRAYREF_FLATTEN_ENABLED_DEFAULT;
+    if ( $self->config || exists $self->config->{arrayref_flatten_enabled} ) {
+        return $self->config->{arrayref_flatten_enabled};
     }
-    $self->config->{arrayref_flatten_enabled};
+    return ARRAYREF_FLATTEN_ENABLED_DEFAULT;
 }
 
 sub BUILD {
@@ -67,10 +65,14 @@ sub rule {
 
 sub normalize_envelope {
     my ( $self, $first, @input ) = @_;
-    return () unless defined $first;
+    if ( !defined $first ) {
+        return ();
+    }
     my $ref
         = blessed $first ? $first : ref $first ? $first : { $first, @input };
-    return $ref if blessed $ref;
+    if ( blessed $ref) {
+        return $ref;
+    }
     return Replay::Message->new($ref);
 }
 
@@ -81,7 +83,7 @@ sub reducable_message {
 
 sub identify {
     my ( $self, $message ) = @_;
-    my $idkey = Replay::IdKey->new(
+    return Replay::IdKey->new(
         {   name    => $message->{Message}->{name},
             version => $message->{Message}->{version},
             window  => $message->{Message}->{window},
@@ -93,8 +95,8 @@ sub identify {
 sub reduce_wrapper {
     my ( $self, @input ) = @_;
     my $envelope = $self->normalize_envelope(@input);
-    return unless $self->reducable_message($envelope);
-    $self->execute_reduce( $self->identify($envelope) );
+    return if !$self->reducable_message($envelope);
+    return $self->execute_reduce( $self->identify($envelope) );
 }
 
 sub make_delayed_emitter {
@@ -107,7 +109,7 @@ sub make_delayed_emitter {
 
 sub make_reduced_message {
     my ( $self, $idkey ) = @_;
-    Replay::Message::Reduced->new( $idkey->marshall );
+    return Replay::Message::Reduced->new( $idkey->marshall );
 }
 
 sub execute_reduce {
@@ -150,14 +152,14 @@ sub execute_reduce {
 
 sub arrayref_flatten {
     my ( $self, @args ) = @_;
-    return @args unless $self->ARRAYREF_FLATTEN_ENABLED;
-    map { 'ARRAY' eq ref $_ ? @{$_} : $_ } @args;
+    return @args if !$self->ARRAYREF_FLATTEN_ENABLED;
+    return map { 'ARRAY' eq ref $_ ? @{$_} : $_ } @args;
 }
 
 sub null_filter {
     my ( $self, @args ) = @_;
-    return @args unless $self->NULL_FILTER_ENABLED;
-    map { defined $_ ? $_ : () } @args;
+    return @args if !$self->NULL_FILTER_ENABLED;
+    return map { defined $_ ? $_ : () } @args;
 }
 
 1;
@@ -187,7 +189,9 @@ my $reducer = Replay::Reducer->new(
  );
 $eventSystem->run;
 
-=cut
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
 
 =head1 DESCRIPTION
 
@@ -336,7 +340,19 @@ function, storing the result, and conditionally emitting the buffered events.
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .

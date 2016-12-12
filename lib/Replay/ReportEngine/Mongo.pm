@@ -19,33 +19,33 @@ with( 'Replay::Role::MongoDB', 'Replay::Role::ReportEngine' );
 
 has '+mode' => ( default => 'Mongo' );
 
-sub _build_name {
+sub _build_name {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     return $self->thisConfig->{Name};
 }
 
-sub _build_dbpass {
+sub _build_dbpass {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return $self->thisConfig->{Pass};
 }
 
-sub _build_dbuser {
+sub _build_dbuser {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return $self->thisConfig->{User};
 }
 
-sub _build_dbauthdb {
+sub _build_dbauthdb {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return $self->thisConfig->{AuthDB} || 'admin';
 }
 
-sub _build_dbname {
+sub _build_dbname {      ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return $self->thisConfig->{Name}
-        || $self->thisConfig->{stage} . "-report-" . '-replay';
+        || $self->thisConfig->{stage} . '-report-' . '-replay';
 }
 
-sub _build_db {
+sub _build_db {          ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     my $db = $self->mongo->get_database( $self->dbname );
     return $db;
@@ -57,13 +57,15 @@ sub retrieve {
     my ( $self, $idkey, $structured ) = @_;
 
     my $revision = $self->revision($idkey) || 0;
-    my $r = $self->collection($idkey)->find_one(
-        my $e = { $self->idkey_where_doc($idkey), REVISION => $revision, },
-        {   ( $structured ? ( DATA => 1 ) : () ),
-            ( $structured ? () : ( FORMATTED => 1 ) )
-        }
-    );
-    return { EMPTY => 1 } unless defined $r;
+    my $idkey_where = { $self->idkey_where_doc($idkey) };
+    $idkey_where->{REVISION} = $revision;
+    my $r
+        = $self->collection($idkey)
+        ->find_one( $idkey_where,
+        { ( $structured ? ( DATA => 1 ) : ( FORMATTED => 1 ) ) } );
+    if ( !defined $r ) {
+        return { EMPTY => 1 };
+    }
     delete $r->{_id};
     $r->{EMPTY} = 0;
     $r->{TYPE}  = 'text/plain';
@@ -87,8 +89,10 @@ sub delete_latest_revision {
 
     # if current is a thing, we need to remove the current version note
     if ( defined $current ) {
+        my $idkey_where = { $self->idkey_where_doc($idkey) };
+        $idkey_where->{CURRENT_REVISION} = $current;
         $self->collection($idkey)->update_many(
-            { $self->idkey_where_doc($idkey), CURRENT_REVISION => $current, },
+            $idkey_where,
             { q/$/ . 'unset' => { CURRENT_REVISION => undef }, },
             { upsert => 0, multiple => 0 },
         );
@@ -113,7 +117,7 @@ sub delete_latest_revision {
 #Api
 sub store {
     my ( $self, $idkey, $reportdata, $formatted ) = @_;
-    confess "WHUT DATA" if scalar @{$reportdata} && !defined $reportdata->[0];
+    confess 'WHUT DATA' if scalar @{$reportdata} && !defined $reportdata->[0];
     my $revision = $self->revision($idkey) || 0;
     my $r = $self->collection($idkey)->update_many(
         { idkey => $idkey->cubby, REVISION => $revision },
@@ -158,9 +162,9 @@ sub delivery_keys {
             revision => $_->{CURRENT_REVISION},
             )
         } $self->collection($idkey)->find(
-        {   'IdKey.name'     => $idkey->name . '',
-            'IdKey.version'  => $idkey->version . '',
-            'IdKey.window'   => $idkey->window . '',
+        {   'IdKey.name'     => $idkey->name . q{},
+            'IdKey.version'  => $idkey->version . q{},
+            'IdKey.window'   => $idkey->window . q{},
             'IdKey.key'      => { q/$/ . 'exists' => 1 },
             CURRENT_REVISION => { q/$/ . 'exists' => 1 }
         },
@@ -180,8 +184,8 @@ sub summary_keys {
             revision => $_->{CURRENT_REVISION},
             )
         } $self->collection($idkey)->find(
-        {   'IdKey.name'     => $idkey->name . '',
-            'IdKey.version'  => $idkey->version . '',
+        {   'IdKey.name'     => $idkey->name . q{},
+            'IdKey.version'  => $idkey->version . q{},
             'IdKey.window'   => { q/$/ . 'exists' => 1 },
             'IdKey.key'      => { q/$/ . 'exists' => 0 },
             CURRENT_REVISION => { q/$/ . 'exists' => 1 }
@@ -192,11 +196,11 @@ sub summary_keys {
 
 sub idkey_where_doc {
     my ( $self, $idkey ) = @_;
-    return 'IdKey.name' => $idkey->name . '',
-        'IdKey.version' => $idkey->version . '',
-        'IdKey.window' => ( $idkey->has_window ? ( $idkey->window . '' )
+    return 'IdKey.name' => $idkey->name . q{},
+        'IdKey.version' => $idkey->version . q{},
+        'IdKey.window' => ( $idkey->has_window ? ( $idkey->window . q{} )
         : ( { q/$/ . 'exists' => 0 } ) ),
-        'IdKey.key' => ( $idkey->has_key ? ( $idkey->key . '' )
+        'IdKey.key' => ( $idkey->has_key ? ( $idkey->key . q{} )
         : ( { q/$/ . 'exists' => 0 } ) ),
         ;
 }
@@ -204,15 +208,11 @@ sub idkey_where_doc {
 #Api
 sub current {
     my ( $self, $idkey ) = @_;
-    return (
-        $self->collection($idkey)->find_one(
-            {   $self->idkey_where_doc($idkey),
-                CURRENT_REVISION => { q/$/ . 'exists' => 1 }
-            },
-            { CURRENT_REVISION => 1 }
-            )
-            || {}
-    )->{CURRENT_REVISION};
+    my $idkey_where = { $self->idkey_where_doc($idkey) };
+    $idkey_where->{CURRENT_REVISION} = { q/$/ . 'exists' => 1 };
+    return ( $self->collection($idkey)
+            ->find_one( $idkey_where, { CURRENT_REVISION => 1 } ) || {} )
+        ->{CURRENT_REVISION};
 }
 
 # get a report and keep a copy
@@ -233,8 +233,9 @@ sub freeze_globsummary {
 }
 
 sub freeze {
-    confess "unimplimented";
     my ( $self, $idkey ) = @_;
+    confess 'unimplemented' if $idkey ne 'what it will never equal';
+
     $idkey->revision();
     my $newrevision = $self->revision($idkey) + 1;
     $self->collection($idkey)->update_many(
@@ -254,6 +255,7 @@ sub freeze {
     );
 
     # this should copy the current report to a new one, and increment CURRENT.
+    return;
 }
 
 __PACKAGE__->meta->make_immutable;
@@ -266,7 +268,8 @@ __END__
 
 =head1 NAME
 
-Replay::ReportEngine::Filesystem - report implimentation for filesystem - testing only
+Replay::ReportEngine::Mongo - report implementation for mongodb
+
 
 =head1 VERSION
 
@@ -274,13 +277,15 @@ Version 0.01
 
 =head1 SYNOPSIS
 
-Replay::ReportEngine::Filesystem->new( ruleSoruce => $rs, eventSystem => $es, config => {...} );
+Replay::ReportEngine::Mongo->new( ruleSource => $rs, eventSystem => $es, config => {...} );
 
-Stores the entire storage partition in package memory space.  Anybody in
-this process can access it as if it is a remote storage solution... only
-faster.
+Stores the entire report storage block in a mongo database.  
 
-=head1 OVERRIDES
+=head1 DESCRIPTION
+
+Provides report storage and retrieval functionality through a Mongo database
+
+=head1 SUBROUTINES/METHODS
 
 =head2 retrieve - get document
 
@@ -294,11 +299,36 @@ faster.
 
 =head2 window_all - get documents for a particular window
 
+=head1 DIAGNOSTICS
+
+No specific diagnostic capabilities programmed
+
+=head1 DEPENDENCIES
+
+You'll need to have a mongo client and an available mongo server 
+in order to use this.
+
+=head1 INCOMPATIBILITIES
+
+Probably won't work well with old versions of mongo.
+
+=head1 CONFIGURATION AND ENVIRONMENT
+
+You will need to have a mongo database available
+
+It is configured with  fragment like:
+
+            {   Mode      => 'Mongo',
+                User => 'replayuser',
+                Name      => 'MongoTest',
+                Pass => 'replaypass'
+            }
+
 =head1 AUTHOR
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'
@@ -370,7 +400,7 @@ direct or contributory patent infringement, then this Artistic License
 to you shall terminate on the date that such litigation is filed.
 
 Disclaimer of Warranty: THE PACKAGE IS PROVIDED BY THE COPYRIGHT HOLDER
-AND CONTRIBUTORS "AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
+AND CONTRIBUTORS 'AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
 THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
 PURPOSE, OR NON-INFRINGEMENT ARE DISCLAIMED TO THE EXTENT PERMITTED BY
 YOUR LOCAL LAW. UNLESS REQUIRED BY LAW, NO COPYRIGHT HOLDER OR
@@ -396,7 +426,7 @@ canonSignature: q(SIGNATURE) - a sanity check to see if this canonical has been 
 Timeblocks: [ Array of input timeblock names ]
 Ruleversions: [ Array of objects like { name: <rulename>, version: <ruleversion> } ]
 
-STATE DOCUMENT SPECIFIC TO THIS IMPLIMENTATION
+STATE DOCUMENT SPECIFIC TO THIS IMPLEMENTATION
 
 db is determined by idkey->ruleversion
 collection is determined by idkey->collection
@@ -412,7 +442,7 @@ checkout
 
 rename inbox to desktop so that any new absorbs don't get confused with what is being processed
 
-=head1 STORAGE ENGINE IMPLIMENTATION METHODS 
+=head1 STORAGE ENGINE IMPLEMENTATION METHODS 
 
 =head2 (state) = retrieve ( idkey )
 

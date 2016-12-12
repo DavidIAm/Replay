@@ -105,22 +105,24 @@ sub get_all_summary_data {
 }
 
 sub freeze {
-    confess "unimplimented";
     my ( $self, $idkey ) = @_;
-    $self->engine($idkey)->freeze($idkey);
+    confess 'unimplemented';
+
+    #return $self->engine($idkey)->freeze($idkey);
 }
 
 sub checkpoint {
-    confess "unimplimented";
     my ( $self, $attimefactor ) = @_;
-    foreach my $engine ( $self->reportEngineSelector->all_engines ) {
-        $engine->checkpoint($attimefactor);
-    }
+    confess 'unimplemented';
+
+    #foreach my $engine ( $self->reportEngineSelector->all_engines ) {
+    #    $engine->checkpoint($attimefactor);
+    #}
 }
 
 sub engine {
     my ( $self, $idkey ) = @_;
-    return $self->reportEngineSelector->select($idkey);
+    return $self->reportEngineSelector->select_engine($idkey);
 }
 
 sub _build_report_selector {   ## no critic (ProhibitUnusedPrivateSubroutines)
@@ -172,6 +174,10 @@ my $storage = Replay::ReportEngine->new(
  );
 
 As of this writing 'FileSystem' and 'Mongo' modes are available.
+
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
 
 =head1 DESCRIPTION
 
@@ -276,7 +282,7 @@ ruleversionwindows:[],timeblocks:[] }, frozen_at_time: 12345 } ,
 =head1 ENGINE INTERFACE POINTS
 
 This is a summary of the interface points that this module expects the
-ReportEngine implimentations to support
+ReportEngine implementations to support
 
 =head2 engine->delivery ( idkey )
 
@@ -332,11 +338,11 @@ expected to return a list of all of the windows within a rule
 
 =head2 engine->freeze ( idkey )
 
-expected to succesfully freeze the revision or throw an exception
+expected to successfully freeze the revision or throw an exception
 
 =head2 engine->checkpoint ( attimefactor )
 
-expected to succesfully save a checkpoint immediately after the time
+expected to successfully save a checkpoint immediately after the time
 factor or throw an exception
 
 =head1 SUBROUTINES/METHODS
@@ -413,7 +419,19 @@ delegate to engine freeze
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to
 C<bug-replay at rt.cpan.org>, or through the web interface at

@@ -53,16 +53,16 @@ sub checkout_record {
     # try to get lock
     my $state = $self->retrieve($idkey);
     use Data::Dumper;
-    warn "PRECHECKOUT STATE" . $state if $self->{debug};
+    carp 'PRECHECKOUT STATE' . $state if $self->{debug};
     return                            if exists $state->{desktop};
     return                            if exists $state->{locked};
     $state->{locked}            = $signature;
     $state->{lockExpireEpoch}   = time + $timeout;
     $state->{desktop}           = delete $state->{inbox} || [];
     $state->{reducable_emitted} = 0;
-    warn "POSTCHECKOUT STATE" . $state if $self->{debug};
+    carp 'POSTCHECKOUT STATE' . $state if $self->{debug};
 
-#    warn "POSTCHECKOUT STATE" . Dumper $self->collection($idkey) if $self->{debug};
+#    carp 'POSTCHECKOUT STATE' . Dumper $self->collection($idkey) if $self->{debug};
     return $state;
 }
 
@@ -71,8 +71,8 @@ sub relock {
 
     # Lets try to get an expire lock, if it has timed out
     my $state = $self->retrieve($idkey);
-    return unless $state;
-    return unless $state->{locked} eq $current_signature;
+    return if !$state;
+    return if $state->{locked} ne $current_signature;
     $state->{locked}          = $new_signature;
     $state->{lockExpireEpoch} = time + $timeout;
 
@@ -84,7 +84,7 @@ sub purge {
     return delete $self->collection($idkey)->{ $idkey->cubby };
 }
 
-sub exists {
+sub document_exists {
     my ( $self, $idkey ) = @_;
     return exists $self->collection($idkey)->{ $idkey->cubby };
 }
@@ -93,14 +93,14 @@ sub relock_expired {
     my ( $self, $idkey, $signature, $timeout ) = @_;
 
     # Lets try to get an expire lock, if it has timed out
-    return unless $self->exists($idkey);
+    return if !$self->document_exists($idkey);
     my $state = $self->retrieve($idkey);
-    return $state if $state->{locked} eq $signature;
-    warn "NOT LOCKED" unless exists $state->{locked};
-    warn "NO EPOCH"   unless exists $state->{lockExpireEpoch};
-    warn "UNEXPIRED ( $state->{lockExpireEpoch})"
+    return $state     if $state->{locked} eq $signature;
+    carp 'NOT LOCKED' if !exists $state->{locked};
+    carp 'NO EPOCH'   if !exists $state->{lockExpireEpoch};
+    carp 'UNEXPIRED ( ' . $state->{lockExpireEpoch} . ')'
         if $state->{lockExpireEpoch} > time;
-    return unless exists $state->{locked};
+    return if !exists $state->{locked};
     return
         if exists $state->{lockExpireEpoch}
         && $state->{lockExpireEpoch} >= time;
@@ -164,8 +164,9 @@ sub revert_this_record {
     my ( $self, $idkey, $signature, $document ) = @_;
 
     my $state = $self->retrieve($idkey);
-    croak
-        "This document isn't locked with this signature ($document->{locked},$signature)"
+    croak 'This document isn\'t locked with this signature ('
+        . $document->{locked} . q/,/
+        . $signature . ')'
         if $document->{locked} ne $signature;
 
     # reabsorb all of the desktop atoms into the document
@@ -181,9 +182,9 @@ sub revert_this_record {
 sub update_and_unlock {
     my ( $self, $idkey, $uuid, $state ) = @_;
     my $signature = $self->state_signature( $idkey, [$uuid] );
-    return unless exists $state->{locked};
-    warn "LOCKED" . $state->{locked} if $self->debug;
-    return unless $state->{locked} eq $signature;
+    return                           if !exists $state->{locked};
+    carp 'LOCKED' . $state->{locked} if $self->debug;
+    return                           if $state->{locked} ne $signature;
     delete $state->{desktop};    # there is no more desktop on checkin
     delete $state->{lockExpireEpoch}
         ;                        # there is no more expire time on checkin
@@ -204,7 +205,7 @@ sub collection {
     my ( $self, $idkey ) = @_;
     my $name = $idkey->collection();
     use Data::Dumper;
-    warn "POSTIION NAME" . $name . " - " . $idkey->cubby if $self->{debug};
+    carp 'POSTIION NAME' . $name . ' - ' . $idkey->cubby if $self->{debug};
     return $store->{$name} ||= {};
 }
 
@@ -212,7 +213,7 @@ sub find_keys_need_reduce {
 
     my ($self) = @_;
 
-    #    warn("Replay::StorageEngine::Memory  find_keys_need_reduce $self" );
+    #    carp('Replay::StorageEngine::Memory  find_keys_need_reduce'. $self );
     my @idkeys = ();
     my $rule;
     while ( $rule
@@ -248,7 +249,7 @@ __END__
 
 =head1 NAME
 
-Replay::StorageEngine::Memory - storage implimentation for in-process memory - testing only
+Replay::StorageEngine::Memory - storage implementation for in-process memory - testing only
 
 =head1 VERSION
 
@@ -256,13 +257,15 @@ Version 0.01
 
 =head1 SYNOPSIS
 
-Replay::StorageEngine::Memory->new( ruleSoruce => $rs, eventSystem => $es, config => {...} );
+Replay::StorageEngine::Memory->new( ruleSource => $rs, eventSystem => $es, config => {...} );
+
+=head1 DESCRIPTION
 
 Stores the entire storage partition in package memory space.  Anybody in
 this process can access it as if it is a remote storage solution... only
 faster.
 
-=head1 OVERRIDES
+=head1 SUBROUTINES/METHODS
 
 =head2 retrieve - get document
 
@@ -280,7 +283,23 @@ faster.
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
+
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'
@@ -352,7 +371,7 @@ direct or contributory patent infringement, then this Artistic License
 to you shall terminate on the date that such litigation is filed.
 
 Disclaimer of Warranty: THE PACKAGE IS PROVIDED BY THE COPYRIGHT HOLDER
-AND CONTRIBUTORS "AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
+AND CONTRIBUTORS 'AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
 THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
 PURPOSE, OR NON-INFRINGEMENT ARE DISCLAIMED TO THE EXTENT PERMITTED BY
 YOUR LOCAL LAW. UNLESS REQUIRED BY LAW, NO COPYRIGHT HOLDER OR
@@ -378,7 +397,7 @@ canonSignature: q(SIGNATURE) - a sanity check to see if this canonical has been 
 Timeblocks: [ Array of input timeblock names ]
 Ruleversions: [ Array of objects like { name: <rulename>, version: <ruleversion> } ]
 
-STATE DOCUMENT SPECIFIC TO THIS IMPLIMENTATION
+STATE DOCUMENT SPECIFIC TO THIS IMPLEMENTATION
 
 db is determined by idkey->ruleversion
 collection is determined by idkey->collection
@@ -394,7 +413,7 @@ checkout
 
 rename inbox to desktop so that any new absorbs don't get confused with what is being processed
 
-=head1 STORAGE ENGINE IMPLIMENTATION METHODS 
+=head1 STORAGE ENGINE IMPLEMENTATION METHODS 
 
 =head2 (state) = retrieve ( idkey )
 

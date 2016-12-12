@@ -4,14 +4,14 @@ use Moose;
 our $VERSION = q(0.2);
 
 has 'delemitter' =>
-    (is => 'ro', isa => 'Replay::DelayedEmitter', required => 1,);
+    ( is => 'ro', isa => 'Replay::DelayedEmitter', required => 1, );
 
-has 'channel' => (is => 'ro', isa => 'Str', required => 1,);
+has 'channel' => ( is => 'ro', isa => 'Str', required => 1, );
 
 sub emit {
-    my ($self, $message) = @_;
+    my ( $self, $message ) = @_;
 
-    return $self->delemitter->emit($self->channel, $message);
+    return $self->delemitter->emit( $self->channel, $message );
 }
 
 1;
@@ -83,7 +83,23 @@ release the buffered messages
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
+
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .

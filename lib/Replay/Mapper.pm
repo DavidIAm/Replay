@@ -7,11 +7,11 @@ use Data::Dumper;
 
 our $VERSION = '0.02';
 
-has ruleSource => (is => 'ro', isa => 'Replay::RuleSource',);
+has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', );
 
-has eventSystem => (is => 'ro', required => 1,);
+has eventSystem => ( is => 'ro', required => 1, );
 
-has storageClass => (is => 'ro',);
+has storageClass => ( is => 'ro', );
 
 has storageEngine => (
     is      => 'ro',
@@ -23,7 +23,7 @@ has storageEngine => (
 sub build_storage_sink {
     my $self = shift;
     croak q(no storage class?) if not $self->storageClass;
-    return $self->storageClass->new(ruleSource => $self->ruleSource);
+    return $self->storageClass->new( ruleSource => $self->ruleSource );
 }
 
 sub BUILD {
@@ -44,13 +44,19 @@ sub map {    ## no critic (ProhibitBuiltinHomonyms)
     carp q(Got a message that doesn't have type and a hashref for a message)
         if !$message->{MessageType} || 'HASH' ne ref $message->{Message};
     croak q(I CANNOT MAP UNDEF) if not defined $message;
-    while (my $rule = $self->ruleSource->next) {
+    while ( my $rule = $self->ruleSource->next ) {
         next if not $rule->match($message);
         my @all = $rule->key_value_set($message);
-        croak q(key value list from key value set must be even) if scalar @all % 2;
+        croak q(key value list from key value set must be even)
+            if scalar @all % 2;
         my $window = $rule->window($message);
-        carp q(didn't get a window return for message ).Dumper($message).q( on rule ) . $rule->name unless defined $window;
-        while (scalar @all) {
+        if ( !defined $window ) {
+            carp q(didn't get a window return for message )
+                . Dumper($message)
+                . q( on rule )
+                . $rule->name;
+        }
+        while ( scalar @all ) {
             my $key  = shift @all;
             my $atom = shift @all;
             croak "I WAS GIVEN AN UNDEF KEY WHILE LOOKING AT $rule ATOM "
@@ -89,17 +95,33 @@ __END__
 
 =head1 NAME
 
-Replay::BaseMapper - The base class for the mapper functionality
+Replay::Mapper
 
 =head1 VERSION
 
-Version 0.01
+Version 0.04
 
 =head1 SYNOPSIS
 
-This is the basic functionality for considering each incoming message and 
-mapping it to a set of key value pairs that will be absorbed into the storage
-engine.
+  Replay::Mapper->new(
+    ruleSource  => $rulesource,
+    eventSystem  => $eventsystem,
+    storageEngine  => $storagengine,
+  )
+
+=head1 CONFIGURATION AND ENVIRONMENT
+
+The rulesource object provides the rules that will be considered
+
+The eventsystem provides the ability to subscribe to 'map' messages
+
+The storageEngine provides the ability to absorb the atoms.
+
+=head1 DESCRIPTION
+
+This is the basic functionality for considering each incoming message and
+mapping it to a set of key value pairs that will be presented for
+absorption to the storage engine.
 
 =head1 SUBROUTINES/METHODS
 
@@ -137,7 +159,19 @@ builder for getting the storage engine using the rule source
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .

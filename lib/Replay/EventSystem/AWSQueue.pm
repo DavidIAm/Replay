@@ -14,6 +14,7 @@ use Carp qw/carp croak confess/;
 use Perl::Version;
 use IO::Socket::SSL;
 use Amazon::SNS;
+use Data::Dumper;
 use Try::Tiny;
 use Amazon::SQS::Simple;
 use Data::UUID;
@@ -21,10 +22,10 @@ use JSON;
 use Scalar::Util qw/blessed/;
 use Carp qw/confess/;
 
-has purpose => (is => 'ro', isa => 'Str', required => 1,);
-has subscribers => (is => 'ro', isa => 'ArrayRef', default => sub { [] },);
+has purpose => ( is => 'ro', isa => 'Str', required => 1, );
+has subscribers => ( is => 'ro', isa => 'ArrayRef', default => sub { [] }, );
 has sns =>
-    (is => 'ro', isa => 'Amazon::SNS', builder => '_build_sns', lazy => 1,);
+    ( is => 'ro', isa => 'Amazon::SNS', builder => '_build_sns', lazy => 1, );
 has sqs => (
     is      => 'ro',
     isa     => 'Amazon::SQS::Simple',
@@ -32,9 +33,7 @@ has sqs => (
     lazy    => 1,
 );
 
-
-
-has config => (is => 'ro', isa => 'HashRef[Item]', required => 1);
+has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1 );
 
 has queue => (
     is        => 'ro',
@@ -51,26 +50,28 @@ has topic => (
     lazy    => 1,
 );
 
-has topicarn => (is => 'ro', isa => 'Str', predicate => 'has_topicarn');
+has topicarn => ( is => 'ro', isa => 'Str', predicate => 'has_topicarn' );
 has topicName =>
-    (is => 'ro', isa => 'Str', builder => '_build_topic_name', lazy => 1,);
+    ( is => 'ro', isa => 'Str', builder => '_build_topic_name', lazy => 1, );
 has queuearn =>
-    (is => 'ro', isa => 'Str', builder => '_build_queuearn', lazy => 1);
+    ( is => 'ro', isa => 'Str', builder => '_build_queuearn', lazy => 1 );
 has queueName =>
-    (is => 'ro', isa => 'Str', builder => '_build_queue_name', lazy => 1);
-
+    ( is => 'ro', isa => 'Str', builder => '_build_queue_name', lazy => 1 );
 
 sub emit {
-    my ($self, $message) = @_;
+    my ( $self, $message ) = @_;
 
-    $message = Replay::Message->new($message) unless blessed $message;
+    if ( !blessed $message) {
+        $message = Replay::Message->new($message);
+    }
 
     # THIS MUST DOES A Replay::Role::Envelope
-    confess "Can only emit Replay::Role::Envelope consumer"
-        unless $message->does('Replay::Role::Envelope');
+    if ( !$message->does('Replay::Role::Envelope') ) {
+        confess 'Can only emit Replay::Role::Envelope consumer';
+    }
     my $uuid = $message->UUID;
 
-    $self->topic->Publish(to_json $message->marshall) or return;
+    $self->topic->Publish( to_json $message->marshall ) or return;
 
     return $uuid;
 }
@@ -80,18 +81,17 @@ sub poll {
     my $handled = 0;
 
     # only check the channels if we have been shown an interest in
-    return $handled if not scalar(@{ $self->subscribers });
-    foreach my $message ($self->_receive()) {
+    return $handled if not scalar( @{ $self->subscribers } );
+    foreach my $message ( $self->_receive() ) {
         $handled++;
 
-        #use Data::Dumper;
-        #warn("poll message=".Dumper($message));
-        foreach my $subscriber (@{ $self->subscribers }) {
+        foreach my $subscriber ( @{ $self->subscribers } ) {
             try {
                 $subscriber->($message);
             }
             catch {
-                carp q(There was an exception while processing message through subscriber )
+                carp
+                    q(There was an exception while processing message through subscriber )
                     . $_;
             };
         }
@@ -100,15 +100,15 @@ sub poll {
 }
 
 sub subscribe {
-    my ($self, $callback) = @_;
+    my ( $self, $callback ) = @_;
     croak 'callback must be code' if 'CODE' ne ref $callback;
     push @{ $self->subscribers }, $callback;
     return;
 }
 
 sub _acknowledge {
-    my ($self, @messages) = @_;
-    return $self->queue->DeleteMessageBatch([@messages]);
+    my ( $self, @messages ) = @_;
+    return $self->queue->DeleteMessageBatch( [@messages] );
 }
 
 sub _receive {
@@ -118,18 +118,16 @@ sub _receive {
     $self->_acknowledge(@messages);
     my @payloads;
     foreach my $message (@messages) {
-        use Data::Dumper;
 
-        #    warn("AWSQueue _receive->message=".Dumper( $message));
-        #    warn("AWSQueue _receive->MessageBody=".Dumper( $message->MessageBody));
         try {
             my $message_body = from_json $message->MessageBody;
             my $innermessage = from_json $message_body->{Message};
             push @payloads, $innermessage;
         }
         catch {
-            carp q(There was an exception while processing message through _receive )
-                . "message="
+            carp
+                q(There was an exception while processing message through _receive )
+                . 'message='
                 . Dumper($message)
                 . $_;
             exit;
@@ -138,16 +136,15 @@ sub _receive {
     return @payloads;
 }
 
-
-
-
 sub _build_sqs {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     my $config = $self->config;
     croak q(No sqs service?) if not $config->{EventSystem}{sqsService};
     use Data::Dumper;
-    croak q(No access key?).Dumper $config if not $config->{EventSystem}{awsIdentity}{access};
-    croak q(No secret key?) if not $config->{EventSystem}{awsIdentity}{secret};
+    croak q(No access key?) . Dumper $config
+        if not $config->{EventSystem}{awsIdentity}{access};
+    croak q(No secret key?)
+        if not $config->{EventSystem}{awsIdentity}{secret};
     my $sqs = Amazon::SQS::Simple->new(
         $config->{EventSystem}{awsIdentity}{access},
         $config->{EventSystem}{awsIdentity}{secret},
@@ -159,22 +156,25 @@ sub _build_sqs {    ## no critic (ProhibitUnusedPrivateSubroutines)
 sub _build_sns {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     my $config = $self->config;
-    croak q(No access key?).Dumper $config if not $config->{EventSystem}{awsIdentity}{access};
-    croak q(No secret key?) if not $config->{EventSystem}{awsIdentity}{secret};
-    my $sns    = Amazon::SNS->new(
+    croak q(No access key?) . Dumper $config
+        if not $config->{EventSystem}{awsIdentity}{access};
+    croak q(No secret key?)
+        if not $config->{EventSystem}{awsIdentity}{secret};
+    my $sns = Amazon::SNS->new(
         {   key    => $config->{EventSystem}{awsIdentity}{access},
             secret => $config->{EventSystem}{awsIdentity}{secret}
         }
     );
-    $sns->service($config->{EventSystem}{snsService});
+    $sns->service( $config->{EventSystem}{snsService} );
     return $sns;
 }
 
 sub _build_queue {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    carp q(BUILDING QUEUE ) . $self->queueName if $ENV{DEBUG_REPLAY_TEST};;
-    my $queue = $self->sqs->CreateQueue($self->queueName);
-    carp q(SETTING QUEUE POLICY ) . $self->queueName if $ENV{DEBUG_REPLAY_TEST};;
+    carp q(BUILDING QUEUE ) . $self->queueName if $ENV{DEBUG_REPLAY_TEST};
+    my $queue = $self->sqs->CreateQueue( $self->queueName );
+    carp q(SETTING QUEUE POLICY ) . $self->queueName
+        if $ENV{DEBUG_REPLAY_TEST};
     $queue->SetAttribute(
         'Policy',
         to_json(
@@ -185,13 +185,17 @@ sub _build_queue {    ## no critic (ProhibitUnusedPrivateSubroutines)
                         q(Principal) => { q(AWS) => q(*) },
                         q(Action)    => q(sqs:SendMessage),
                         q(Resource)  => $self->queuearn,
-                        q(Condition) => { q(ArnEquals) => { q(aws:SourceArn) => $self->topic->arn } }
+                        q(Condition) => {
+                            q(ArnEquals) =>
+                                { q(aws:SourceArn) => $self->topic->arn }
+                        }
                     }
                 ]
             }
         )
     );
-    carp q(SUBSCRIBING TO QUEUE ) . $self->queueName if $ENV{DEBUG_REPLAY_TEST};;
+    carp q(SUBSCRIBING TO QUEUE ) . $self->queueName
+        if $ENV{DEBUG_REPLAY_TEST};
     $self->{subscriptionARN} = $self->sns->dispatch(
         {   Action   => 'Subscribe',
             Endpoint => $self->queuearn,
@@ -204,14 +208,18 @@ sub _build_queue {    ## no critic (ProhibitUnusedPrivateSubroutines)
 
 sub done {
     my $self = shift;
+    return;
 }
 
 sub DEMOLISH {
     my ($self) = @_;
-    if ($self->has_queue && $self->queue && $self->mode eq 'fanout') {
-        if ($self->{subscriptionARN}) {
+    if ( $self->has_queue && $self->queue && $self->mode eq 'fanout' ) {
+        if ( $self->{subscriptionARN} ) {
             $self->sns->dispatch(
-                { Action => 'Unsubscribe', SubscriptionArn => $self->{subscriptionARN} });
+                {   Action          => 'Unsubscribe',
+                    SubscriptionArn => $self->{subscriptionARN}
+                }
+            );
         }
         $self->queue->Delete;
     }
@@ -228,15 +236,18 @@ sub _build_topic_name {    ## no critic (ProhibitUnusedPrivateSubroutines)
 sub _build_topic {         ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     my $topic;
-    carp q(BUILDING TOPIC ) . $self->topicName if $ENV{DEBUG_REPLAY_TEST};;
-    if ($self->has_topicarn) {
-        $topic = $self->sns->GetTopic($self->topicarn);
+    carp q(BUILDING TOPIC ) . $self->topicName if $ENV{DEBUG_REPLAY_TEST};
+    if ( $self->has_topicarn ) {
+        $topic = $self->sns->GetTopic( $self->topicarn );
     }
     else {
-        $topic = $self->sns->CreateTopic($self->topicName);
+        $topic = $self->sns->CreateTopic( $self->topicName );
     }
-    croak "SNS error cannot create topic=$topic Error:".$self->sns->error
-      if ($self->sns->error);
+    croak 'SNS error cannot create topic='
+        . $topic
+        . ' Error:'
+        . $self->sns->error
+        if ( $self->sns->error );
     return $topic;
 }
 
@@ -244,14 +255,13 @@ sub _build_queue_name {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     my $ug   = Data::UUID->new;
     return join q(_), $self->config->{stage}, 'replay', $self->purpose,
-        ($self->mode eq 'fanout' ? $ug->to_string($ug->create) : 
-        ());
+        ( $self->mode eq 'fanout' ? $ug->to_string( $ug->create ) : () );
 }
 
 # this derives the arn from the topic name.
 sub _build_queuearn {      ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    my ($type, $domain, $service, $region, $id, $name) = split /:/sxm,
+    my ( $type, $domain, $service, $region, $id, $name ) = split /:/sxm,
         $self->topic->arn;
     return join q(:), $type, $domain, 'sqs', $region, $id, $self->queueName;
 }
@@ -264,15 +274,15 @@ __END__
 
 =head1 NAME
 
-Replay::EventSystem::AWSQueue - AWS Topic/Queue implimentation
+Replay::EventSystem::AWSQueue - AWS Topic/Queue implementation
 
 =head1 VERSION
 
 Version 0.01
 
-head1 SYNOPSIS
+=head1 SYNOPSIS
 
-This is an Event System implimentation module targeting the AWS services
+This is an Event System implementation module targeting the AWS services
 of SNS and SQS.  If you were to instantiate it independently, it might 
 look like this.
 
@@ -290,6 +300,8 @@ Replay::EventSystem::AWSQueue->new(
         },
     }
 );
+
+=head1 DESCRIPTION
 
 Utilizers should expect the object instance to be a singleton per each $purpose.
 
@@ -325,7 +337,23 @@ Makes sure to properly clean up and disconnect from queues
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
+
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'

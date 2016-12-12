@@ -6,9 +6,12 @@ use Moose::Role;
 use Try::Tiny;
 use Moose::Util::TypeConstraints;
 use English qw/-no_match_vars/;
+use Data::Dumper;
 use Carp qw/croak/;
 
-requires qw(select);
+requires qw(select_engine);
+
+our $VERSION = '0.04';
 
 has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, );
 
@@ -23,25 +26,25 @@ role_type WithReportEngine => { role => 'Replay::Role::ReportEngine' };
 has availableReportEngines => (
     is      => 'ro',
     isa     => 'ArrayRef[WithReportEngine]',
-    builder => '_build_availableReportEngines',
+    builder => '_build_available_report_engines',
     lazy    => 1,
 );
 
 has defaultReportEngine => (
     is      => 'ro',
     isa     => 'WithReportEngine',
-    builder => '_build_defaultReportEngine',
+    builder => '_build_default_report_engine',
     lazy    => 1,
 );
 
-sub _build_availableReportEngines
+sub _build_available_report_engines
 {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self            = shift;
     my $list_of_engines = [];
 
     foreach my $engine ( @{ $self->config->{ReportEngines} } ) {
 
-        #      confess "INVALID ENGINE" unless defined $engine->{Name};
+        #      confess 'INVALID ENGINE' unless defined $engine->{Name};
 
         push @{$list_of_engines},
             my $d = $self->mode_class( $engine->{Mode} )->new(
@@ -50,20 +53,19 @@ sub _build_availableReportEngines
             ruleSource  => $self->ruleSource,
             eventSystem => $self->eventSystem,
             );
-        confess "WHAT IS $d" . $d->dump(1)
-            unless $d->does('Replay::Role::ReportEngine');
+        confess 'WHAT IS ' . $d . $d->dump(1)
+            if !$d->does('Replay::Role::ReportEngine');
     }
     return $list_of_engines;
 }
 
-sub _build_defaultReportEngine
+sub _build_default_report_engine
 {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     my $default
         = ( grep { $_->Name eq $self->config->{Defaults}->{ReportEngine} }
             @{ $self->availableReportEngines() } )[0];
-    unless ($default) {
-        use Data::Dumper;
+    if ( !$default ) {
         croak 'No ReportEngine '
             . $self->config->{Defaults}->{ReportEngine}
             . ' defined'
@@ -77,7 +79,7 @@ sub all_engines {
     return values %{ $self->availableReportEngines };
 }
 
-sub mode_class {    ## no critic (ProhibitUnusedPrivateSubroutines)
+sub mode_class {
     my ( $self, $mode ) = @_;
     if ( not $mode ) {
         croak q(No ReportMode?);
@@ -85,12 +87,14 @@ sub mode_class {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $class = 'Replay::ReportEngine::' . $mode;
 
     try {
-        eval "require $class"
-
+        my $path = $class . '.pm';
+        $path =~ s{::}{/}gxsm;
+        eval { require $path }
             or croak qq(error requiring class $class : ) . $EVAL_ERROR;
     }
     catch {
-        confess q(No such report engine mode available ) . $mode . " $class --> $_";
+        confess q(No such report engine mode available ) . $mode
+            . " $class --> $_";
     };
     return $class;
 }

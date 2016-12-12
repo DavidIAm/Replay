@@ -13,17 +13,17 @@ use Readonly;
 
 Readonly my $UMASK => 6;
 
-has eventSystem => (is => 'ro', required => 1,);
-has directory   => (is => 'ro', required => 0, lazy => 1, builder => '_build_log_dir' );
-has filehandles => (is => 'ro', isa      => 'HashRef', default => sub { {} });
-has UUID => (is => 'ro', isa => 'Data::UUID', builder => '_build_uuid');
-has config => (is => 'ro', required => 1,);
-
+has eventSystem => ( is => 'ro', required => 1, );
+has directory =>
+    ( is => 'ro', required => 0, lazy => 1, builder => '_build_log_dir' );
+has filehandles => ( is => 'ro', isa => 'HashRef', default => sub { {} } );
+has UUID => ( is => 'ro', isa => 'Data::UUID', builder => '_build_uuid' );
+has config => ( is => 'ro', required => 1, );
 
 # dummy implimentation - Log them to a file
 sub BUILD {
     my $self = shift;
-    if (not -d $self->directory) {
+    if ( not -d $self->directory ) {
         mkdir $self->directory;
     }
     $self->eventSystem->origin->subscribe(
@@ -31,7 +31,7 @@ sub BUILD {
             my $message   = shift;
             my $timeblock = $self->log($message);
             carp "Not a reference $message" if not ref $message;
-            if (blessed $message && $message->isa('Replay::Message')) {
+            if ( blessed $message && $message->isa('Replay::Message') ) {
                 $message = $message->marshall;
             }
             try {
@@ -50,16 +50,18 @@ sub BUILD {
 
 sub new_uuid {
     my $self = shift;
-    return $self->UUID->to_string($self->UUID->create());
+    return $self->UUID->to_string( $self->UUID->create() );
 }
 
 sub serialize {
-    my ($self, $message) = @_;
+    my ( $self, $message ) = @_;
     return $message if not ref $message;
     return JSON->new->encode($message) if not blessed $message;
-    return $message->stringify if blessed $message && $message->can('stringify');
-    return $message->freeze    if blessed $message && $message->can('freeze');
-    return $message->serialize if blessed $message && $message->can('serialize');
+    return $message->stringify
+        if blessed $message && $message->can('stringify');
+    return $message->freeze if blessed $message && $message->can('freeze');
+    return $message->serialize
+        if blessed $message && $message->can('serialize');
     carp "blessed but no serializer found? $message";
     return;
 }
@@ -67,13 +69,13 @@ sub serialize {
 sub log {    ## no critic (ProhibitBuiltinHomonyms)
     my $self    = shift;
     my $message = shift;
-    return $self->filehandle->print($self->serialize($message) . qq(\n));
+    return $self->filehandle->print( $self->serialize($message) . qq(\n) );
 }
 
 sub path {
     my $self = shift;
-    return File::Spec->catfile($self->directory,
-        $self->timeblock . q(-) . $self->config->{stage} || 'nostage');
+    return File::Spec->catfile( $self->directory,
+        $self->timeblock . q(-) . $self->config->{stage} || 'nostage' );
 }
 
 sub filehandle {
@@ -99,9 +101,9 @@ sub _build_uuid {    ## no critic (ProhibitUnusedPrivateSubroutines)
     return $self->{UUID} ||= Data::UUID->new;
 }
 
-sub _build_log_dir {
-  my ($self) = @_;
-  return $self->config->{WORM}->{'Directory'} || '/var/log/replay'
+sub _build_log_dir {    ## no critic (ProhibitUnusedPrivateSubroutines)
+    my ($self) = @_;
+    return $self->config->{WORM}->{'Directory'} || '/var/log/replay';
 }
 
 1;
@@ -119,6 +121,20 @@ Replay::WORM - the write once read many module
 Version 0.01
 
 =head1 SYNOPSIS
+
+  Replay::WORM->new(
+    eventSystem => $eventsystem,
+    config => {
+      stage => "STAGENAME",
+      WORM => { Directory => 'writable_directory_to_log_to' }
+    }
+  );
+
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
+
+=head1 DESCRIPTION
 
 This is the WORM component of the replay system.  Its purpose is to log 
 the origin data stream for later replay.
@@ -167,7 +183,19 @@ return a brand new uuid
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .

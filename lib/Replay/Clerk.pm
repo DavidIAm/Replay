@@ -12,36 +12,37 @@ use Scalar::Util qw/blessed/;
 use Try::Tiny;
 use Time::HiRes qw/gettimeofday/;
 
-has eventSystem   => (is => 'ro', required => 1,);
-has storageEngine => (is => 'ro', required => 1,);
-has reportEngine  => (is => 'ro', required => 1,);
-has ruleSource    => (is => 'ro', required => 1,);
+has eventSystem   => ( is => 'ro', required => 1, );
+has storageEngine => ( is => 'ro', required => 1, );
+has reportEngine  => ( is => 'ro', required => 1, );
+has ruleSource    => ( is => 'ro', required => 1, );
 
 # dummy implimentation - Log them to a file
 sub BUILD {
     my $self = shift;
-    if (not -d $self->directory) {
+    if ( not -d $self->directory ) {
         mkdir $self->directory;
     }
     return $self->eventSystem->report->subscribe(
         sub {
             my $message = shift;
 
-            if ($message->{MessageType} eq 'NewCanonical') {
-                $self->deliver(Replay::IdKey->new($message->{Message}));
+            if ( $message->{MessageType} eq 'NewCanonical' ) {
+                $self->deliver( Replay::IdKey->new( $message->{Message} ) );
             }
-            if ($message->{MessageType} eq 'NewCanonical') {
-                $self->summarize(Replay::IdKey->new($message->{Message}));
+            if ( $message->{MessageType} eq 'NewCanonical' ) {
+                $self->summarize( Replay::IdKey->new( $message->{Message} ) );
             }
         }
     );
 }
 
 sub deliver {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     my $state = $self->storageEngine->retrieve($idkey);
     return $self->reportEngine->newReportVersion(
-        report => $self->ruleSource->by_idkey($idkey)->delivery($state->{canonical}),
+        report => $self->ruleSource->by_idkey($idkey)
+            ->delivery( $state->{canonical} ),
         Ruleversions => $state->Ruleversions,
         Timeblocks   => $state->Timeblocks,
         Windows      => $state->Windows,
@@ -49,15 +50,19 @@ sub deliver {
 }
 
 sub summarize {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     my $reports = $self->reportEngine->window_all($idkey);
     return $self->reportEngine->newSummary(
         $self->ruleSource->by_idkey($idkey)->summary(
-            reports => $reports,
-            Ruleversions =>
-                Replay::Meta::union(map { $_->Ruleversions } values %{$reports}),
-            Timeblocks => Replay::Meta::union(map { $_->Timeblocks } values %{$reports}),
-            Windows    => Replay::Meta::union(map { $_->Windows } values %{$reports}),
+            reports      => $reports,
+            Ruleversions => Replay::Meta::union(
+                map { $_->Ruleversions } values %{$reports}
+            ),
+            Timeblocks => Replay::Meta::union(
+                map { $_->Timeblocks } values %{$reports}
+            ),
+            Windows =>
+                Replay::Meta::union( map { $_->Windows } values %{$reports} ),
         )
     );
 }
@@ -80,6 +85,14 @@ Version 0.01
 
 This is the Clerk component of the replay system.  Its purpose is initiate the
 report and summary processing
+
+=head1 CONFIGURATION AND ENVIRONMENT
+
+There isn't any specific configuration for this component yet, its all implied
+
+=head1 DESCRIPTION
+
+Manage the initiation of the report and summary processing for the system
 
 =head1 SUBROUTINES/METHODS
 
@@ -105,7 +118,19 @@ Inserts the summary into the report store.
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .

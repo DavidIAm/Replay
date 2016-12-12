@@ -51,25 +51,45 @@ __END__
 
 =head1 NAME
 
-Replay::Message::IdKey - the fields that identify a particular state in the system
+Replay::Role::IdKey - the fields that identify a particular state in the system
 
 =head1 VERSION
 
-Version 0.01
-
-=cut
+Version 0.04
 
 =head1 SYNOPSIS
 
-This is a data type extensively used to communicate the particular id
-of a state in the code.  It is closely coupled with the Replay::IdKey
-class/data type.
+ with qw(Replay::Role::IdKey);
+
+=head1 DESCRIPTION
+
+Use this role when your data type needs the fields of an idkey
+
+=head1 SUBROUTINES/METHODS
+
+Data type
 
 =head1 AUTHOR
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
+
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .

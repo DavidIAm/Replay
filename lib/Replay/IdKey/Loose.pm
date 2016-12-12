@@ -5,12 +5,8 @@ extends 'Replay::IdKey';
 
 our $VERSION = '0.02';
 
-has '+name' => (
-    required    => 0,
-);
-has '+version' => (
-    required    => 0,
-);
+has '+name'    => ( required => 0, );
+has '+version' => ( required => 0, );
 
 1;
 
@@ -28,13 +24,12 @@ Version 0.01
 
 =head1 SYNOPSIS
 
-Each state of the system exists in a hierarchy which at this time is defined as
-TODO continue to edit this
+  Replay::IdKey::Loose->new()
 
-name
-version
-window
-key
+=head1 DESCRIPTION
+
+This is an IdKey object that doesn't enforce the presence of the 
+keys which was found to be important in the REST interface.
 
 =head1 SUBROUTINES/METHODS
 
@@ -58,7 +53,7 @@ The window-and-key part - where the document reflecting the state is found
 
 =head2 rule_spec
 
-the rule-and-version part - the particular business rule this state will be useing
+the rule-and-version part - the particular business rule this state will be using
 
 =head2 hash_list
 
@@ -94,7 +89,22 @@ Clips the key for global summary mode - no window or key mentioned
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
+
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .
