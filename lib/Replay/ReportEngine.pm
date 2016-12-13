@@ -81,9 +81,8 @@ sub copydomain {
 sub get_all_delivery_data {
     my ( $self, $idkey ) = @_;
     my @out;
-    foreach
-        my $delkey ( $self->engine($idkey)->delivery_keys( $idkey->summary ) )
-    {
+    my @keys = $self->engine($idkey)->delivery_keys( $idkey->summary );
+    foreach my $delkey (@keys) {
         my $data = $self->delivery_data($delkey);
         next if $data->{EMPTY};
         push @out, $delkey->key, $data->{DATA};

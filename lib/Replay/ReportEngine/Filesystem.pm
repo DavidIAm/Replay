@@ -245,13 +245,12 @@ sub delete_latest_revision {
 
 sub store {
     my ( $self, $idkey, $data, $formatted ) = @_;
-    use Data::Dumper;
     confess
         'second return value from delivery/summary/globsummary function does not appear to be an array ref'
         . Dumper $data
         if 'ARRAY' ne ref $data;
     my $directory = $self->directory($idkey);
-    return $self->delete_latest_revision($idkey) if 0 < scalar @{$data};
+    return $self->delete_latest_revision($idkey) if 0 == scalar @{$data};
     if ( !-d $directory ) {
         mkpath $directory ;
     }
@@ -280,14 +279,14 @@ sub store {
         my $datafilename = $self->filename_data( $directory,
             $self->writable_revision($directory) );
         my $dfh = IO::File->new( $datafilename, 'w' );
-        store_fd $data, $dfh
-            or confess "NO DATA $PROCESS_ID $CHILD_ERROR $OS_ERROR PRINT "
-            . to_json $data;
+        (   store_fd $data,
+            $dfh
+                or confess "NO DATA $PROCESS_ID $CHILD_ERROR $OS_ERROR PRINT "
+                . to_json $data);
     }
 
     if ( defined $formatted ) {
 
-      warn "WRITING FORMATTED $formatted";
         # TODO: make this thread safe writes with temp name and renames
         my $filename = $self->filename( $directory,
             $self->writable_revision($directory) );

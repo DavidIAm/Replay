@@ -99,11 +99,12 @@ sub delete_latest {
 
 sub update {
     my ( $self, $part, $idkey, @state ) = @_;
-    my $rule = $self->rule($idkey);
+    my $rule  = $self->rule($idkey);
+    my $actor = $rule->can($part);
     return if !$rule->can($part);
     return $self->delete_latest( $idkey, $part )
         if 0 == scalar @state && defined $self->current($idkey);
-    $self->store( $idkey, $rule->can($part)->( $rule, @state ) );
+    $self->store( $idkey, $actor->( $rule, @state ) );
     $self->notify_new( $idkey, $part );
     return;
 }
