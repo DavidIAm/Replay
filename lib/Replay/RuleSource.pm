@@ -1,70 +1,46 @@
-package Replay::Clerk;
+package Replay::RuleSource;
 
 use Moose;
-
-our $VERSION = '0.02';
-
-use POSIX qw/strftime/;
-use File::Spec qw//;
-use Replay::IdKey;
-use Replay::Meta;
+use Replay::Message::RulesReady;
 use Scalar::Util qw/blessed/;
-use Try::Tiny;
-use Time::HiRes qw/gettimeofday/;
+use Replay::Types::Types;
 
-has eventSystem   => ( is => 'ro', required => 1, );
-has storageEngine => ( is => 'ro', required => 1, );
-has reportEngine  => ( is => 'ro', required => 1, );
-has ruleSource    => ( is => 'ro', required => 1, );
+our $VERSION = q(0.02);
 
-# dummy implimentation - Log them to a file
-sub BUILD {
-    my $self = shift;
-    if ( not -d $self->directory ) {
-        mkdir $self->directory;
+# this is the default implimentation that is simple.  This needs to be
+# different later.  The point of this layer is to instantiate and handle the
+# various execution environments for a particular rule version.
+has rules => ( is => 'ro', isa => 'ArrayRef[BusinessRule]', );
+
+has index => ( is => 'rw', default => 0, );
+has eventSystem =>
+    ( is => 'ro', isa => 'Replay::EventSystem', required => 1 );
+
+sub next {    ## no critic (ProhibitBuiltinHomonyms)
+    my ($self) = @_;
+    my $i = $self->index;
+    $self->index( $self->index + 1 );
+    if ( $#{ $self->rules } < $i ) { $self->index(0) and return }
+    return $self->rules->[$i];
+}
+
+sub first {
+    my ($self) = @_;
+    $self->index(0);
+    return $self->rules->[ $self->index ];
+}
+
+sub by_idkey {
+    my ( $self, $idkey ) = @_;
+    if ( $idkey && blessed $idkey && $idkey->can('name') ) {
+        return (
+            grep {
+                       $_->name eq $idkey->name
+                    && $_->version eq $idkey->version
+            } @{ $self->rules }
+        )[0];
     }
-    return $self->eventSystem->report->subscribe(
-        sub {
-            my $message = shift;
-
-            if ( $message->{MessageType} eq 'NewCanonical' ) {
-                $self->deliver( Replay::IdKey->new( $message->{Message} ) );
-            }
-            if ( $message->{MessageType} eq 'NewCanonical' ) {
-                $self->summarize( Replay::IdKey->new( $message->{Message} ) );
-            }
-        }
-    );
-}
-
-sub deliver {
-    my ( $self, $idkey ) = @_;
-    my $state = $self->storageEngine->retrieve($idkey);
-    return $self->reportEngine->newReportVersion(
-        report => $self->ruleSource->by_idkey($idkey)
-            ->delivery( $state->{canonical} ),
-        Ruleversions => $state->Ruleversions,
-        Timeblocks   => $state->Timeblocks,
-        Windows      => $state->Windows,
-    );
-}
-
-sub summarize {
-    my ( $self, $idkey ) = @_;
-    my $reports = $self->reportEngine->window_all($idkey);
-    return $self->reportEngine->newSummary(
-        $self->ruleSource->by_idkey($idkey)->summary(
-            reports      => $reports,
-            Ruleversions => Replay::Meta::union(
-                map { $_->Ruleversions } values %{$reports}
-            ),
-            Timeblocks => Replay::Meta::union(
-                map { $_->Timeblocks } values %{$reports}
-            ),
-            Windows =>
-                Replay::Meta::union( map { $_->Windows } values %{$reports} ),
-        )
-    );
+    confess("Called by_idkey without an idkey? ($idkey)");
 }
 
 1;
@@ -75,44 +51,41 @@ __END__
 
 =head1 NAME
 
-Replay::Clerk
+Replay::RuleSource - Provider of a set of objects of type Replay::BusinesRule
 
 =head1 VERSION
 
-Version 0.01
+0.04
 
 =head1 SYNOPSIS
 
-This is the Clerk component of the replay system.  Its purpose is initiate the
-report and summary processing
+my $source = new Replay::RuleSource( rules => [ $RuleInstance, $otherrule  ] );
 
 =head1 CONFIGURATION AND ENVIRONMENT
 
-There isn't any specific configuration for this component yet, its all implied
+Implied by context
 
 =head1 DESCRIPTION
 
-Manage the initiation of the report and summary processing for the system
+The purpose of this abstraction is to allow the dramatic scaling of these rules   Not everything needs to be in memory at the same time.
+
+Current iteration takes an array of Business Rules.  Maybe its tied?  What other options do we have here?
 
 =head1 SUBROUTINES/METHODS
 
-=head2 BUILD
+=head2 next 
 
-subscribes to report channel
+Deliver the next business rule.  Undef means the end of the list, which resets the pointer to the first.
 
-=head2 deliver
+=head2 first 
 
-Retrieves the state and generates a new report from the canonical atoms.  
+Reset the current rule pointer and deliver the first business rule
 
-Inserts the report into the Report store.
+=head2 by_idkey 
 
-=head2 summarize
-
-Retrieves the reports for every key within the window
-
-Inserts the summary into the report store.
-
-=cut
+The IDKey hash/object is used to identify particular rules.  Given a particular
+IdKey state, this routine should return all of the rules that match it.  This is
+expected to be a list of one or zero.
 
 =head1 AUTHOR
 
@@ -211,4 +184,4 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =cut
 
-1;
+1;    # End of Replay

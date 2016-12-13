@@ -7,26 +7,26 @@ package Replay::EventSystem::Null;
 
 use Scalar::Util qw/blessed/;
 use Moose;
-use Carp qw/croak confess/;
+use Carp qw/croak confess carp/;
 with 'Replay::Role::EventSystem';
 
 our $VERSION = '0.02';
 
-has subscribers => (is => 'ro', isa => 'ArrayRef', default => sub { [] },);
+has subscribers => ( is => 'ro', isa => 'ArrayRef', default => sub { [] }, );
 
 use Try::Tiny;
 
 sub poll {
     my $self = shift;
     my $c    = 0;
-    while (my $message = shift @{ $self->{events} }) {
+    while ( my $message = shift @{ $self->{events} } ) {
         $c++;
-        foreach (@{ $self->subscribers }) {
+        foreach ( @{ $self->subscribers } ) {
             try {
                 $_->($message);
             }
             catch {
-                warn "EXCEPTION SUBSCRIBER STYLE $_";
+                carp "EXCEPTION SUBSCRIBER STYLE $_";
             }
         }
     }
@@ -34,28 +34,30 @@ sub poll {
 }
 
 sub emit {
-    my ($self, $message) = @_;
+    my ( $self, $message ) = @_;
 
-    $message = Replay::Message->new($message) unless blessed $message;
+    if ( !blessed $message) {
+        $message = Replay::Message->new($message);
+    }
 
     # THIS MUST DOES A Replay::Role::Envelope
-    confess "Can only emit Replay::Role::Envelope consumer"
-        unless $message->does('Replay::Role::Envelope');
-
-    #warn(" Replay::EventSystem::Null emit $message");
+    if ( !$message->does('Replay::Role::Envelope') ) {
+        confess 'Can only emit Replay::Role::Envelope consumer';
+    }
 
     push @{ $self->{events} }, $message->marshall;
     return $message->UUID;
 }
 
 sub subscribe {
-    my ($self, $callback) = @_;
+    my ( $self, $callback ) = @_;
     croak 'callback must be code' if 'CODE' ne ref $callback;
     return push @{ $self->subscribers }, $callback;
 }
 
 sub done {
     my ($self) = @_;
+    return;
 }
 
 1;
@@ -74,7 +76,12 @@ Version 0.01
 
 =head1 SYNOPSIS
 
-The control channel
+  Replay::EventSystem::Null( config => {  ... } )
+
+=head1 DESCRIPTION
+
+An event system implementation that is blocking and just uses some
+memory structures for managing subscriptions
 
 =head1 SUBROUTINES/METHODS
 
@@ -94,7 +101,23 @@ add the specified message to our list of events to process
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
+
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .

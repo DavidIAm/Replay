@@ -1,17 +1,32 @@
 package Replay::Role::MongoDB;
 
-#all you need to get a Mogo up and running
+#all you need to get a Mogo up and running from blank unauthed
+# - create a myUserAdmin
+# use admin
+# db.createUser( {
+#       user: 'myUserAdmin',
+#       pwd: 'abc123',
+#       roles: [ { role: 'userAdminAnyDatabase', db: 'admin' } ] } )
+# - enable user auth on the db and restart it (auth=true in mongodb.conf)
+# - log in as that user
+# mongo -u myUserAdmin -p abc123 admin
+# - create the replay user
+# db.createUser( { user: 'replayuser', pwd: 'replaypass', roles: [ { role:
+# 'dbAdminAnyDatabase' ,db: 'admin' }, { role: 'readWriteAnyDatabase', db:
+# 'admin' } ] } )
 
 use Moose::Role;
-use Carp qw/croak confess carp/;
+use Carp qw/croak confess carp cluck/;
+use MongoDB;
+use MongoDB::OID;
 use JSON;
 requires(
     qw(_build_mongo
-      _build_db
-      _build_dbname
-      _build_dbauthdb
-      _build_dbuser
-      _build_dbpass)
+        _build_db
+        _build_dbname
+        _build_dbauthdb
+        _build_dbuser
+        _build_dbpass)
 );
 
 our $VERSION = q(0.01);
@@ -29,97 +44,88 @@ has mongo => (
     lazy    => 1,
 );
 
+sub _build_mongo {    ## no critic (ProhibitUnusedPrivateSubroutines)
+    my ($self) = @_;
+    my $db = MongoDB::MongoClient->new(
+        db_name  => $self->dbauthdb,
+        username => $self->dbuser,
+        password => $self->dbpass
+    );
+    return $db;
+}
+
 sub checkout_record {
     my ( $self, $idkey, $signature, $timeout ) = @_;
 
     # try to get lock
-    my $lockresult = $self->collection($idkey)->find_and_modify(
-        {
-            query => {
-                idkey   => $idkey->cubby,
-                desktop => { q^$^ . 'exists' => 0 },
-                q^$^
-                  . 'or' => [
-                    { locked => { q^$^ . 'exists' => 0 } },
-                    {
-                        q^$^
-                          . 'and' => [
-                            { locked => $signature },
-                            {
-                                q^$^
-                                  . 'or' => [
-                                    {
-                                        lockExpireEpoch =>
-                                          { q^$^ . 'gt' => time }
-                                    },
-                                    {
-                                        lockExpireEpoch =>
-                                          { q^$^ . 'exists' => 0 }
-                                    }
-                                  ]
-                            }
-                          ]
-                    }
-                  ]
-            },
-            update => {
-                q^$^
-                  . 'set' =>
-                  { locked => $signature, lockExpireEpoch => time + $timeout, },
-                q^$^ . 'rename' => { 'inbox' => 'desktop' },
-            },
-            upsert => 0,
-            new    => 1,
-        }
+    my $lockresult = $self->collection($idkey)->update_many(
+        {   idkey   => $idkey->cubby,
+            desktop => { q^$^ . 'exists' => 0 },
+            inbox   => { q^$^ . 'exists' => 1 },
+            q^$^
+                . 'or' => [
+                { locked => { q^$^ . 'exists' => 0 } },
+                {   q^$^
+                        . 'and' => [
+                        { locked => $signature },
+                        {   q^$^
+                                . 'or' => [
+                                {   lockExpireEpoch => { q^$^ . 'gt' => time }
+                                },
+                                {   lockExpireEpoch =>
+                                        { q^$^ . 'exists' => 0 }
+                                }
+                                ]
+                        }
+                        ]
+                }
+                ]
+        },
+        {   q^$^
+                . 'set' =>
+                { locked => $signature, lockExpireEpoch => time + $timeout, },
+            q^$^ . 'rename' => { 'inbox' => 'desktop' },
+        },
     );
 
-    return $lockresult;
+    return $self->lockreport($idkey);
 }
 
 sub collection {
     my ( $self, $idkey ) = @_;
     use Carp qw/confess/;
-    confess "WHAT IS THIS $idkey " unless ref $idkey;
+    confess 'WHAT IS THIS ' . $idkey if !ref $idkey;
     my $name = $idkey->collection();
     return $self->db->get_collection($name);
 }
 
 sub document {
     my ( $self, $idkey ) = @_;
-    return $self->collection($idkey)->find( { idkey => $idkey->cubby } )->next
-      || $self->new_document($idkey);
-}
-
-sub generate_uuid {
-    my ($self) = @_;
-    return $self->uuid->to_string( $self->uuid->create );
+    return $self->collection($idkey)->find( { idkey => $idkey->cubby } )
+        ->next || $self->new_document($idkey);
 }
 
 sub lockreport {
     my ( $self, $idkey ) = @_;
-    return [
-        $self->collection($idkey)->find( { idkey => $idkey->cubby },
-            { locked => JSON::true, lockExpireEpoch => JSON::true } )->all
-    ];
+    return $self->collection($idkey)->find_one( { idkey => $idkey->cubby },
+        { locked => 1, lockExpireEpoch => 1, } );
+
+    #        { locked => JSON::true, lockExpireEpoch => JSON::true } );
 }
 
 sub relock {
     my ( $self, $idkey, $current_signature, $new_signature, $timeout ) = @_;
 
     # Lets try to get an expire lock, if it has timed out
-    my $unlockresult = $self->collection($idkey)->find_and_modify(
-        {
-            query  => { idkey => $idkey->cubby, locked => $current_signature },
-            update => {
-                q^$^
-                  . 'set' => {
-                    locked          => $new_signature,
-                    lockExpireEpoch => time + $timeout,
-                  },
-            },
-            upsert => 0,
-            new    => 1,
-        }
+    my $unlockresult = $self->collection($idkey)->update_many(
+        { idkey => $idkey->cubby, locked => $current_signature },
+        {   q^$^
+                . 'set' => {
+                locked          => $new_signature,
+                lockExpireEpoch => time + $timeout,
+                },
+        },
+        { upsert => 0, new => 1, }
     );
 
     return $unlockresult;
@@ -129,25 +135,20 @@ sub relock_expired {
     my ( $self, $idkey, $signature, $timeout ) = @_;
 
     # Lets try to get an expire lock, if it has timed out
-    my $unlockresult = $self->collection($idkey)->find_and_modify(
-        {
-            query => {
-                idkey  => $idkey->cubby,
-                locked => { q^$^ . 'exists' => 1 },
-                q^$^
-                  . 'or' => [
-                    { lockExpireEpoch => { q^$^ . 'lt'     => time } },
-                    { lockExpireEpoch => { q^$^ . 'exists' => 0 } }
-                  ]
-            },
-            update => {
-                    q^$^
-                  . 'set' =>
-                  { locked => $signature, lockExpireEpoch => time + $timeout, },
-            },
-            upsert => 0,
-            new    => 1,
-        }
+    my $unlockresult = $self->collection($idkey)->update_many(
+        {   idkey  => $idkey->cubby,
+            locked => { q^$^ . 'exists' => 1 },
+            q^$^
+                . 'or' => [
+                { lockExpireEpoch => { q^$^ . 'lt'     => time } },
+                { lockExpireEpoch => { q^$^ . 'exists' => 0 } }
+                ]
+        },
+        {         q^$^
+                . 'set' =>
+                { locked => $signature, lockExpireEpoch => time + $timeout, },
+        },
+        { upsert => 0, new => 1, }
     );
 
     return $unlockresult;
@@ -157,37 +158,38 @@ sub relock_i_match_with {
     my ( $self, $idkey, $oldsignature, $newsignature ) = @_;
     my $unluuid      = $self->generate_uuid;
     my $unlsignature = $self->state_signature( $idkey, [$unluuid] );
-    my $state        = $self->collection($idkey)->find_and_modify(
-        {
-            query  => { idkey => $idkey->cubby, locked => $oldsignature, },
-            update => {
-                q^$^
-                  . 'set' => {
-                    locked          => $unlsignature,
-                    lockExpireEpoch => time + $self->timeout,
-                  },
-            },
-            upsert => 0,
-            new    => 1,
-        }
+    my $response     = $self->collection($idkey)->update_many(
+        { idkey => $idkey->cubby, locked => $oldsignature, },
+        {   q^$^
+                . 'set' => {
+                locked          => $unlsignature,
+                lockExpireEpoch => time + $self->timeout,
+                },
+        },
+        { upsert => 0, new => 1, }
     );
-    carp q(tried to do a revert but didn't have a lock on it) if not $state;
-    $self->eventSystem->control->emit(
-        MessageType => 'NoLockDuringRevert',
-        $idkey->hash_list,
-    );
-    return if not $state;
-    $self->revert_this_record( $idkey, $unlsignature, $state );
-    my $result = $self->unlock( $idkey, $unluuid, $state );
-    return defined $result;
+    if ( $response->matched_count == 0 ) {
+        carp q(tried to do a revert but didn't have a lock on it);
+        $self->eventSystem->control->emit(
+            MessageType => 'NoLockDuringRevert',
+            $idkey->hash_list,
+        );
+        return;
+    }
+    $self->revert_this_record( $idkey, $unlsignature );
+    return $self->unlock( $idkey, $unluuid )->matched_count > 0;
 }
 
 sub revert_this_record {
-    my ( $self, $idkey, $signature, $document ) = @_;
+    my ( $self, $idkey, $signature ) = @_;
 
-    croak
-"This document isn't locked with this signature ($document->{locked},$signature)"
-      if $document->{locked} ne $signature;
+    use Carp qw/cluck/;
+    cluck 'REVERTING???';
+    my $document = $self->retrieve($idkey);
+    carp 'This document isn\'t locked with this signature ('
+        . $document->{locked} . q/,/
+        . $signature . ')'
+        if $document->{locked} || q{} ne $signature;
 
     # reabsorb all of the desktop atoms into the document
     foreach my $atom ( @{ $document->{'desktop'} || [] } ) {
@@ -195,10 +197,10 @@ sub revert_this_record {
     }
 
     # and clear the desktop state
-    my $unlockresult =
-      $self->collection($idkey)
-      ->update( { idkey => $idkey->cubby, locked => $signature } =>
-          { q^$^ . 'unset' => { desktop => 1 } } );
+    my $unlockresult
+        = $self->collection($idkey)
+        ->update_many( { idkey => $idkey->cubby, locked => $signature } =>
+            { q^$^ . 'unset' => { desktop => 1 } } );
     croak q(UNABLE TO RESET DESKTOP AFTER REVERT ) if $unlockresult->{n} == 0;
     return $unlockresult;
 }
@@ -208,65 +210,140 @@ sub update_and_unlock {
     my $signature = $self->state_signature( $idkey, [$uuid] );
     my @unsetcanon = ();
     if ($state) {
-        delete $state->{_id};         # cannot set _id!
-        delete $state->{inbox};       # we must not affect the inbox on updates!
-        delete $state->{desktop};     # there is no more desktop on checkin
-        delete
-          $state->{lockExpireEpoch};  # there is no more expire time on checkin
-        delete $state->{locked};  # there is no more locked signature on checkin
+        delete $state->{_id};       # cannot set _id!
+        delete $state->{inbox};     # we must not affect the inbox on updates!
+        delete $state->{desktop};   # there is no more desktop on checkin
+        delete $state->{lockExpireEpoch}
+            ;                       # there is no more expire time on checkin
+        delete $state->{locked}
+            ;    # there is no more locked signature on checkin
         if ( @{ $state->{canonical} || [] } == 0 ) {
             delete $state->{canonical};
             @unsetcanon = ( canonical => 1 );
         }
     }
-    return $self->collection($idkey)->find_and_modify(
-        {
-            query  => { idkey => $idkey->cubby, locked => $signature },
-            update => {
-                ( $state ? ( q^$^ . 'set' => $state ) : () ),
-                q^$^
-                  . 'unset' => {
-                    desktop         => 1,
-                    lockExpireEpoch => 1,
-                    locked          => 1,
-                    @unsetcanon
-                  }
-            },
-            upsert => 0,
-            new    => 1
-        }
+    return $self->collection($idkey)->update_many(
+        { idkey => $idkey->cubby, locked => $signature },
+        {   ( $state ? ( q^$^ . 'set' => $state ) : () ),
+            q^$^
+                . 'unset' => {
+                desktop         => 1,
+                lockExpireEpoch => 1,
+                locked          => 1,
+                @unsetcanon
+                }
+        },
+        { upsert => 0, new => 1 }
     );
 }
 
 1;
 
+__END__
+
 =pod
 
 =head1 NAME
 
-Replay::Role::MongoDBt - Get Mongo up wituout duplication code
+Replay::Role::MongoDB - Get Mongo up without duplication code
 
 =head1 VERSION
 
-Version 0.01
+Version 0.04
 
 =head1 SYNOPSIS
 
+ with qw(Replay::Role::MongoDB)
+
 =head1 DESCRIPTION
 
-Each
+Use this role to provide the shared implementation of mongo database access
 
 =head1 SUBROUTINES/METHODS
 
+requires (
+    qw(_build_mongo
+        _build_db
+        _build_dbname
+        _build_dbauthdb
+        _build_dbuser
+        _build_dbpass)
+)
+
+implements
+
+=over 4
+
+=head2 _build_mongo 
+
+build the mongo connection handle
+
+=head2 checkout_record 
+
+given an IdKey, lock the document and return the uuid for the lock
+
+=head2 collection 
+
+given an IdKey, return the collection it will be found in
+
+=head2 document 
+
+given an IdKey, retrieve the document
+
+=head2 lockreport 
+
+given an IdKey, return a summary of its lock state
+
+=head2 relock 
+
+given an IdKey and a uuid, relock the record - presumably so that 
+the timeout doesn't expire
+
+=head2 relock_expired 
+
+given an IdKey to a lock with an expired record, take over the lock
+
+=head2 relock_i_match_with 
+
+unclear how this varies from relock...
+
+=head2 revert_this_record 
+
+given an idkey to a locked record and its uuid key, revert this to its
+unchecked out, unchanged state
+
+=head2 update_and_unlock 
+
+given an idkey to a locked record and its uuid key and a new 
+canonical state, update canonical state clear desktop and unlock
 
 =head1 AUTHOR
 
 John Scoles, C<< <byterock  at hotmail.com> >>
 
-=head1 BUGS
+=head1 CONFIGURATION AND ENVIRONMENT
 
-Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
-the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .
+Implied by context
+
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
+
+Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, 
+or through the web interface at 
+L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be 
+notified, and then you'll automatically be notified of progress on your 
+bug as I make changes .
 
 =head1 SUPPORT
 
@@ -333,7 +410,7 @@ direct or contributory patent infringement, then this Artistic License
 to you shall terminate on the date that such litigation is filed.
 
 Disclaimer of Warranty: THE PACKAGE IS PROVIDED BY THE COPYRIGHT HOLDER
-AND CONTRIBUTORS "AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
+AND CONTRIBUTORS 'AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
 THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
 PURPOSE, OR NON-INFRINGEMENT ARE DISCLAIMED TO THE EXTENT PERMITTED BY
 YOUR LOCAL LAW. UNLESS REQUIRED BY LAW, NO COPYRIGHT HOLDER OR

@@ -9,12 +9,12 @@ our $VERSION = '0.02';
 
 # purpose is the channel name, such as 'control', 'origin', or 'derived' but
 # may be arbitrary
-has purpose => (is => 'ro', isa => 'Str', required => 1);
+has purpose => ( is => 'ro', isa => 'Str', required => 1 );
 
-has mode => (is => 'ro', isa => 'Str', required => 1);
+has mode => ( is => 'ro', isa => 'Str', required => 1 );
 
 # Config contains information used to connect to the queuing solution
-has config => (is => 'ro', isa => 'HashRef[Item]', required => 1);
+has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1 );
 
 1;
 
@@ -24,15 +24,22 @@ __END__
 
 =head1 NAME
 
-Replay::EventSystem::Base
+Replay::Role::EventSystem
 
 =head1 VERSION
 
-Version 0.01
+Version 0.04
 
 =head1 SYNOPSIS
 
-The control channel
+ package my::event::system::implementation;
+ with qw(Replay::Role::EventSystem);
+
+=head1 DESCRIPTION
+
+An event system uses this role so that it enforces the presence of
+the methods that define the interface of being an event system
+implementation
 
 =head1 SUBROUTINES/METHODS
 
@@ -52,7 +59,24 @@ return the mode of this channel (fanout or worker)
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 CONFIGURATION AND ENVIRONMENT
+
+The Replay configuration hash has an eventSystem section.  This is used
+to configure your module.
+
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .
@@ -134,7 +158,3 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 =cut
 
 1;    # End of Replay
-
-1;
-1;
-1;

@@ -32,48 +32,48 @@ has channel => (
     predicate => 'has_channel',
 );
 
-has purpose => (is => 'ro', isa => 'Str', required => 1,);
+has purpose => ( is => 'ro', isa => 'Str', required => 1, );
 
-has topic => (is => 'ro', isa => 'Replay::EventSystem::RabbitMQ::Topic',);
+has topic => ( is => 'ro', isa => 'Replay::EventSystem::RabbitMQ::Topic', );
 
-has exchange_type => (is => 'ro', isa => 'Str', default => 'topic',);
+has exchange_type => ( is => 'ro', isa => 'Str', default => 'topic', );
 
-has passive => (is => 'ro', isa => 'Bool', default => 0,);
+has passive => ( is => 'ro', isa => 'Bool', default => 0, );
 
-has durable => (is => 'ro', isa => 'Bool', default => 1,);
+has durable => ( is => 'ro', isa => 'Bool', default => 1, );
 
-has auto_delete => (is => 'ro', isa => 'Bool', default => 0,);
+has auto_delete => ( is => 'ro', isa => 'Bool', default => 0, );
 
 has routing_key =>
-    (is => 'ro', isa => 'Str', builder => '_build_routing_key', lazy => 1);
+    ( is => 'ro', isa => 'Str', builder => '_build_routing_key', lazy => 1 );
 
 has topic_name =>
-    (is => 'ro', isa => 'Str', builder => '_build_topic_name', lazy => 1);
+    ( is => 'ro', isa => 'Str', builder => '_build_topic_name', lazy => 1 );
 
 has topic => (
     is      => 'ro',
     isa     => 'Replay::EventSystem::RabbitMQ::Topic',
     builder => '_build_topic',
-    lazy    => 1
+    lazy    => 1,
 );
 
-sub _new_channel {
+sub _new_channel {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     return $self->rabbit->channel_open;
 }
 
 sub emit {
-    my ($self, $message) = @_;
+    my ( $self, $message ) = @_;
 
     # THIS MUST DOES A Replay::Role::Envelope
-    confess "Can only emit Replay::Role::Envelope consumer"
-        unless $message->does('Replay::Role::Envelope');
+    confess 'Can only emit Replay::Role::Envelope consumer'
+        if !$message->does('Replay::Role::Envelope');
 
-#    warn __FILE__ .": EMITTING ON " . $self->topic_name . " : " . $message->{MessageType};
+#    warn __FILE__ .': EMITTING ON ' . $self->topic_name . ' : ' . $message->{MessageType};
 
     $self->topic->publish(
         $self->channel, $self->topic_name,
-        to_json($message->marshall),
+        to_json( $message->marshall ),
         { exchange => $self->topic_name }
     );
 
@@ -82,8 +82,8 @@ sub emit {
 
 sub DEMOLISH {
     my ($self) = @_;
-    if ($self->has_channel && defined $self->rabbit) {
-        $self->rabbit->channel_close($self->channel);
+    if ( $self->has_channel && defined $self->rabbit ) {
+        $self->rabbit->channel_close( $self->channel );
     }
     return;
 }
@@ -91,13 +91,15 @@ sub DEMOLISH {
 sub _build_routing_key {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     confess q(No purpose) if not $self->purpose;
-    return join q(.), 'replay', $self->rabbit->config->{stage}, $self->purpose;
+    return join q(.), 'replay', $self->rabbit->config->{stage},
+        $self->purpose;
 }
 
 sub _build_topic_name {     ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    confess q(No purpose) unless defined $self->purpose;
-    return join q(_), $self->rabbit->config->{stage}, 'replay', $self->purpose;
+    confess q(No purpose) if !defined $self->purpose;
+    return join q(_), $self->rabbit->config->{stage}, 'replay',
+        $self->purpose;
 }
 
 sub _build_topic {          ## no critic (ProhibitUnusedPrivateSubroutines)
@@ -122,17 +124,19 @@ __END__
 
 =head1 NAME
 
-Replay::EventSystem::RabbitMQ::Topic - RabbitMQ Exchange implimentation
+Replay::EventSystem::RabbitMQ::Topic - RabbitMQ Exchange implementation
 
 =head1 VERSION
 
 Version 0.01
 
-head1 SYNOPSIS
+=head1 DESCRIPTION
 
-This is an Event System implimentation module targeting the RabbitMQ service
+This is an Event System implementation module targeting the RabbitMQ service
 If you were to instantiate it independently, it might 
 look like this.
+
+=head1 SYNOPSIS
 
 my $cv = AnyEvent->condvar;
 
@@ -190,7 +194,23 @@ Makes sure to properly clean up and disconnect from queues
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
+
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'
@@ -262,7 +282,7 @@ direct or contributory patent infringement, then this Artistic License
 to you shall terminate on the date that such litigation is filed.
 
 Disclaimer of Warranty: THE PACKAGE IS PROVIDED BY THE COPYRIGHT HOLDER
-AND CONTRIBUTORS "AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
+AND CONTRIBUTORS 'AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
 THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
 PURPOSE, OR NON-INFRINGEMENT ARE DISCLAIMED TO THE EXTENT PERMITTED BY
 YOUR LOCAL LAW. UNLESS REQUIRED BY LAW, NO COPYRIGHT HOLDER OR

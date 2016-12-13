@@ -1,6 +1,7 @@
 package Test::Replay::RabbitMemory;
 
-use base qw/Test::Replay/;
+use lib 't/lib';
+use base qw/Replay::Test Test::Class/;
 
 use lib 'lib';
 
@@ -11,9 +12,8 @@ sub t_environment_reset : Test(startup) {
         config => {
             ReportEngine => {
                 Mode      => 'Mongo',
-                Mode      => 'Mongo',
-                MongoUser => 'replayuser',
-                MongoPass => 'replaypass',
+                User => 'replayuser',
+                Pass => 'replaypass',
             },
         },
         rule => []
@@ -23,23 +23,19 @@ sub t_environment_reset : Test(startup) {
 }
 =cut
 
-sub t_environment_reset : Test(startup=>2) {
-  my $self = shift;
-  
-  
- 
-  
-   `rm -rf $self->{storedir}`;
+sub t_environment_reset : Test(startup => 2) {
+    my $self = shift;
+    `rm -rf $self->{storedir}`;
 
 }
 
-sub a_replay_config : Test(startup=>2) {
+sub a_replay_config : Test(startup => 2) {
     my $self = shift;
-    
-    eval {'use Net::RabbitMQ'};
-    plan skip_all => 'Net::RabbitMQ Not present ' if $@;
+
+    eval 'use Net::RabbitMQ';
+    $self->SKIP_ALL('Net::RabbitMQ Not present') if $@;
     $self->{storedir} = '/tmp/testscript-07-' . $ENV{USER};
-    $self->{config} = {
+    $self->{config}   = {
         stage       => 'tests',
         EventSystem => {
             Mode     => 'RabbitMQ',
@@ -62,8 +58,10 @@ sub a_replay_config : Test(startup=>2) {
                 },
             },
         },
-        ReportEngine =>
-            { Mode => 'Filesystem', reportFilesystemRoot => $self->{storedir} },
+        ReportEngine => {
+            Mode                 => 'Filesystem',
+            reportFilesystemRoot => $self->{storedir}
+        },
         StorageEngine => { Mode => 'Memory' },
     };
 }

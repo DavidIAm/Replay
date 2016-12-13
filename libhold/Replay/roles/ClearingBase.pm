@@ -170,10 +170,6 @@ sub reduce {
 
 Replay::Rules::At - A rule that helps us manage emitting events later
 
-=head1 VERSION
-
-Version 0.01
-
 =head1 SYNOPSIS
 
 Sometimes we want to trigger an event to be sent at a later time, a backoff 
@@ -241,7 +237,7 @@ Used by both 'window' and 'key_value_set'.
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .

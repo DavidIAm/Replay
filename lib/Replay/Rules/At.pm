@@ -58,12 +58,12 @@ Readonly my $MAX_EXCEPTION_COUNT => 3;
 Readonly my $WINDOW_SIZE         => 1000;
 Readonly my $INTERVAL_SIZE       => 60;
 
-has '+name' => (default => 'At');
+has '+name' => ( default => 'At' );
 
-has '+version' => (default => $VERSION);
+has '+version' => ( default => $VERSION );
 
 sub match {
-    my ($self, $message) = @_;
+    my ( $self, $message ) = @_;
     return 1 if $message->{MessageType} eq 'SendMessageAt';
     return 1 if $message->{MessageType} eq 'SendMessageNow';
     return 0;
@@ -76,23 +76,23 @@ sub epoch_to_window {
 }
 
 sub window {
-    my ($self, $message) = @_;
+    my ( $self, $message ) = @_;
 
     # we send this along to rejoin the proper window
     return $message->{Message}{window}
         if $message->{MessageType} eq 'SendMessageNow';
-    return $self->epoch_to_window($message->{Message}{sendat})
+    return $self->epoch_to_window( $message->{Message}{sendat} )
         if $message->{MessageType} eq 'SendMessageAt';
     return 'unknown';
 }
 
 sub compare {
-    my ($self, $aa, $bb) = @_;
+    my ( $self, $aa, $bb ) = @_;
     return $aa->{sendat} cmp $bb->{sendat};
 }
 
 sub key_value_set {
-    my ($self, $message) = @_;
+    my ( $self, $message ) = @_;
 
     return $message->{Message}{atdomain} || 'generic' => {
         requested => 0,
@@ -111,7 +111,7 @@ sub key_value_set {
 }
 
 sub reduce {
-    my ($self, $emitter, @atoms) = @_;
+    my ( $self, $emitter, @atoms ) = @_;
 
     # find the latest SendMessageNow that has arrived
     my $maxtime = max map { $_->{epoch} } grep { defined $_->{epoch} } @atoms,
@@ -128,9 +128,10 @@ sub reduce {
     my $newmax   = max @newtimes;
     foreach my $atom (@atoms_to_send) {
 
-        if ($atom->{sendat} <= $maxtime) {
+        if ( $atom->{sendat} <= $maxtime ) {
             my $c = $atom->{class};
-            $emitter->emit($atom->{channel}, my $sent = $c->new($atom->{payload}));
+            $emitter->emit( $atom->{channel},
+                my $sent = $c->new( $atom->{payload} ) );
             $emitter->emit(
                 'map',
                 Replay::Message::Sent::At->new(
@@ -147,10 +148,10 @@ sub reduce {
         }
     }
 
-    # we do this after because there's no sense in adding it to the list within
-    # the domain if we've already sent it.
-    foreach my $atom (grep { defined $_->{requested} && !$_->{requested} }
-        @atoms_to_keep)
+   # we do this after because there's no sense in adding it to the list within
+   # the domain if we've already sent it.
+    foreach my $atom ( grep { defined $_->{requested} && !$_->{requested} }
+        @atoms_to_keep )
     {
         $emitter->emit(
             'map',
@@ -167,6 +168,8 @@ sub reduce {
 }
 
 1;
+
+__END__
 
 =pod
 
@@ -237,7 +240,7 @@ to origin
 
 =head2 windowID = epoch_to_window(epoch)
 
-current implimentation just divides the epoch time by 1000, so every 1000
+current implementation just divides the epoch time by 1000, so every 1000
 minutes will have its own state set.  Hopefully this is small enough.
 Used by both 'window' and 'key_value_set'.
 
@@ -245,7 +248,23 @@ Used by both 'window' and 'key_value_set'.
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
+
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .

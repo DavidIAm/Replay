@@ -4,6 +4,7 @@ use Data::Dumper;
 use Moose::Role;
 use Time::HiRes qw/gettimeofday/;
 use Moose::Util qw(apply_all_roles);
+use Carp qw/carp/;
 use Data::UUID;
 
 our $VERSION = '0.03';
@@ -87,23 +88,26 @@ around BUILDARGS => sub {
     my $orig  = shift;
     my $class = shift;
     use Data::Dumper;
-    confess "Strange build of an envelope: ".Dumper [@_] if !ref $_[0] && scalar @_ % 2;
-    my %args  = ref $_[0] ? %{ $_[0] } : @_;
+    confess 'Strange build of an envelope: ' . Dumper [@_]
+        if !ref $_[0] && scalar @_ % 2;
+    my %args = ref $_[0] ? %{ $_[0] } : @_;
     $class->meta->make_mutable;
-    my %attributes = map { $_->{name} => $_ } $class->meta->get_all_attributes;
+    my %attributes
+        = map { $_->{name} => $_ } $class->meta->get_all_attributes;
 
-    foreach (keys %args) {
+    foreach ( keys %args ) {
         next if exists $attributes{$_};
 
         my $newattr = $class->meta->add_attribute(
             $_ => (
-                is          => 'ro',
-           #     isa         => 'Item',
+                is => 'ro',
+
+                #     isa         => 'Item',
                 traits      => ['MooseX::MetaDescription::Meta::Trait'],
-                description => { layer => 'message' }
+                description => { layer => 'message' },
             )
         );
-        apply_all_roles($newattr, 'MooseX::MetaDescription::Meta::Trait');
+        apply_all_roles( $newattr, 'MooseX::MetaDescription::Meta::Trait' );
         $args{EXTRA}{$_} = $args{$_};
     }
     $class->meta->make_immutable;
@@ -112,9 +116,8 @@ around BUILDARGS => sub {
 
 sub layer_name_for_field {
     my ( $self, $field ) = @_;
-    ( $field->can('description') ? $field->description->{layer} : '' )
-        || 'sloppy'
-
+    return ( $field->can('description') ? $field->description->{layer} : q{} )
+        || 'sloppy';
 }
 
 sub marshall {
@@ -127,24 +130,28 @@ sub marshall {
 
         my $field = $attributes{$attr};
 
-        do {
-            warn "NO SUCH ATTRBUTE $attr IN META OF "
-                . ref($self) . " - "
+        if ( !defined $field ) {
+            carp 'NO SUCH ATTRBUTE '
+                . $attr
+                . ' IN META OF '
+                . ref($self) . ' - '
                 . Dumper ref $attributes{$attr}
                 and next;
-        } unless defined $field;
+        }
+        if ( defined $self->$attr ) {
+            $layers->{ $self->layer_name_for_field($field) }{$attr}
+                = $self->$attr;
+        }
 
-        $layers->{ $self->layer_name_for_field($field) }{$attr} = $self->$attr
-            if defined $self->$attr;
     }
-    %{$layers->{envelope}{Message}} = (
+    %{ $layers->{envelope}{Message} } = (
         %{ $layers->{envelope}{Message} || {} },
         %{ $layers->{message} || {} }
     );
     return $layers->{envelope};
 }
 
-sub _now {    ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _now {
     my $self = shift;
     return +gettimeofday;
 }
@@ -152,7 +159,7 @@ sub _now {    ## no critic (ProhibitUnusedPrivateSubroutines)
 sub _build_uuid {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     my $ug   = Data::UUID->new;
-    return $ug->to_string($ug->create());
+    return $ug->to_string( $ug->create() );
 }
 
 has Timeblocks => (
@@ -182,8 +189,6 @@ sub assume_effective_time {
     return $self->ReceivedTime || $self->_now;
 }
 
-=pod
-
 1;
 
 __END__
@@ -198,9 +203,15 @@ Replay::Role::Envelope - General replay message envelope
 
 Version 0.01
 
-=cut
-
 =head1 SYNOPSIS
+
+ with('Replay::Role::Envelope');
+
+=head1 SUBROUTINES/METHODS
+
+Data type
+
+=head1 DESCRIPTION
 
 This is a message data type envelop used for most messages on the map channel
 
@@ -226,7 +237,7 @@ Windows - an array of window identifiers related to this message state
 =head2 Ruleversions => The rules (and their versions) from which this message is derived
 =head2 Windows => The window blocks from which this message is derived
 
-=head1 METHODS
+=head1 SUBROUTINES/METHODS
 
 =head2 marshall
 
@@ -244,7 +255,23 @@ Builder for instantiating the uuid object that creates new UUIDs
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
+
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .
@@ -315,7 +342,7 @@ direct or contributory patent infringement, then this Artistic License
 to you shall terminate on the date that such litigation is filed.
 
 Disclaimer of Warranty: THE PACKAGE IS PROVIDED BY THE COPYRIGHT HOLDER
-AND CONTRIBUTORS "AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
+AND CONTRIBUTORS 'AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
 THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
 PURPOSE, OR NON-INFRINGEMENT ARE DISCLAIMED TO THE EXTENT PERMITTED BY
 YOUR LOCAL LAW. UNLESS REQUIRED BY LAW, NO COPYRIGHT HOLDER OR

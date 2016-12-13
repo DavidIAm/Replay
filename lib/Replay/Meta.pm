@@ -13,14 +13,16 @@ use Digest::MD5 qw/md5_hex/;
 use Storable qw/freeze/;
 $Storable::canonical = 1;    ## no critic (ProhibitPackageVars)
 
-has Windows      => (is => 'ro', isa => 'ArrayRef',          required => 1,);
-has Ruleversions => (is => 'ro', isa => 'ArrayRef[HashRef]', required => 1,);
-has Timeblocks   => (is => 'ro', isa => 'ArrayRef',          required => 1,);
+has Windows => ( is => 'ro', isa => 'ArrayRef', required => 1, );
+has Ruleversions =>
+    ( is => 'ro', isa => 'ArrayRef[HashRef]', required => 1, );
+has Timeblocks => ( is => 'ro', isa => 'ArrayRef', required => 1, );
 
 # static method
 sub union {
     my (@sets) = @_;
-    my %hash = map { md5_hex(freeze([$_])) => $_ } map { @{$_} } @sets;    #}{
+    my %hash
+        = map { md5_hex( freeze( [$_] ) ) => $_ } map { @{$_} } @sets;    #}{
     return values %hash;
 }
 
@@ -28,7 +30,7 @@ sub union {
 
 __END__
 
-=pod 
+=pod
 
 =head1 NAME
 
@@ -36,11 +38,17 @@ Replay::Meta - the write once read many module
 
 =head1 VERSION
 
-Version 0.01
+Version 0.04
 
 =head1 SYNOPSIS
 
+=head1 DESCRIPTION
+
 A data struct and utility for dealing with meta information
+
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
 
 =head1 SUBROUTINES/METHODS
 
@@ -54,7 +62,19 @@ Union the sets provided and return
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .

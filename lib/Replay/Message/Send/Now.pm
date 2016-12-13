@@ -8,7 +8,7 @@ our $VERSION = '0.02';
 
 with(qw(Replay::Role::Envelope));
 
-has '+MessageType' => (default => 'SendMessageNow',);
+has '+MessageType' => ( default => 'SendMessageNow', );
 has 'sendtime' => (
     is          => 'ro',
     isa         => 'Num',
@@ -40,9 +40,13 @@ Replay::Message::Send::Now - The message form for the At rule's send message now
 
 =head1 VERSION
 
-Version 0.01
+Version 0.04
 
 =head1 SYNOPSIS
+
+data type
+
+=head1 DESCRIPTION
 
 the basic message functionality, providing the serialization
 routines and patterns for making a Replay Message
@@ -57,7 +61,23 @@ use the state information provided by the construction to create a structure sui
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
+
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .

@@ -2,7 +2,7 @@ package Replay::IdKey;
 
 use Moose;
 use MooseX::Storage;
-with Storage('format' => 'JSON');
+with Storage( 'format' => 'JSON' );
 use MongoDB;
 use MongoDB::OID;
 use Digest::MD5 qw/md5_hex/;
@@ -59,23 +59,30 @@ has revision => (
     description => { layer => 'message' },
 );
 
-
 sub BUILD {
     my $self = shift;
-    confess "WTF" if $self->has_revision && !defined $self->revision;
+    confess 'WTF' if $self->has_revision && !defined $self->revision;
+    return;
 }
 
 around BUILDARGS => sub {
     my $orig  = shift;
     my $class = shift;
     my %args  = 'HASH' eq ref $_[0] ? %{ $_[0] } : @_;
-    delete $args{window} if exists $args{window} && (!defined $args{window});
-    delete $args{key}    if exists $args{key}    && (!defined $args{key});
-    delete $args{revision}
-        if exists $args{revision}
-        && (!defined $args{revision}
-        || $args{revision} eq 'latest'
-        || $args{revision} eq '');
+    if ( exists $args{window} && ( !defined $args{window} ) ) {
+        delete $args{window};
+    }
+    if ( exists $args{key} && ( !defined $args{key} ) ) {
+        delete $args{key};
+    }
+    if (exists $args{revision}
+        && (   !defined $args{revision}
+            || $args{revision} eq 'latest'
+            || $args{revision} eq q{} )
+        )
+    {
+        delete $args{revision};
+    }
     return $class->$orig(%args);
 };
 
@@ -85,24 +92,25 @@ sub collection {
 }
 
 sub parse_cubby {
-    my ($class,  $cubby) = @_;
-    my ($window, $key)   = $cubby =~ /^wind-(.+)-key-(.+)$/smix;
+    my ( $class,  $cubby ) = @_;
+    my ( $window, $key )   = $cubby =~ /^wind-(.+)-key-(.+)$/smix;
     return window => $window, key => $key;
 }
 
 sub window_prefix {
     my ($self) = @_;
-    return 'wind-' . ($self->window || '') . '-key-';
+    return 'wind-' . ( $self->window || q{} ) . '-key-';
 }
 
 sub cubby {
     my ($self) = @_;
-    return $self->window_prefix . ($self->key || '');
+    return $self->window_prefix . ( $self->key || q{} );
 }
 
 sub full_spec {
-  my ($self) = @_;
-  return join q{-}, $self->domain, $self->rule_spec, $self->cubby, $self->revision;
+    my ($self) = @_;
+    return join q{-}, $self->domain, $self->rule_spec, $self->cubby,
+        $self->revision;
 }
 
 sub rule_spec {
@@ -115,9 +123,9 @@ sub delivery {
     return ref($self)->new(
         name    => $self->name,
         version => $self->version,
-        ($self->has_window   ? (window   => $self->window)   : ()),
-        ($self->has_key      ? (key      => $self->key)      : ()),
-        ($self->has_revision ? (revision => $self->revision) : ()),
+        ( $self->has_window   ? ( window   => $self->window )   : () ),
+        ( $self->has_key      ? ( key      => $self->key )      : () ),
+        ( $self->has_revision ? ( revision => $self->revision ) : () ),
     );
 }
 
@@ -126,8 +134,8 @@ sub summary {
     return ref($self)->new(
         name    => $self->name,
         version => $self->version,
-        ($self->has_window   ? (window   => $self->window)   : ()),
-        ($self->has_revision ? (revision => $self->revision) : ()),
+        ( $self->has_window   ? ( window   => $self->window )   : () ),
+        ( $self->has_revision ? ( revision => $self->revision ) : () ),
     );
 }
 
@@ -136,7 +144,7 @@ sub globsummary {
     return ref($self)->new(
         name    => $self->name,
         version => $self->version,
-        ($self->has_revision ? (revision => $self->revision) : ()),
+        ( $self->has_revision ? ( revision => $self->revision ) : () ),
     );
 }
 
@@ -147,17 +155,17 @@ sub marshall {
 
 sub hash {
     my ($self) = @_;
-    return md5_hex(join ':', $self->hash_list);
+    return md5_hex( join q{:}, $self->hash_list );
 }
 
 sub hash_list {
     my ($self) = @_;
     return (
-        name    => $self->name . '',
-        version => $self->version . '',
-        ($self->has_window     ? (window     => $self->window . '')     : ()),
-        ($self->has_key        ? (key        => $self->key . '')        : ()),
-        ($self->has_revision   ? (revision   => $self->revision . '')   : ()),
+        name    => $self->name . q{},
+        version => $self->version . q{},
+        ( $self->has_window   ? ( window   => $self->window . q{} )   : () ),
+        ( $self->has_key      ? ( key      => $self->key . q{} )      : () ),
+        ( $self->has_revision ? ( revision => $self->revision . q{} ) : () ),
     );
 }
 
@@ -169,7 +177,7 @@ __END__
 
 =head1 NAME
 
-Replay::IdKey - A data type that encapsulates the state of the movie
+Replay::IdKey - A data type that encapsulates the identity of the data
 
 =head1 VERSION
 
@@ -183,6 +191,14 @@ name
 version
 window
 key
+
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Irrelevant
+
+=head1 DESCRIPTION
+
+Each idkey points to a particular 'cubby' specific to all of rule, version, window, and key.
 
 =head1 SUBROUTINES/METHODS
 
@@ -206,7 +222,7 @@ The window-and-key part - where the document reflecting the state is found
 
 =head2 rule_spec
 
-the rule-and-version part - the particular business rule this state will be useing
+the rule-and-version part - the particular business rule this state will be using
 
 =head2 hash_list
 
@@ -242,7 +258,19 @@ Clips the key for global summary mode - no window or key mentioned
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .

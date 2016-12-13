@@ -10,10 +10,11 @@ our $VERSION = '0.03';
 
 has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, );
 
-has ruleSource  => ( is => 'ro', isa => 'Replay::RuleSource',  required => 1, );
-has eventSystem => ( is => 'ro', isa => 'Replay::EventSystem', required => 1, );
+has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1, );
+has eventSystem =>
+    ( is => 'ro', isa => 'Replay::EventSystem', required => 1, );
 has storageEngine =>
-  ( is => 'ro', isa => 'Replay::StorageEngine', required => 1, );
+    ( is => 'ro', isa => 'Replay::StorageEngine', required => 1, );
 
 has reportEngineSelector => (
     is      => 'ro',
@@ -56,20 +57,20 @@ sub globsummary_data {
 sub update_delivery {
     my ( $self, $idkey ) = @_;
     return $self->engine($idkey)
-      ->update_delivery( $idkey,
+        ->update_delivery( $idkey,
         $self->storageEngine->fetch_canonical_state($idkey) );
 }
 
 sub update_summary {
     my ( $self, $idkey ) = @_;
     return $self->engine($idkey)
-      ->update_summary( $idkey, $self->get_all_delivery_data($idkey) );
+        ->update_summary( $idkey, $self->get_all_delivery_data($idkey) );
 }
 
 sub update_globsummary {
     my ( $self, $idkey ) = @_;
     return $self->engine($idkey)
-      ->update_globsummary( $idkey, $self->get_all_summary_data($idkey) );
+        ->update_globsummary( $idkey, $self->get_all_summary_data($idkey) );
 }
 
 sub copydomain {
@@ -80,9 +81,8 @@ sub copydomain {
 sub get_all_delivery_data {
     my ( $self, $idkey ) = @_;
     my @out;
-    foreach
-      my $delkey ( $self->engine($idkey)->delivery_keys( $idkey->summary ) )
-    {
+    my @keys = $self->engine($idkey)->delivery_keys( $idkey->summary );
+    foreach my $delkey (@keys) {
         my $data = $self->delivery_data($delkey);
         next if $data->{EMPTY};
         push @out, $delkey->key, $data->{DATA};
@@ -93,8 +93,8 @@ sub get_all_delivery_data {
 sub get_all_summary_data {
     my ( $self, $idkey ) = @_;
     my @out;
-    foreach
-      my $sumkey ( $self->engine($idkey)->summary_keys( $idkey->globsummary ) )
+    foreach my $sumkey (
+        $self->engine($idkey)->summary_keys( $idkey->globsummary ) )
     {
         my $data = $self->delivery_data($sumkey);
         next if $data->{EMPTY};
@@ -104,29 +104,31 @@ sub get_all_summary_data {
 }
 
 sub freeze {
-    confess "unimplimented";
     my ( $self, $idkey ) = @_;
-    $self->engine($idkey)->freeze($idkey);
+    confess 'unimplemented';
+
+    #return $self->engine($idkey)->freeze($idkey);
 }
 
 sub checkpoint {
-    confess "unimplimented";
     my ( $self, $attimefactor ) = @_;
-    foreach my $engine ( $self->reportEngineSelector->all_engines ) {
-        $engine->checkpoint($attimefactor);
-    }
+    confess 'unimplemented';
+
+    #foreach my $engine ( $self->reportEngineSelector->all_engines ) {
+    #    $engine->checkpoint($attimefactor);
+    #}
 }
 
 sub engine {
     my ( $self, $idkey ) = @_;
-    return $self->reportEngineSelector->select($idkey);
+    return $self->reportEngineSelector->select_engine($idkey);
 }
 
-sub _build_report_selector {    ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_report_selector {   ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
 
-    # TODO : This should decide more reasonably which Selector to load, probably
-    # using a configuration directive
+  # TODO : This should decide more reasonably which Selector to load, probably
+  # using a configuration directive
     return Replay::ReportEngine::Selector->new(
         config        => $self->config,
         ruleSource    => $self->ruleSource,
@@ -171,6 +173,10 @@ my $storage = Replay::ReportEngine->new(
  );
 
 As of this writing 'FileSystem' and 'Mongo' modes are available.
+
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
 
 =head1 DESCRIPTION
 
@@ -275,7 +281,7 @@ ruleversionwindows:[],timeblocks:[] }, frozen_at_time: 12345 } ,
 =head1 ENGINE INTERFACE POINTS
 
 This is a summary of the interface points that this module expects the
-ReportEngine implimentations to support
+ReportEngine implementations to support
 
 =head2 engine->delivery ( idkey )
 
@@ -331,11 +337,11 @@ expected to return a list of all of the windows within a rule
 
 =head2 engine->freeze ( idkey )
 
-expected to succesfully freeze the revision or throw an exception
+expected to successfully freeze the revision or throw an exception
 
 =head2 engine->checkpoint ( attimefactor )
 
-expected to succesfully save a checkpoint immediately after the time
+expected to successfully save a checkpoint immediately after the time
 factor or throw an exception
 
 =head1 SUBROUTINES/METHODS
@@ -412,7 +418,19 @@ delegate to engine freeze
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to
 C<bug-replay at rt.cpan.org>, or through the web interface at

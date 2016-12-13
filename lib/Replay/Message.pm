@@ -6,29 +6,18 @@ use MooseX::MetaDescription::Meta::Trait;
 
 our $VERSION = '0.02';
 
-with Storage(format => 'JSON');
+with Storage( format => 'JSON' );
 with(qw(Replay::Types::Messages Replay::Role::Envelope));
 
-has name => (is => 'ro', isa => 'Str',);
+has name => ( is => 'ro', isa => 'Str', );
 
-has version => (is => 'ro', isa => 'Str',);
+has version => ( is => 'ro', isa => 'Str', );
 
 1;
 
 __END__
 
-=pod 
-
-Documentation
- 
-=cut
-
-has MessageType => (
-    is          => 'ro',
-    isa         => 'Str',
-    traits      => ['MooseX::MetaDescription::Meta::Trait'],
-    description => { layer => 'envelope' },
-);
+=pod
 
 =head1 NAME
 
@@ -40,8 +29,16 @@ Version 0.01
 
 =head1 SYNOPSIS
 
+  my $message = new Replay::Message(MessageType => 'myMessageType');
+
+=head1 DESCRIPTION
+
 the basic message functionality, providing the serialization
 routines and patterns for making a Replay Message
+
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
 
 =head1 SUBROUTINES/METHODS
 
@@ -63,7 +60,19 @@ builder for getting the object with which uuids are created
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .

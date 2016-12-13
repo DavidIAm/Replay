@@ -21,10 +21,10 @@ use JSON;
 use Scalar::Util qw/blessed/;
 use Carp qw/confess/;
 
-has purpose => (is => 'ro', isa => 'Str', required => 1,);
-has subscribers => (is => 'ro', isa => 'ArrayRef', default => sub { [] },);
+has purpose => ( is => 'ro', isa => 'Str', required => 1, );
+has subscribers => ( is => 'ro', isa => 'ArrayRef', default => sub { [] }, );
 
-has config => (is => 'ro', isa => 'HashRef[Item]', required => 1);
+has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1 );
 
 has rabbit => (
     is      => 'ro',
@@ -66,25 +66,29 @@ has topic => (
     lazy => 1,
 );
 
-sub _build_rabbit {
+sub _build_rabbit {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     try {
         return Replay::EventSystem::RabbitMQ::Connection->instance;
     }
     catch {
         Replay::EventSystem::RabbitMQ::Connection->initialize(
-            config => $self->config->{EventSystem}{RabbitMQ});
-        return Replay::EventSystem::RabbitMQ::Connection->instance;
+            config => $self->config->{EventSystem}{RabbitMQ} );
     };
+    return Replay::EventSystem::RabbitMQ::Connection->instance;
 }
 
 sub emit {
-    my ($self, $message) = @_;
+    my ( $self, $message ) = @_;
 
-    $message = Replay::Message->new($message) unless blessed $message;
+    if ( !blessed $message) {
+        $message = Replay::Message->new($message);
+    }
+
     # THIS MUST DOES A Replay::Role::Envelope
-    confess "Can only emit Replay::Role::Envelope consumer"
-        unless $message->does('Replay::Role::Envelope');
+    if ( !$message->does('Replay::Role::Envelope') ) {
+        confess 'Can only emit Replay::Role::Envelope consumer';
+    }
     my $uuid = $message->UUID;
 
     return $self->topic->emit($message);
@@ -95,17 +99,18 @@ sub poll {
     my $handled = 0;
 
     # only check the channels if we have been shown an interest in
-    foreach my $message ($self->_receive()) {
-        next if not scalar(@{ $self->subscribers });
+    foreach my $message ( $self->_receive() ) {
+        next if not scalar( @{ $self->subscribers } );
         $handled++;
-        foreach my $subscriber (@{ $self->subscribers }) {
+        foreach my $subscriber ( @{ $self->subscribers } ) {
             try {
-                $subscriber->($message->body);
+                $subscriber->( $message->body );
                 $message->ack;
             }
             catch {
                 $message->nack;
-                carp q(There was an exception while processing message through subscriber )
+                carp
+                    q(There was an exception while processing message through subscriber )
                     . $_;
             };
         }
@@ -114,7 +119,7 @@ sub poll {
 }
 
 sub subscribe {
-    my ($self, $callback) = @_;
+    my ( $self, $callback ) = @_;
     croak 'callback must be code' if 'CODE' ne ref $callback;
     push @{ $self->subscribers }, $callback;
     return;
@@ -145,6 +150,7 @@ sub done {
     my ($self) = @_;
 
     #  $self->rabbit->_clear_instance;
+    return;
 }
 
 __PACKAGE__->meta->make_immutable;
@@ -157,21 +163,15 @@ __END__
 
 =head1 NAME
 
-Replay::EventSystem::RabbitMQ - RabbitMQ Exchange/Queue implimentation
+Replay::EventSystem::RabbitMQ - RabbitMQ Exchange/Queue implementation
 
 =head1 VERSION
 
 Version 0.01
 
-head1 SYNOPSIS
+=head1 SYNOPSIS
 
-This is an Event System implimentation module targeting the RabbitMQ service
-If you were to instantiate it independently, it might 
-look like this.
-
-my $cv = AnyEvent->condvar;
-
-Replay::EventSystem::RabbitMQ->new(
+  Replay::EventSystem::RabbitMQ->new(
     purpose => $purpose,
     config  => {
         stage    => 'test',
@@ -186,7 +186,32 @@ Replay::EventSystem::RabbitMQ->new(
             tune    => { heartbeat => 5, channel_max => 100, frame_max => 1000 },
         },
     }
-);
+ );
+
+=head1 DESCRIPTION
+
+This is an Event System implementation module targeting the RabbitMQ service
+If you were to instantiate it independently, it might 
+look like this.
+
+my $cv = AnyEvent->condvar;
+
+  Replay::EventSystem::RabbitMQ->new(
+    purpose => $purpose,
+    config  => {
+        stage    => 'test',
+        RabbitMQ => {
+            host    => 'localhost',
+            port    => '5672',
+            user    => 'replay',
+            pass    => 'replaypass',
+            vhost   => 'replay',
+            timeout => 5,
+            tls     => 1,
+            tune    => { heartbeat => 5, channel_max => 100, frame_max => 1000 },
+        },
+    }
+ );
 
 $cv->recv;
 
@@ -225,7 +250,23 @@ Makes sure to properly clean up and disconnect from queues
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
+
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'

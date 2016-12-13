@@ -14,7 +14,7 @@ use JSON;
 use Scalar::Util qw/blessed/;
 use Carp qw/confess/;
 
-has config => (is => 'ro', isa => 'HashRef[Defined]', required => 1);
+has config => ( is => 'ro', isa => 'HashRef[Defined]', required => 1 );
 
 has rabbit => (
     is       => 'ro',
@@ -27,11 +27,11 @@ has rabbit => (
     lazy => 1,
 );
 
-has last_allocated_channel => (is => 'rw', isa => 'Num', default => 0,);
+has last_allocated_channel => ( is => 'rw', isa => 'Num', default => 0, );
 has topic_name =>
-    (is => 'ro', isa => 'Str', builder => '_build_topic_name', lazy => 1,);
+    ( is => 'ro', isa => 'Str', builder => '_build_topic_name', lazy => 1, );
 has queue_name =>
-    (is => 'ro', isa => 'Str', builder => '_build_queue_name', lazy => 1);
+    ( is => 'ro', isa => 'Str', builder => '_build_queue_name', lazy => 1 );
 
 sub channel_open {
     my ($self) = @_;
@@ -43,20 +43,23 @@ sub channel_open {
 
 use Data::Dumper;
 
-sub _build_rabbit {
+sub _build_rabbit {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     my $rabbit = Net::RabbitMQ->new;
-    return $rabbit unless defined $self->config;
-    $rabbit->connect($self->config->{host}, $self->config->{options});
+    return $rabbit if !defined $self->config;
+    $rabbit->connect( $self->config->{host}, $self->config->{options} );
     return $rabbit;
 }
 
 sub DEMOLISH {
     my ($self) = @_;
     my $number = $self->last_allocated_channel;
-    if (ref $self->rabbit) {
-        $self->rabbit->channel_close($number--) while $number||0 > 0;
+    if ( ref $self->rabbit ) {
+        while ( $number || 0 > 0 ) {
+            $self->rabbit->channel_close( $number-- );
+        }
     }
+    return;
 }
 
 1;
@@ -73,11 +76,13 @@ Replay::EventSystem::RabbitMQ::Connection - Shared connection for rabbitmq
 
 Version 0.01
 
-head1 SYNOPSIS
+=head1 DESCRIPTION
 
-This is an Event System implimentation module targeting the RabbitMQ service
+This is an Event System implementation module targeting the RabbitMQ service
 If you were to instantiate it independently, it might 
 look like this.
+
+=head1 SYNOPSIS
 
 my $cv = AnyEvent->condvar;
 
@@ -106,7 +111,23 @@ Makes sure to properly clean up and disconnect from queues
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
+
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'

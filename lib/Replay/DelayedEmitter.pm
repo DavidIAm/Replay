@@ -5,12 +5,13 @@ use Carp qw/confess/;
 
 our $VERSION = '0.02';
 
-has eventSystem  => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
-has Timeblocks   => (is => 'rw', isa => 'ArrayRef',            required => 1);
-has Ruleversions => (is => 'rw', isa => 'ArrayRef',            required => 1);
-has messagesToSend => (is => 'rw', isa => 'ArrayRef', default => sub { [] });
-has atomsToDefer => (is => 'rw', isa => 'ArrayRef', default => sub { [] });
-
+has eventSystem =>
+    ( is => 'ro', isa => 'Replay::EventSystem', required => 1 );
+has Timeblocks   => ( is => 'rw', isa => 'ArrayRef', required => 1 );
+has Ruleversions => ( is => 'rw', isa => 'ArrayRef', required => 1 );
+has messagesToSend =>
+    ( is => 'rw', isa => 'ArrayRef', default => sub { [] } );
+has atomsToDefer => ( is => 'rw', isa => 'ArrayRef', default => sub { [] } );
 
 sub defer {
     my $self = shift;
@@ -20,28 +21,28 @@ sub defer {
 }
 
 has map => (
-    is      => 'ro',
-    isa     => 'Replay::DelayedEmitter::Channeled',
-    lazy_build    => 1,
-    weak_ref  => 1,
+    is         => 'ro',
+    isa        => 'Replay::DelayedEmitter::Channeled',
+    lazy_build => 1,
+    weak_ref   => 1,
 );
 
-sub _build_map {
+sub _build_map {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return Replay::DelayedEmitter::Channeled->new(
         channel => 'map',
         emitter => $self
     );
-}    
+}
 
 has reduce => (
-    is      => 'ro',
-    isa     => 'Replay::DelayedEmitter::Channeled',
-    lazy_build    => 1,
-    weak_ref  => 1,
+    is         => 'ro',
+    isa        => 'Replay::DelayedEmitter::Channeled',
+    lazy_build => 1,
+    weak_ref   => 1,
 );
 
-sub _build_reduce {
+sub _build_reduce {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return Replay::DelayedEmitter::Channeled->new(
         channel => 'reduce',
@@ -50,13 +51,13 @@ sub _build_reduce {
 }
 
 has report => (
-    is      => 'ro',
-    isa     => 'Replay::DelayedEmitter::Channeled',
-    lazy_build    => 1,
-    weak_ref  => 1,
+    is         => 'ro',
+    isa        => 'Replay::DelayedEmitter::Channeled',
+    lazy_build => 1,
+    weak_ref   => 1,
 );
 
-sub _build_report {
+sub _build_report {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return Replay::DelayedEmitter::Channeled->new(
         channel => 'report',
@@ -65,12 +66,13 @@ sub _build_report {
 }
 
 has control => (
-    is      => 'ro',
-    isa     => 'Replay::DelayedEmitter::Channeled',
-    lazy_build    => 1,
-    weak_ref  => 1,
+    is         => 'ro',
+    isa        => 'Replay::DelayedEmitter::Channeled',
+    lazy_build => 1,
+    weak_ref   => 1,
 );
-sub _build_control {
+
+sub _build_control {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return Replay::DelayedEmitter::Channeled->new(
         channel => 'control',
@@ -79,12 +81,13 @@ sub _build_control {
 }
 
 has origin => (
-    is      => 'ro',
-    isa     => 'Replay::DelayedEmitter::Channeled',
-    lazy_build    => 1,
-    weak_ref  => 1,
+    is         => 'ro',
+    isa        => 'Replay::DelayedEmitter::Channeled',
+    lazy_build => 1,
+    weak_ref   => 1,
 );
-sub _build_origin {
+
+sub _build_origin {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return Replay::DelayedEmitter::Channeled->new(
         channel => 'origin',
@@ -93,36 +96,39 @@ sub _build_origin {
 }
 
 sub emit {
-    my ($self, $channel, $message) = @_;
+    my ( $self, $channel, $message ) = @_;
 
     #warn(" Replay::EventSystem::Null emit $message");
     # handle single argument construct
-    if (blessed $channel && $channel->isa('Replay::Message')) {
+    if ( blessed $channel && $channel->isa('Replay::Message') ) {
         $message = $channel;
         $channel = 'map';
     }
 
-    $message = Replay::Message->new($message) unless blessed $message;
+    if ( !blessed $message) {
+        $message = Replay::Message->new($message);
+    }
 
     # THIS MUST DOES A Replay::Role::Envelope
-    confess "Can only emit Replay::Role::Envelope consumer"
-        unless $message->does('Replay::Role::Envelope');
+    if ( !$message->does('Replay::Role::Envelope') ) {
+        confess 'Can only emit Replay::Role::Envelope consumer';
+    }
 
-    #    die "Must emit a Replay message" unless $message->isa('Replay::Message');
+#    die "Must emit a Replay message" unless $message->isa('Replay::Message');
 
     # augment message with metadata from storage
-    $message->Timeblocks($self->Timeblocks);
-    $message->Ruleversions($self->Ruleversions);
+    $message->Timeblocks( $self->Timeblocks );
+    $message->Ruleversions( $self->Ruleversions );
 
     push @{ $self->messagesToSend },
-        sub { $self->eventSystem->emit($channel, $message) };
+        sub { $self->eventSystem->emit( $channel, $message ) };
 
     return $message->UUID;
 }
 
 sub release {
     my $self = shift;
-    foreach (@{ $self->messagesToSend }) { $_->(); }
+    foreach ( @{ $self->messagesToSend } ) { $_->(); }
     return;
 }
 
@@ -156,6 +162,10 @@ $emitter->emit('map', "derivative data");
 if (success) {
     $emitter->release();
 }
+
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
 
 =head1 DESCRIPTION
 
@@ -213,7 +223,19 @@ release the buffered messages
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .

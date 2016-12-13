@@ -81,15 +81,15 @@ Readonly my $MAX_EXCEPTION_COUNT => 3;
 Readonly my $WINDOW_SIZE         => 1000;
 Readonly my $INTERAL_SIZE        => 60;
 
-has '+name' => (default => 'AtDomain');
+has '+name' => ( default => 'AtDomain' );
 
-has '+version' => (default => $VERSION);
+has '+version' => ( default => $VERSION );
 
 # SendMesssageAt for adding to our state
 # SentMesssageAt for removing from our state
 # Timing for triggering consideration of our state
 sub match {
-    my ($self, $message) = @_;
+    my ( $self, $message ) = @_;
     return 1 if $message->{MessageType} eq 'SendMessageWhen';
     return 1 if $message->{MessageType} eq 'SentMessageAt';
     return 1 if $message->{MessageType} eq 'Timing';
@@ -98,20 +98,20 @@ sub match {
 
 # only one window for matching with the timing message reliably
 sub window {
-    my ($self, $message) = @_;
+    my ( $self, $message ) = @_;
     return 'alltime';
 }
 
 # don't care the order
 sub compare {
-    my ($self, $aa, $bb) = @_;
+    my ( $self, $aa, $bb ) = @_;
     return 0;
 }
 
 # effectively we're dropping the actual message that is sent in
 # because we don't want to store that here, its in the At rule
 sub key_value_set {
-    my ($self, $message) = @_;
+    my ( $self, $message ) = @_;
 
     return q(-) => {
         __TYPE__ => 'request',
@@ -147,7 +147,7 @@ sub key_value_set {
 }
 
 sub reduce {
-    my ($self, $emitter, @atoms) = @_;
+    my ( $self, $emitter, @atoms ) = @_;
 
     # find the latest timing message that has arrived
 
@@ -157,9 +157,12 @@ sub reduce {
         { __TYPE__ => 'domains', D => {} };
 
     # transmit an event to
-    foreach my $atom (sort { $a->{domain} cmp $b->{domain} }
-        grep { $_->{__TYPE__} eq 'request' || $_->{__TYPE__} eq 'confirmation' }
-        @atoms)
+    foreach my $atom (
+        sort { $a->{domain} cmp $b->{domain} } grep {
+                   $_->{__TYPE__} eq 'request'
+                || $_->{__TYPE__} eq 'confirmation'
+        } @atoms
+        )
     {
 
         my $d = $atom->{domain};
@@ -177,38 +180,45 @@ sub reduce {
     }
 
     # housekeeping - clean up the domains that are no longer have a count
-    foreach my $domain (keys %{ $domains->{D} }) {
-        foreach my $window (keys %{ $domains->{D}{$domain} }) {
-            if ($domains->{D}{$domain}{$window}{cnt} <= 0) {
+    foreach my $domain ( keys %{ $domains->{D} } ) {
+        foreach my $window ( keys %{ $domains->{D}{$domain} } ) {
+            if ( $domains->{D}{$domain}{$window}{cnt} <= 0 ) {
                 delete $domains->{D}{$domain}{$window};
             }
-            if (0 == scalar keys %{ $domains->{D}{$domain} }) {
+            if ( 0 == scalar keys %{ $domains->{D}{$domain} } ) {
                 delete $domains->{D}{$domain};
             }
         }
     }
 
     # housekeeping - make a note of events we already requested to send
-    foreach my $send_now (grep { $_->{__TYPE__} eq 'sendnow' } @atoms) {
+    foreach my $send_now ( grep { $_->{__TYPE__} eq 'sendnow' } @atoms ) {
         next
             if !exists $domains->{D}->{ $send_now->{domain} }
             || !
-            exists $domains->{D}->{ $send_now->{domain} }->{ $send_now->{window} };
-        my $dw = $domains->{D}->{ $send_now->{domain} }->{ $send_now->{window} };
+            exists $domains->{D}->{ $send_now->{domain} }
+            ->{ $send_now->{window} };
+        my $dw
+            = $domains->{D}->{ $send_now->{domain} }->{ $send_now->{window} };
         $dw->{sent} = 1;
     }
 
     # only if we've gotten a timing message
-    my @times = map { $_->{epoch} } grep { $_->{__TYPE__} eq 'trigger' } @atoms;
+    my @times
+        = map { $_->{epoch} } grep { $_->{__TYPE__} eq 'trigger' } @atoms;
     if (@times) {
 
         # send for the particular domains in list and in range
-        foreach my $domain (keys %{ $domains->{D} }) {
-            foreach my $window (keys %{ $domains->{D}{$domain} }) {
+        foreach my $domain ( keys %{ $domains->{D} } ) {
+            foreach my $window ( keys %{ $domains->{D}{$domain} } ) {
                 my $dw = $domains->{D}->{$domain}->{$window};
-                foreach
-                    my $time ((max grep { $_ && $_ <= $dw->{max} && $_ >= $dw->{min} } @times)
-                    || ())
+                foreach my $time (
+                    (   max
+                        grep { $_ && $_ <= $dw->{max} && $_ >= $dw->{min} }
+                        @times
+                    )
+                    || ()
+                    )
                 {
                     $emitter->emit(
                         'map',
@@ -228,6 +238,8 @@ sub reduce {
 }
 
 1;
+
+__END__
 
 =pod 
 
@@ -318,7 +330,7 @@ in the At rule.
 
 =head2 windowID = epoch_to_window(epoch)
 
-current implimentation just divides the epoch time by 1000, so every 1000
+current implementation just divides the epoch time by 1000, so every 1000
 minutes will have its own state set.  Hopefully this is small enough.
 Used by both 'window' and 'key_value_set'.
 
@@ -326,7 +338,23 @@ Used by both 'window' and 'key_value_set'.
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
+
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to
 C<bug-replay at rt.cpan.org>, or through the web interface at

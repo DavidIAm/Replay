@@ -1,79 +1,31 @@
-package Replay::Message::IdKey;
+package Replay::Role;
 
+# enumerate all the roles we want to make available
 use Moose;
-use MooseX::Storage;
-our $VERSION = '0.02';
-extends 'Replay::Message';
+use Replay::Role::BusinessRule;
+our $VERSION = q(0.02);
 
-has domain => (
-    is          => 'rw',
-    isa         => 'Str',
-    required    => 0,
-    traits      => ['MooseX::MetaDescription::Meta::Trait'],
-    description => { layer => 'message' },
-);
-has name => (
-    is          => 'rw',
-    isa         => 'Str',
-    required    => 1,
-    traits      => ['MooseX::MetaDescription::Meta::Trait'],
-    description => { layer => 'message' },
-);
-has version => (
-    is          => 'rw',
-    isa         => 'Str',
-    required    => 1,
-    traits      => ['MooseX::MetaDescription::Meta::Trait'],
-    description => { layer => 'message' },
-);
-has window => (
-    is          => 'rw',
-    isa         => 'Str',
-    required    => 0,
-    traits      => ['MooseX::MetaDescription::Meta::Trait'],
-    description => { layer => 'message' },
-);
-has key => (
-    is          => 'rw',
-    isa         => 'Str',
-    required    => 0,
-    traits      => ['MooseX::MetaDescription::Meta::Trait'],
-    description => { layer => 'message' },
-);
-has revision => (
-    is          => 'rw',
-    isa         => 'Str',
-    default     => 'latest',
-    traits      => ['MooseX::MetaDescription::Meta::Trait'],
-    description => { layer => 'message' },
-);
 1;
-
-__END__
 
 =pod
 
 =head1 NAME
 
-Replay::Message::IdKey - the fields that identify a particular state in the system
+Replay::Role
 
 =head1 VERSION
 
 Version 0.01
 
-=cut
-
 =head1 SYNOPSIS
 
-This is a data type extensively used to communicate the particular id
-of a state in the code.  It is closely coupled with the Replay::IdKey
-class/data type.
+An include container for Replay Roles
 
 =head1 AUTHOR
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .
@@ -84,9 +36,8 @@ You can find documentation for this module with the perldoc command.
 
     perldoc Replay
 
-You can also look for information at:
 
-https://github.com/DavidIAm/Replay
+You can also look for information at:
 
 =over 4
 
