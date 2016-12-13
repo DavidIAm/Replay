@@ -62,7 +62,7 @@ the rule-and-version part - the particular business rule this state will be usei
 
 =head2 hash_list
 
-alias for marshall
+alias for marshal
 
 =head2 checkstring
 
@@ -72,7 +72,7 @@ makes sure that all the fields are strings so that canonical freezing is consist
 
 Provides an md5 sum that is distinct for this location
 
-=head2 marshall
+=head2 marshal
 
 Arrange the fields in a list for passing to various other locations
 

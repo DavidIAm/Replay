@@ -70,7 +70,7 @@ sub emit {
         unless $message->does('Replay::Role::Envelope');
     my $uuid = $message->UUID;
 
-    $self->topic->Publish(to_json $message->marshall) or return;
+    $self->topic->Publish(to_json $message->marshal) or return;
 
     return $uuid;
 }

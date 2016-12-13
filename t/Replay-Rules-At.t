@@ -197,7 +197,7 @@ $e->mock('emit');
     {
         my ($name, $args) = $e->next_call;
         is $name, 'emit', 'emit is called';
-        my $m  = $args->[2]->marshall;
+        my $m  = $args->[2]->marshal;
         my $mm = $m->{Message};
         is_deeply $mm, { atdomain => 'adomain', window => 2000 }, 'submessage emitted is as expected';
         delete $m->{CreatedTime};
@@ -250,7 +250,7 @@ $e->mock('emit');
     {
         my ($name, $args) = $e->next_call;
         is $name, 'emit', 'emit is called';
-        my $m  = $args->[2]->marshall;
+        my $m  = $args->[2]->marshal;
         my $mm = $m->{Message};
         is_deeply $mm, { surely => 'yes' }, 'submessage emitted is as expected';
         delete $m->{CreatedTime};
@@ -263,7 +263,7 @@ $e->mock('emit');
     {
         my ($name, $args) = $e->next_call;
         is $name, 'emit', 'emit is called';
-        my $m  = $args->[2]->marshall;
+        my $m  = $args->[2]->marshal;
         my $mm = $m->{Message};
         delete $m->{CreatedTime};
         delete $m->{Replay};

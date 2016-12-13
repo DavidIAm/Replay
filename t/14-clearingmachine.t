@@ -149,7 +149,7 @@ use Replay::Message::Timing;
 die unless $tr->version;
 is $tr->version, 1, 'version returns';
 
-my $intmessage    = Primera->new( decided => 0 )->marshall;
+my $intmessage    = Primera->new( decided => 0 )->marshal;
 my $boringmessage = { MessageType => 'boring',      Message => {} };
 
 ok $tr->match($intmessage), 'is interesting';
@@ -166,7 +166,7 @@ my $secondMessage = { MessageType => 'interesting',
     Message => { c => [ 6, 7, 8, 9, 10 ], } };
 
 use Replay::Message::Envelope;
-my $d = +Replay::Message::Envelope->new($funMessage)->marshall;
+my $d = +Replay::Message::Envelope->new($funMessage)->marshal;
 is $d->{UUID}, 'fakeUUID';
 ok exists $d->{CreatedTime}, 'Created exists';
 is $d->{Replay}, '20140727';
@@ -174,10 +174,10 @@ is $d->{MessageType}, 'Primera';
 ok exists $d->{EffectiveTime}, 'EffectiveTime exists';
 ok exists $d->{ReceievedTime}, 'ReceievedTime exists';
 
-is_deeply [ $tr->key_value_set( Replay::Message::Envelope->new($funMessage)->marshall) ],
+is_deeply [ $tr->key_value_set( Replay::Message::Envelope->new($funMessage)->marshal) ],
     [ 'fakeUUID-1' => { payload => { b => [ 1, 2, 3, 4, 5, 6 ] } } ], 'copies';
 
-is_deeply [ $tr->key_value_set( Primera->new(  UUID => 'YesAnotherNotAUUID', MessageType => 'Primera', b => [ 1, 2, 3, 4 ] )->marshall ) ],
+is_deeply [ $tr->key_value_set( Primera->new(  UUID => 'YesAnotherNotAUUID', MessageType => 'Primera', b => [ 1, 2, 3, 4 ] )->marshal ) ],
     [ 'YesAnotherNotAUUID-1' => { payload => { } } ];# b => [ 1, 2, 3, 4 ] } } ];
 
 my $replay = Replay->new(

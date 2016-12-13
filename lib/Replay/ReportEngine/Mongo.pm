@@ -112,7 +112,7 @@ sub store {
                 . 'setOnInsert' => {
                 idkey    => $idkey->cubby,
                 REVISION => $revision,
-                IdKey    => $idkey->marshall
+                IdKey    => $idkey->marshal
                 }
         },
         { upsert => 1, multiple => 0 },
@@ -124,7 +124,7 @@ sub store {
                 CURRENT_REVISION => $revision,
                 NEXT_REVISION    => $revision,
                 idkey            => $idkey->cubby,
-                IdKey            => $idkey->marshall,
+                IdKey            => $idkey->marshal,
                 },
         },
         { upsert => 1, multiple => 0 },
@@ -230,7 +230,7 @@ sub freeze {
         {   q/$/
                 . 'set' =>
                 { CURRENT_REVISION => $newrevision, NEXT_REVISION => $newrevision, },
-            q^$^ . 'setOnInsert' => { idkey => $idkey->cubby, IdKey => $idkey->marshall },
+            q^$^ . 'setOnInsert' => { idkey => $idkey->cubby, IdKey => $idkey->marshal },
         },
         { upsert => 1, multiple => 0 },
     );

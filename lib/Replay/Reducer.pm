@@ -82,7 +82,7 @@ sub reduce_wrapper {
         $self->storageEngine->store_new_canonical_state($idkey, $uuid, $emitter,
             $self->rule($idkey)->reduce($emitter, @state));
         $self->eventSystem->control->emit(
-            Replay::Message::Reduced->new($idkey->marshall));
+            Replay::Message::Reduced->new($idkey->marshal));
     }
     catch {
         carp "REDUCING EXCEPTION: $_";

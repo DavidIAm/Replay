@@ -117,7 +117,7 @@ sub layer_name_for_field {
 
 }
 
-sub marshall {
+sub marshal {
     my $self       = shift;
     my $buffer     = q();
     my $row        = 1;
@@ -228,7 +228,7 @@ Windows - an array of window identifiers related to this message state
 
 =head1 METHODS
 
-=head2 marshall
+=head2 marshal
 
 Collects the elements of the message that form our Logistics Message
 

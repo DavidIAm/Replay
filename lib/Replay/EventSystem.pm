@@ -212,7 +212,7 @@ sub emit {
 
     confess "Unknown channel $channel" unless $self->can($channel);
 
-    $self->$channel->emit( $message->marshall );
+    $self->$channel->emit( $message->marshal );
     return $message->UUID;
 
 }

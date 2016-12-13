@@ -44,7 +44,7 @@ sub emit {
 
     #warn(" Replay::EventSystem::Null emit $message");
 
-    push @{ $self->{events} }, $message->marshall;
+    push @{ $self->{events} }, $message->marshal;
     return $message->UUID;
 }
 

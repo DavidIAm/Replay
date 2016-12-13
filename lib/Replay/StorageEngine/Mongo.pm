@@ -230,7 +230,7 @@ override checkout => sub {
             . $idkey->cubby
             . qq(\)\n);
         $self->eventSystem->control->emit(
-                Replay::Message::NoLock->new($idkey->marshall),
+                Replay::Message::NoLock->new($idkey->marshal),
         );
         return;
     }
@@ -247,7 +247,7 @@ override checkout => sub {
         = $self->relock($idkey, $unlsignature, $newsignature, $timeout);
 
     $self->eventSystem->control->emit(
-            Replay::Message::NoLockPostRevert->new($idkey->marshall),
+            Replay::Message::NoLockPostRevert->new($idkey->marshal),
     );
     if (not defined $relockresult) {
         carp "Unable to relock after revert ($unlsignature)? "
@@ -264,7 +264,7 @@ override checkout => sub {
     }
 
     $self->eventSystem->control->emit(
-            Replay::Message::NoLockPostRevertRelock->new($idkey->marshall),
+            Replay::Message::NoLockPostRevertRelock->new($idkey->marshal),
     );
     carp q(checkout after revert and relock failed.  Look in COLLECTION \()
         . $idkey->collection
@@ -293,7 +293,7 @@ override checkout => sub {
     # );
     # carp q(tried to do a revert but didn't have a lock on it) if not $state;
     # $self->eventSystem->control->emit(
-        # Replay::Message::NoLock::DuringRevert->new( $idkey->marshall ),
+        # Replay::Message::NoLock::DuringRevert->new( $idkey->marshal ),
     # );
     # return if not $state;
     # $self->revert_this_record( $idkey, $unlsignature, $state );
@@ -361,7 +361,7 @@ sub checkin {
       )
     {
         $self->eventSystem->control->emit(
-            Replay::Message::Cleared::State->new( $idkey->marshall ),
+            Replay::Message::Cleared::State->new( $idkey->marshal ),
         );
     }
     return if not defined $result;

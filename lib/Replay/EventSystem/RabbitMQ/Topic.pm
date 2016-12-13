@@ -73,7 +73,7 @@ sub emit {
 
     $self->topic->publish(
         $self->channel, $self->topic_name,
-        to_json($message->marshall),
+        to_json($message->marshal),
         { exchange => $self->topic_name }
     );
 

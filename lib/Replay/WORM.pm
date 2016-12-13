@@ -30,7 +30,7 @@ sub BUILD {
             my $timeblock = $self->log($message);
             carp "Not a reference $message" if not ref $message;
             if (blessed $message && $message->isa('Replay::Message')) {
-                $message = $message->marshall;
+                $message = $message->marshal;
             }
             try {
                 push @{ $message->{Timeblocks} }, $self->timeblock;

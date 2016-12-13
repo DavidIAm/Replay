@@ -126,7 +126,7 @@ sub reduce {
                     requested => $atom->{sendat},
                     actual    => scalar(gettimeofday),
                     atdomain  => $atom->{atdomain},
-                    sentuuid  => $sent->marshall->{UUID},
+                    sentuuid  => $sent->marshal->{UUID},
                     foruuid   => $atom->{uuid},
                     window    => $atom->{window},
                     newmin    => $newmin,

@@ -45,7 +45,7 @@ routines and patterns for making a Replay Message
 
 =head1 SUBROUTINES/METHODS
 
-=head2 marshall ($message)
+=head2 marshal ($message)
 
 use the state information provided by the construction to create a structure suitable for serializing
 

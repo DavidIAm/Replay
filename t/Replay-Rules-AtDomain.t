@@ -321,7 +321,7 @@ $e->mock('emit');
     {
         my ($name, $args) = $e->next_call;
         is $name, 'emit', 'emit is called';
-        my $m  = $args->[2]->marshall;
+        my $m  = $args->[2]->marshal;
         my $mm = $m->{Message};
         is_deeply $mm, { sendtime => 5, atdomain => 'adomain', window => 1000 },
             'submessage emitted is as expected';
