@@ -16,6 +16,13 @@ has eventSystem =>
 has storageEngine =>
     ( is => 'ro', isa => 'Replay::StorageEngine', required => 1, );
 
+has selectorClass => (
+    is      => 'ro',
+    isa     => 'Str',
+    lazy => 1,
+    builder => '_build_selector_class',
+);
+
 has reportEngineSelector => (
     is      => 'ro',
     isa     => 'Replay::ReportEngine::Selector',
@@ -124,12 +131,16 @@ sub engine {
     return $self->reportEngineSelector->select_engine($idkey);
 }
 
+sub _build_selector_class {
+  my ($self) = @_;
+  return $self->config->{Defaults}->{ReportEngineSelector} || 'Replay::ReportEngine::Selector';
+}
+
 sub _build_report_selector {   ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
 
-  # TODO : This should decide more reasonably which Selector to load, probably
-  # using a configuration directive
-    return Replay::ReportEngine::Selector->new(
+    my $class = $self->selectorClass;
+    return $class->new(
         config        => $self->config,
         ruleSource    => $self->ruleSource,
         eventSystem   => $self->eventSystem,

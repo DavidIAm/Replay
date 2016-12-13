@@ -86,16 +86,8 @@ sub mode_class {
     }
     my $class = 'Replay::ReportEngine::' . $mode;
 
-    try {
-        my $path = $class . '.pm';
-        $path =~ s{::}{/}gxsm;
-        eval { require $path }
-            or croak qq(error requiring class $class : ) . $EVAL_ERROR;
-    }
-    catch {
-        confess q(No such report engine mode available ) . $mode
-            . " $class --> $_";
-    };
+    eval "require $class";
+
     return $class;
 }
 
