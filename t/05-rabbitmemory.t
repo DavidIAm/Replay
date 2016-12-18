@@ -1,9 +1,6 @@
 package Test::Replay::RabbitMemory;
 
-use lib 't/lib';
 use base qw/Replay::Test Test::Class/;
-
-use lib 'lib';
 
 =pod
 sub t_environment_reset : Test(startup) {

@@ -162,7 +162,7 @@ Replay - A bitemporal finite state machine engine
 
 =head1 SYNOPSIS
 
-This is the central configuration and instantiation module of the Replay system.
+This is the central configuration and instantiation module of the Replay system
 
 You can instantiate a Replay object with a list of rules and config
 
@@ -170,7 +170,7 @@ use Replay;
 
 # minimum
 my $replay = Replay->new(rules => [], config =>
-        { QueueClass => 'Replay::EventSystem::Null', StorageMode => 'Memory' } );
+    { QueueClass => 'Replay::EventSystem::Null', StorageMode => 'Memory' } );
 
 # all options
 my $replay = Replay->new(
@@ -272,8 +272,11 @@ David Ihnen, C<< <davidihnen at gmail.com> >>
 
 =head1 BUGS AND LIMITATIONS
 
-Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
-the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .
+Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or
+through the web interface at 
+L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified,
+and then you'll automatically be notified of progress on your bug as I make
+changes.
 
 =head1 SUPPORT
 

@@ -1,7 +1,5 @@
 package Test::Replay::ReportMongo;
 
-use lib 't/lib';
-
 use base qw/Replay::Test/;
 use File::Temp qw/tempdir/;
 

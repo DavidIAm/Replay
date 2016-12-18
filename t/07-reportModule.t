@@ -1,7 +1,5 @@
 package Test::Replay::ReportFilesystem;
 
-use lib 't/lib';
-
 use base qw/Replay::Test/;
 use Test::Most;
 use File::Temp qw/tempdir/;

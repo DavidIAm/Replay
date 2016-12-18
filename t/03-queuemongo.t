@@ -1,7 +1,5 @@
 package Test::Replay::AWSQueue::Mongo::Filesystem;
 
-use lib 't/lib';
-
 use base qw/Replay::Test Test::Class/;
 use JSON;
 use YAML;

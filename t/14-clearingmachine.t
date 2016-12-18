@@ -8,8 +8,6 @@ ok 1;
 
 =pod
 
-use lib 'Replay/lib/';
-
 package Primera;
 use Moose;
 use Replay 0.02;

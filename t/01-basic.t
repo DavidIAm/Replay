@@ -1,6 +1,5 @@
 package Test::Replay::Null::Memory::Filesystem;
 
-use lib 't/lib';
 use File::Temp qw/tempdir/;
 
 use base qw/Replay::Test Test::Class/;

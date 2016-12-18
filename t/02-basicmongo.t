@@ -1,7 +1,5 @@
 package Test::Replay::Null::Mongo::Filesystem;
 
-use lib 't/lib';
-
 use base qw/Replay::Test/;
 
 sub t_environment_reset : Test(shutdown) {
