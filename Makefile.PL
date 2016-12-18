@@ -31,8 +31,6 @@ WriteMakefile(
         'EV'                                   => '4.17',
         'JSON'                                 => '2.53',
         'JSON::Any'                            => '1.29',
-        'MongoDB'                              => 'v1.4.1',
-        'MongoDB::OID'                         => 'v1.4.1',
         'Moose'                                => '2.1209',
         'Moose::Util::TypeConstraints'         => '2.1209',
         'MooseX::Storage'                      => '0.46',

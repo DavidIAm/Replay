@@ -53,7 +53,6 @@ lib/Replay/Reducer.pm
 lib/Replay/ReportEngine.pm
 lib/Replay/ReportEngine/Filesystem.pm
 lib/Replay/ReportEngine/Memory.pm
-lib/Replay/ReportEngine/Mongo.pm
 lib/Replay/ReportEngine/Role/Selector.pm
 lib/Replay/ReportEngine/Selector.pm
 lib/Replay/Reporter.pm
@@ -62,7 +61,6 @@ lib/Replay/Role/BusinessRule.pm
 lib/Replay/Role/Envelope.pm
 lib/Replay/Role/EventSystem.pm
 lib/Replay/Role/IdKey.pm
-lib/Replay/Role/MongoDB.pm
 lib/Replay/Role/ReportEngine.pm
 lib/Replay/Role/StorageEngine.pm
 lib/Replay/Rules/Async.pm
@@ -73,7 +71,6 @@ lib/Replay/Rules/ClearingMachine.pm
 lib/Replay/RuleSource.pm
 lib/Replay/StorageEngine.pm
 lib/Replay/StorageEngine/Memory.pm
-lib/Replay/StorageEngine/Mongo.pm
 lib/Replay/Test.pm
 lib/Replay/Types/Messages.pm
 lib/Replay/Types/Types.pm
@@ -91,10 +88,7 @@ README
 README.md
 t/00-load.t
 t/01-basic.t
-t/02-basicmongo.t
-t/03-queuemongo.t
 t/07-reportModule.t
-t/08-reportModuleMongo.t
 t/14-clearingmachine.t
 t/boilerplate.t
 t/conf/default.yaml

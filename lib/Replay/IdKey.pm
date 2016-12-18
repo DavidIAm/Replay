@@ -3,8 +3,6 @@ package Replay::IdKey;
 use Moose;
 use MooseX::Storage;
 with Storage( 'format' => 'JSON' );
-use MongoDB;
-use MongoDB::OID;
 use Digest::MD5 qw/md5_hex/;
 use Readonly;
 
