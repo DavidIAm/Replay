@@ -191,7 +191,6 @@ my $replay = Replay->new(
             sqsService  => 'https://sqs.us-east-1.amazonaws.com',
         },
         Mongo    => { host => port => username => password => },
-        RabbitMQ => { host => port => username => password => },
     },
 );
 
