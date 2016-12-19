@@ -38,6 +38,7 @@ use Moose;
 use Scalar::Util qw/blessed/;
 use List::Util qw/min max/;
 use Data::Dumper;
+use Carp qw/carp/;
 use JSON;
 use Try::Tiny;
 use Time::HiRes qw/gettimeofday/;

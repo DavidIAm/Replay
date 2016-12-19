@@ -93,6 +93,10 @@ Get any events from our little buffer and relay them to any subscribers
 
 add the specified callback to the list of subscribed coderefs
 
+=head2 done()
+
+The shutdown command doesn't have any use in this world
+
 =head2 emit(message)
 
 add the specified message to our list of events to process
