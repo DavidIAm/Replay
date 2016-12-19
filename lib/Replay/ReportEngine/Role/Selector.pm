@@ -86,7 +86,13 @@ sub mode_class {
     }
     my $class = 'Replay::ReportEngine::' . $mode;
 
-    eval "require $class";
+    my $path = $class . '.pm';
+    $path =~ s{::}{/}gxsm;
+    if ( eval { require $path } ) {
+    }
+    else {
+        croak $EVAL_ERROR;
+    }
 
     return $class;
 }

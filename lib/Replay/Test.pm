@@ -1,3 +1,5 @@
+package Replay::Test;
+
 #
 # Testing class for Replay module components
 

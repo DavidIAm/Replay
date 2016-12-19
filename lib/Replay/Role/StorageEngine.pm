@@ -336,11 +336,11 @@ sub fetch_canonical_state {
     return @{ $cubby->{canonical} || [] };
 }
 
-# sub window_all {
-# my ($self, $idkey) = @_;
+sub window_all {
+my ($self, $idkey) = @_;
 # return $self->eventSystem->control->emit(
 # Replay::Message::WindowAll->new($idkey->marshall));
-# }
+}
 
 sub enumerate_windows {
     my ( $self, $idkey ) = @_;
