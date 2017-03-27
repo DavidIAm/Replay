@@ -1,4 +1,4 @@
-package Replay::Rule::Async;
+package Replay::Rules::Async;
 
 # This is the general logic that will be used by the traditional clearing
 # pattern:
