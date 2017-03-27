@@ -1,4 +1,4 @@
-package Replay::Rule::ClearingMachine;
+package Replay::Rules::ClearingMachine;
 
 # This is the general logic that will be used by the traditional clearing
 # pattern:
