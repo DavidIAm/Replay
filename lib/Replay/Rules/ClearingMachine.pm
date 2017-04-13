@@ -37,6 +37,7 @@ package Replay::Rules::ClearingMachine;
 use Moose;
 use Scalar::Util qw/blessed/;
 use List::Util qw/min max/;
+use Data::Dumper;
 use JSON;
 use Try::Tiny;
 use Time::HiRes qw/gettimeofday/;
@@ -50,10 +51,12 @@ Readonly my $DEFAULT_WINDOW_SIZE    => 600;
 Readonly my $DEFAULT_RETRY_INTERVAL => 60;
 Readonly my $INTERVAL_SIZE          => 60;
 Readonly my $PURPOSE_MAP            => { 'retry' => 1, 'new_input' => 2, };
+Readonly my $COMPARE_LESSER         => -1;
 
 # given an error, when to retry this next
 sub retry_next_at {
-    my ($self, @atoms) = @_;
+    my ( $self, @atoms ) = @_;
+    return;
 }
 
 sub window_size_seconds {
@@ -61,17 +64,16 @@ sub window_size_seconds {
 }
 
 sub compare {
-    my ($self, $aa, $bb) = @_;
-    return -1 if $aa->{MessageType} eq 'Async';
-    return 1  if $bb->{MessageType} eq 'Async';
+    my ( $self, $aa, $bb ) = @_;
+    return $COMPARE_LESSER if $aa->{MessageType} eq 'Async';
+    return 1 if $bb->{MessageType} eq 'Async';
     return $PURPOSE_MAP->{ $aa->{Message}{purpose} }
         <=> $PURPOSE_MAP->{ $bb->{Message}{purpose} };
 }
 
 sub match {
-    my ($self, $message) = @_;
-		use Data::Dumper;
-		warn "The message type is " . Dumper $message->{MessageType};
+    my ( $self, $message ) = @_;
+    carp 'The message type is ' . Dumper $message->{MessageType};
     return 1 if $message->{MessageType} eq 'Async';
     return 1 if $self->message_in_set($message);
     return 0;
@@ -81,80 +83,44 @@ sub effective_to_window {
 }
 
 sub window {
-    my ($self, $message) = @_;
+    my ( $self, $message ) = @_;
 
     # we send this along to rejoin the proper window
-    return $message->{Message}{window}
-        if $message->{MessageType} eq 'Async';
+    return $message->{Message}{window} if $message->{MessageType} eq 'Async';
     return $message->{UUID};
 }
 
 sub attempt_is_success {
-	my ($self, $key, $message) = @_;
-	$self->emit('origin', Replay::Message::Async->new( key => $key, ));
-	$self->on_success($message);
+    my ( $self, $key, $message ) = @_;
+    $self->emit( 'origin', Replay::Message::Async->new( key => $key, ) );
+    return $self->on_success($message);
 }
+
 sub attempt_is_error {
-	my ($self, $message) = @_;
-	$self->on_error($message);
+    my ( $self, $message ) = @_;
+    return $self->on_error($message);
 }
+
 sub attempt_is_exception {
-	my ($self, $message) = @_;
-	$self->on_exception($message);
+    my ( $self, $message ) = @_;
+    return $self->on_exception($message);
 }
 
 sub key_value_set {
-    my ($self, $message) = @_;
+    my ( $self, $message ) = @_;
 
-		return $self->set_key($message);
-} 
-    
-=pod
-
-    if $self->message_in_set($message);
-		return $message->{Message}{key} => {
-        requested => 0,
-        window    => $self->window($message),
-        uuid      => $message->{UUID},
-        } if $self->initial_match($message);
-
-        if $message->{MessageType} eq 'Async';
-        if $message->{MessageType} eq 'Async';
-
-    # the only other type we should see is our initial type
-    my $counter = 1;
-    return
-        map { $message->{UUID} . '-' . ($counter++) => { payload => $_ } }
-        $self->value_set($message);
+    return $self->set_key($message);
 }
-
-sub reduce {
-    my ($self, $emitter, @atoms) = @_;
-
-
-#requires qw/key_for_set initial_match attempt on_error on_exception on_success value_set/;
-# atdomain message
-
-inital match <M>
-attempt <M->ER/EX/SU>
-
-# requested is zero
-if ($_->{MessageType} eq 'ClearingMachine') {
-}
-elsif ($_->{MessageType} eq 'ClearingMachineAttempt' {
-}
-
-    return @atoms_to_keep;
-}
-=cut
 
 1;
+
+__END__
 
 =pod
 
 =head1 NAME
 
-Replay::Rules::At - A rule that helps us manage emitting events later
+Replay::Rules::ClearingMachine - A rule that helps us manage emitting events later
 
 =head1 VERSION
 
@@ -219,7 +185,7 @@ to origin
 
 =head2 windowID = epoch_to_window(epoch)
 
-current implimentation just divides the epoch time by 1000, so every 1000
+current implementation just divides the epoch time by 1000, so every 1000
 minutes will have its own state set.  Hopefully this is small enough.
 Used by both 'window' and 'key_value_set'.
 
@@ -227,7 +193,23 @@ Used by both 'window' and 'key_value_set'.
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
+
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .
@@ -297,7 +279,7 @@ direct or contributory patent infringement, then this Artistic License
 to you shall terminate on the date that such litigation is filed.
 
 Disclaimer of Warranty: THE PACKAGE IS PROVIDED BY THE COPYRIGHT HOLDER
-AND CONTRIBUTORS "AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
+AND CONTRIBUTORS 'AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
 THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
 PURPOSE, OR NON-INFRINGEMENT ARE DISCLAIMED TO THE EXTENT PERMITTED BY
 YOUR LOCAL LAW. UNLESS REQUIRED BY LAW, NO COPYRIGHT HOLDER OR

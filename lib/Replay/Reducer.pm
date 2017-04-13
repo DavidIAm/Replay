@@ -13,12 +13,39 @@ use Try::Tiny;
 
 our $VERSION = '0.02';
 
-has ruleSource => (is => 'ro', isa => 'Replay::RuleSource', required => 1);
+has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1,weak_ref => 1 );
 
-has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
+has eventSystem =>
+    ( is => 'ro', isa => 'Replay::EventSystem', required => 1,weak_ref => 1 );
 
 has storageEngine =>
-    (is => 'ro', isa => 'Replay::StorageEngine', required => 1,);
+    ( is => 'ro', isa => 'Replay::StorageEngine', required => 1,weak_ref => 1 );
+
+has config => (
+    is       => 'ro',
+    isa      => 'HashRef[Item]',
+    required => 0,
+    default  => sub { {} },
+);
+
+sub ARRAYREF_FLATTEN_ENABLED_DEFAULT { return 1 }
+sub NULL_FILTER_ENABLED_DEFAULT      { return 1 }
+
+sub NULL_FILTER_ENABLED {
+    my ($self) = @_;
+    if ( $self->config || exists $self->config->{null_filter_enabled} ) {
+        return $self->config->{null_filter_enabled};
+    }
+    return NULL_FILTER_ENABLED_DEFAULT;
+}
+
+sub ARRAYREF_FLATTEN_ENABLED {
+    my ($self) = @_;
+    if ( $self->config || exists $self->config->{arrayref_flatten_enabled} ) {
+        return $self->config->{arrayref_flatten_enabled};
+    }
+    return ARRAYREF_FLATTEN_ENABLED_DEFAULT;
+}
 
 sub BUILD {
     my $self = shift;
@@ -32,70 +59,110 @@ sub BUILD {
 
 # accessor - how to get the rule for an idkey
 sub rule {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     return $self->ruleSource->by_idkey($idkey);
 }
 
-sub reduce_wrapper {
-    my ($self, $first, @input) = @_;
-    my $envelope
+sub normalize_envelope {
+    my ( $self, $first, @input ) = @_;
+    if ( !defined $first ) {
+        return ();
+    }
+    my $ref
         = blessed $first ? $first : ref $first ? $first : { $first, @input };
-    my $type
-        = blessed $envelope ? $envelope->MessageType : $envelope->{MessageType};
-    return if $type ne 'Reducable';
-    my $idkey;
-    my $message;
-    if (blessed $envelope) {
-        $message = $envelope->Message;
-        $idkey   = Replay::IdKey->new(
-            {   name    => $message->name,
-                version => $message->version,
-                window  => $message->window,
-                key     => $message->key,
-            }
-        );
+    if ( blessed $ref) {
+        return $ref;
     }
-    elsif (blessed $envelope->{Message}) {
-        $message = $envelope->{Message};
-        $idkey   = Replay::IdKey->new(
-            {   name    => $message->name,
-                version => $message->version,
-                window  => $message->window,
-                key     => $message->key,
-            }
-        );
-    }
-    else {
+    my $message = Replay::Message->new($ref);
+    return $message;
+}
 
-        $message = $envelope->{Message};
-        $idkey   = Replay::IdKey->new($message);
+sub reducable_message {
+    my ( $self, $envelope ) = @_;
+    return $envelope->MessageType eq 'Reducable';
+}
 
-    }
-    my ($uuid, $meta, @state);
+sub identify {
+    my ( $self, $message ) = @_;
+    return Replay::IdKey->new(
+        {   name    => $message->{Message}->{name},
+            version => $message->{Message}->{version},
+            window  => $message->{Message}->{window},
+            key     => $message->{Message}->{key},
+        }
+    );
+}
+
+sub reduce_wrapper {
+    my ( $self, @input ) = @_;
+    my $envelope = $self->normalize_envelope(@input);
+    return if !$self->reducable_message($envelope);
+    return $self->execute_reduce( $self->identify($envelope) );
+}
+
+sub make_delayed_emitter {
+    my ( $self, $meta ) = @_;
+    return Replay::DelayedEmitter->new(
+        eventSystem => $self->eventSystem,
+        %{$meta}
+    );
+}
+
+sub make_reduced_message {
+    my ( $self, $idkey ) = @_;
+    my $message = Replay::Message::Reduced->new( $idkey->marshall );
+    return $message;
+}
+
+sub execute_reduce {
+    my ( $self, $idkey ) = @_;
+
+    my ( $uuid, $meta, @state );
     try {
-        ($uuid, $meta, @state)
+        ( $uuid, $meta, @state )
             = $self->storageEngine->fetch_transitional_state($idkey);
-        if (!$uuid || !$meta) {return}    # there was nothing to do, apparently
-        my $emitter = Replay::DelayedEmitter->new(eventSystem => $self->eventSystem,
-            %{$meta});
+        if ( !$uuid || !$meta ) {return} # there was nothing to do, apparently
+        my $emitter = $self->make_delayed_emitter($meta);
 
-        $self->storageEngine->store_new_canonical_state($idkey, $uuid, $emitter,
-            $self->rule($idkey)->reduce($emitter, @state));
+        $self->storageEngine->store_new_canonical_state(
+            $idkey, $uuid, $emitter,
+            $self->arrayref_flatten(
+                $self->null_filter(
+                    $self->rule($idkey)->reduce( $emitter, @state )
+                )
+            )
+        );
         $self->eventSystem->control->emit(
-            Replay::Message::Reduced->new($idkey->marshall));
+            $self->make_reduced_message($idkey) );
     }
     catch {
         carp "REDUCING EXCEPTION: $_";
         carp "Reverting state because there was a reduce exception\n";
-        $self->storageEngine->revert($idkey, $uuid);
-        $self->eventSystem->control->emit(
-            Replay::Message::Exception::Reducer->new(
+        $self->storageEngine->revert( $idkey, $uuid );
+        my $message = Replay::Message::Exception::Reducer->new(
                 $idkey->hash_list,
-                exception => (blessed $_ && $_->can('trace') ? $_->trace->as_string : $_),
-            )
+                exception => (
+                    blessed $_
+                        && $_->can('trace') ? $_->trace->as_string : $_
+                ),
+            );
+        $self->eventSystem->control->emit($message
+            
         );
     };
     return;
+}
+
+sub arrayref_flatten {
+    my ( $self, @args ) = @_;
+    return @args if !$self->ARRAYREF_FLATTEN_ENABLED;
+    return map { 'ARRAY' eq ref $_ ? @{$_} : $_ } @args;
+}
+
+sub null_filter {
+    my ( $self, @args ) = @_;
+    return @args if !$self->NULL_FILTER_ENABLED;
+    return map { defined $_ ? $_ : () } @args;
 }
 
 1;
@@ -125,7 +192,9 @@ my $reducer = Replay::Reducer->new(
  );
 $eventSystem->run;
 
-=cut
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
 
 =head1 DESCRIPTION
 
@@ -274,7 +343,19 @@ function, storing the result, and conditionally emitting the buffered events.
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .

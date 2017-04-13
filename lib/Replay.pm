@@ -14,11 +14,11 @@ use Replay::RuleSource 0.02;
 use Replay::Reporter 0.03;
 use Replay::Reducer 0.02;
 use Replay::Mapper 0.02;
-use Replay::Types 0.02;
+use Replay::Types::Types 0.02;
 use Replay::WORM 0.02;
 use Carp qw/croak/;
 
-has rules => (is => 'ro', isa => 'ArrayRef[BusinessRule]', required => 1,);
+has rules => ( is => 'ro', isa => 'ArrayRef[BusinessRule]', required => 1, );
 
 has ruleSource => (
     is      => 'ro',
@@ -44,7 +44,7 @@ has eventSystem => (
 
 sub _build_event_system {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return Replay::EventSystem->new(config => $self->config);
+    return Replay::EventSystem->new( config => $self->config );
 }
 
 has reportEngine => (
@@ -57,9 +57,9 @@ has reportEngine => (
 sub _build_report_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return Replay::ReportEngine->new(
-        config      => $self->config,
-        eventSystem => $self->eventSystem,
-        ruleSource  => $self->ruleSource,
+        config        => $self->config,
+        eventSystem   => $self->eventSystem,
+        ruleSource    => $self->ruleSource,
         storageEngine => $self->storageEngine,
     );
 }
@@ -71,7 +71,7 @@ has storageEngine => (
     lazy    => 1,
 );
 
-has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
+has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, );
 
 sub _build_storage_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
@@ -114,12 +114,19 @@ sub _build_mapper {    ## no critic (ProhibitUnusedPrivateSubroutines)
     );
 }
 
-has worm =>
-    (is => 'ro', isa => 'Replay::WORM', builder => '_build_worm', lazy => 1,);
+has worm => (
+    is      => 'ro',
+    isa     => 'Replay::WORM',
+    builder => '_build_worm',
+    lazy    => 1,
+);
 
-sub _build_worm {      ## no critic (ProhibitUnusedPrivateSubroutines)
+sub _build_worm {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return Replay::WORM->new(eventSystem => $self->eventSystem);
+    return Replay::WORM->new(
+        eventSystem => $self->eventSystem,
+        config      => $self->config,
+    );
 }
 
 has reporter => (
@@ -135,7 +142,7 @@ sub _build_reporter {    ## no critic (ProhibitUnusedPrivateSubroutines)
         eventSystem   => $self->eventSystem,
         ruleSource    => $self->ruleSource,
         storageEngine => $self->storageEngine,
-        reportEngine => $self->reportEngine,
+        reportEngine  => $self->reportEngine,
     );
 }
 
@@ -151,7 +158,7 @@ Replay - A bitemporal finite state machine engine
 
 =head1 VERSION
 
-Version 0.01
+0.04
 
 =head1 SYNOPSIS
 
@@ -175,8 +182,8 @@ my $replay = Replay->new(
         AWS => {
             Identity => {
                 name   => 'webserver',
-                access => 'AKIAJUZLBY2RIDB6LSJA',
-                secret => '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',
+                access => 'not really a key',
+                secret => 'not really a secret',
             },
             snsIdentity => 'webserver',
             snsService  => 'https://sns.us-east-1.amazonaws.com',
@@ -213,6 +220,21 @@ override reduce => sub {
 
 ...
 
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Replay is instantiated with a 'config' key which has a key for 
+each of its pieces, and each of those pieces have its own configuration.
+
+=head1 DESCRIPTION
+
+Replay is a rules engine designed to operate in a scalable manner, 
+particularly for further development of one's application because
+every rule only interacts with any other rule through message passing.
+
+The lack of any single model which many business rules interact with
+provides the unusual characteristics of this system in making it easy
+to modify and extend as the application matures.
+
 =head1 SUBROUTINES/METHODS
 
 =head2 _build_rule_source
@@ -227,13 +249,28 @@ override reduce => sub {
 
 =head2 _build_worm
 
-=cut
+=head1 DIAGNOSTICS
+
+Mostly, the log file consists of exception outputs for troubleshooting
+
+Merely carping things out should cause them to end up in the log file
+
+=head1 DEPENDENCIES
+
+Probably the single most significant dependency is some operating 
+implementation of the AnyEvent module.
+
+=head1 INCOMPATIBILITIES
+
+Probably with the brain of non-object oriented non-functional programmers
+who have difficulty seeing beyond the paradigm of their previous
+applications
 
 =head1 AUTHOR
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .

@@ -31,14 +31,15 @@ has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, );
 
 has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1 );
 
-has eventSystem => ( is => 'ro', isa => 'Replay::EventSystem', required => 1 );
+has eventSystem =>
+    ( is => 'ro', isa => 'Replay::EventSystem', required => 1 );
 has mode => ( is => 'ro', isa => 'Str', required => 1 );
 
 # accessor - how to get the rule for an idkey
 sub rule {
     my ( $self, $idkey ) = @_;
     my $rule = $self->ruleSource->by_idkey($idkey);
-    croak "No such rule $idkey->rule_spec" if not defined $rule;
+    croak 'No such rule ' . $idkey->rule_spec if not defined $rule;
     return $rule;
 }
 
@@ -46,75 +47,85 @@ sub notify_purge {
     my ( $self, $idkey, $part ) = @_;
     return $self->eventSystem->control->emit(
         Replay::Message::Report::Purged::Delivery->new( $idkey->marshall ) )
-      if ( $part eq 'delivery' );
+        if ( $part eq 'delivery' );
     return $self->eventSystem->control->emit(
         Replay::Message::Report::Purged::Summary->new( $idkey->marshall ) )
-      if ( $part eq 'summary' );
+        if ( $part eq 'summary' );
     return $self->eventSystem->control->emit(
-        Replay::Message::Report::Purged::GlobSummary->new( $idkey->marshall ) )
-      if ( $part eq 'globsummary' );
+        Replay::Message::Report::Purged::GlobSummary->new( $idkey->marshall )
+    ) if ( $part eq 'globsummary' );
+    return;
 }
 
 sub notify_new {
     my ( $self, $idkey, $part ) = @_;
     $self->notify_new_report( $idkey, $part );
     $self->notify_new_control( $idkey, $part );
+    return;
 }
 
 sub notify_new_generic {
     my ( $self, $channel, $idkey, $part ) = @_;
     return $channel->emit(
         Replay::Message::Report::New::Delivery->new( $idkey->marshall ) )
-      if ( $part eq 'delivery' );
+        if ( $part eq 'delivery' );
     return $channel->emit(
         Replay::Message::Report::New::Summary->new( $idkey->marshall ) )
-      if ( $part eq 'summary' );
+        if ( $part eq 'summary' );
     return $channel->emit(
         Replay::Message::Report::New::GlobSummary->new( $idkey->marshall ) )
-      if ( $part eq 'globsummary' );
+        if ( $part eq 'globsummary' );
+    return;
 }
 
 sub notify_new_report {
     my ( $self, $idkey, $part ) = @_;
     $self->notify_new_generic( $self->eventSystem->report, $idkey, $part );
+    return;
 }
 
 sub notify_new_control {
     my ( $self, $idkey, $part ) = @_;
     $self->notify_new_generic( $self->eventSystem->control, $idkey, $part );
-
+    return;
 }
 
 sub delete_latest {
     my ( $self, $idkey, $part ) = @_;
     $self->delete_latest_revision($idkey);
     $self->notify_purge( $idkey, $part );
+    return;
 }
 
 sub update {
     my ( $self, $part, $idkey, @state ) = @_;
-    my $rule = $self->rule($idkey);
-    return unless $rule->can($part);
+    my $rule  = $self->rule($idkey);
+    my $actor = $rule->can($part);
+    return if !$rule->can($part);
     return $self->delete_latest( $idkey, $part )
-      if 0 == scalar @state && defined $self->current($idkey);
-    $self->store( $idkey, $rule->can($part)->( $rule, @state ) );
+        if 0 == scalar @state && defined $self->current($idkey);
+    $self->store( $idkey, $actor->( $rule, @state ) );
     $self->notify_new( $idkey, $part );
+    return;
 }
 
 # store a new
 sub update_delivery {
     my ( $self, $idkey, @state ) = @_;
     $self->update( 'delivery', $idkey, @state );
+    return;
 }
 
 sub update_summary {
     my ( $self, $idkey, @state ) = @_;
     $self->update( 'summary', $idkey->summary, @state );
+    return;
 }
 
 sub update_globsummary {
     my ( $self, $idkey, @state ) = @_;
     $self->update( 'globsummary', $idkey->globsummary, @state );
+    return;
 }
 
 #report on a key
@@ -156,18 +167,18 @@ sub globsummary_data {
 sub do_retrieve {
     my ( $self, $idkey, $structured ) = @_;
     my $result = $self->retrieve( $idkey, $structured );
-    confess "retrieve in storage engine implimentation must return hash"
-      unless 'HASH' eq ref $result;
+    confess 'retrieve in storage engine implementation must return hash'
+        if 'HASH' ne ref $result;
     return $result if $result->{EMPTY};
     if ($structured) {
         confess
-"retrieve in storage engine implimentation must have DATA key for structured"
-          unless exists $result->{DATA};
+            'retrieve in storage engine implementation must have DATA key for structured'
+            if !exists $result->{DATA};
     }
     else {
         confess
-"retrieve in storage engine implimentation must have FORMATTED key for unstructured"
-          unless exists $result->{FORMATTED};
+            'retrieve in storage engine implementation must have FORMATTED key for unstructured'
+            if !exists $result->{FORMATTED};
     }
     return $result;
 }
@@ -175,8 +186,7 @@ sub do_retrieve {
 # get the revsion that is returning
 sub revision {
     my ( $self, $idkey ) = @_;
-    confess "This isn't an idkey"
-      unless UNIVERSAL::isa( $idkey, 'Replay::IdKey' );
+    confess 'This isn\'t an idkey' if !$idkey->isa('Replay::IdKey');
     return $idkey->revision if $idkey->has_revision;
     return $self->current($idkey);
 }
@@ -199,7 +209,8 @@ sub checkpoint {
         $idkey->hash . 'Reducable',
         sub {
             $self->eventSystem->control->emit(
-                Replay::Message::Report::Checkpoint->new( $idkey->marshall ) );
+                Replay::Message::Report::Checkpoint->new( $idkey->marshall )
+            );
         }
     );
 }
@@ -224,7 +235,7 @@ __END__
 
 =head1 NAME
 
-Replay::BaseReportEngine - wrappers for the storage engine implimentation
+Replay::Role::ReportEngine - wrappers for the storage engine implementation
 
 =head1 VERSION
 
@@ -232,17 +243,20 @@ Version 0.01
 
 =head1 SYNOPSIS
 
-This is the base class for the implimentation specific parts of the Replay system.
-
-    IMPLIMENTATIONCLASS->new(
+    IMPLEMENTATIONCLASS->new(
         config      => $self->config,
         ruleSource  => $self->ruleSource,
         eventSystem => $self->eventSystem,
     );
 
-=head1 REQUIRED ROLE IMPLIMENTATION METHODS
+=head1 DESCRIPTION
 
-All role consumers must impliment the following
+This is the role definition used by the report engine implementation 
+specific parts of the Replay system.
+
+=head1 SUBROUTINES/METHODS
+
+All role consumers must implement the following
 
 =head2 retrieve - get report
 
@@ -382,9 +396,9 @@ report system when the specified time factor is reached.
   - None
 
 
-=head1 STORAGE ENGINE IMPLIMENTATION METHODS 
+=head1 STORAGE ENGINE IMPLEMENTATION METHODS 
 
-These methods must be overridden by the specific implimentation
+These methods must be overridden by the specific implementation
 
 They should call super() to cause the emit of control messages when they succeed
 
@@ -403,7 +417,7 @@ This is expected to be something like:
 , desktop => [ <atoms in processing ]
 , canonical => [ a
 , locked => signature of a secret uuid with the idkey required to unlock.  presence indicates record is locked.
-, lockExpireEpoch => epoch time after which the lock has expired.  not presnet when not locked
+, lockExpireEpoch => epoch time after which the lock has expired.  not present when not locked
 } 
 
 =head2 (success) = absorb ( idkey, message, meta )
@@ -480,7 +494,23 @@ point
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
+
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'
@@ -552,7 +582,7 @@ direct or contributory patent infringement, then this Artistic License
 to you shall terminate on the date that such litigation is filed.
 
 Disclaimer of Warranty: THE PACKAGE IS PROVIDED BY THE COPYRIGHT HOLDER
-AND CONTRIBUTORS "AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
+AND CONTRIBUTORS 'AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
 THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
 PURPOSE, OR NON-INFRINGEMENT ARE DISCLAIMED TO THE EXTENT PERMITTED BY
 YOUR LOCAL LAW. UNLESS REQUIRED BY LAW, NO COPYRIGHT HOLDER OR

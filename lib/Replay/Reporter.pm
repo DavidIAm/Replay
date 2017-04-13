@@ -13,12 +13,13 @@ use Try::Tiny;
 
 our $VERSION = '0.03';
 
-has ruleSource => (is => 'ro', isa => 'Replay::RuleSource', required => 1);
+has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1,weak_ref => 1 );
 
-has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1);
+has eventSystem =>
+    ( is => 'ro', isa => 'Replay::EventSystem', required => 1,weak_ref => 1 );
 
 has reportEngine =>
-    (is => 'ro', isa => 'Replay::ReportEngine', required => 1,);
+    ( is => 'ro', isa => 'Replay::ReportEngine', required => 1, weak_ref => 1);
 
 sub BUILD {
     my $self = shift;
@@ -32,14 +33,14 @@ sub BUILD {
 
 # accessor - how to get the rule for an idkey
 sub rule {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     return $self->ruleSource->by_idkey($idkey);
 }
 
 sub extract_idkey {
-    my ($self, $envelope) = @_;
-    my ($message, $idkey);
-    if (blessed $envelope) {
+    my ( $self, $envelope ) = @_;
+    my ( $message, $idkey );
+    if ( blessed $envelope) {
         $message = $envelope->Message;
         $idkey   = Replay::IdKey->new(
             {   name    => $message->name,
@@ -49,7 +50,7 @@ sub extract_idkey {
             }
         );
     }
-    elsif (blessed $envelope->{Message}) {
+    elsif ( blessed $envelope->{Message} ) {
         $message = $envelope->{Message};
         $idkey   = Replay::IdKey->new(
             {   name    => $message->name,
@@ -70,42 +71,53 @@ sub extract_idkey {
 }
 
 sub report_wrapper {
-    my ($self, $first, @input) = @_;
+    my ( $self, $first, @input ) = @_;
     my $envelope
         = blessed $first ? $first : ref $first ? $first : { $first, @input };
     my $type
-        = blessed $envelope ? $envelope->MessageType : $envelope->{MessageType};
+        = blessed $envelope
+        ? $envelope->MessageType
+        : $envelope->{MessageType};
 
-    my ($uuid, $meta, @state, $idkey);
+    my ( $meta, $idkey );
     try {
         return
-               unless $type eq 'NewCanonical'
-            or $type eq 'ReportNewDelivery'
-            or $type eq 'ReportNewSummary';
+                if $type ne 'NewCanonical'
+            and $type ne 'ReportNewDelivery'
+            and $type ne 'ReportNewSummary';
         $idkey = $self->extract_idkey($envelope);
 
-        $meta = $self->reportEngine->update_delivery($idkey)
-            if $type eq 'NewCanonical';
-        $meta = $self->reportEngine->update_summary($idkey)
-            if $type eq 'ReportNewDelivery';
-        $meta = $self->reportEngine->update_globsummary($idkey)
-            if $type eq 'ReportNewSummary';
-
-        $self->eventSystem->control->emit(
-            Replay::Message::Reported->new(
+        if ( $type eq 'NewCanonical' ) {
+            $meta = $self->reportEngine->update_delivery($idkey);
+        }
+        if ( $type eq 'ReportNewDelivery' ) {
+            $meta = $self->reportEngine->update_summary($idkey);
+        }
+        if ( $type eq 'ReportNewSummary' ) {
+            $meta = $self->reportEngine->update_globsummary($idkey);
+        }
+        my $message =  Replay::Message::Reported->new(
                 $idkey->hash_list,
                 inReactionToType => $type,
-                inReactionToUUID => (blessed $envelope ? $envelope->UUID : $envelope->{UUID}),
-            ),
+                inReactionToUUID => (
+                    blessed $envelope ? $envelope->UUID : $envelope->{UUID}
+                ),
+            );
+        $self->eventSystem->control->emit($message
+           
         );
     }
     catch {
         carp "REPORTING EXCEPTION: $_";
-        $self->eventSystem->control->emit(
-            Replay::Message::Exception::Reporter->new(
-                ($idkey ? $idkey->hash_list : ()),
-                exception => (blessed $_ && $_->can('trace') ? $_->trace->as_string : $_),
-            )
+        my $message = Replay::Message::Exception::Reporter->new(
+                ( $idkey ? $idkey->hash_list : () ),
+                exception => (
+                    blessed $_
+                        && $_->can('trace') ? $_->trace->as_string : $_
+                ),
+            );
+        $self->eventSystem->control->emit($message
+            
         );
     };
     return;
@@ -138,7 +150,9 @@ my $reducer = Replay::Reporter->new(
  );
 $eventSystem->run;
 
-=cut
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
 
 =head1 DESCRIPTION
 
@@ -266,19 +280,19 @@ sub myWindowChooserAlgorithm {...}
 the reporter subscribes to the report channel
 
 When the reporter sees a NewCanonical message, it calls the report 
-engine implimentation with 'update_delivery' method
+engine implementation with 'update_delivery' method
 
 When the reporter sees a ReportNewDelivery message, it calls the report 
-engine implimentation with 'update_summary' method
+engine implementation with 'update_summary' method
 
 When the reporter sees a ReportNewSummary message, it calls the report 
-engine implimentation with 'update_globsummary' method
+engine implementation with 'update_globsummary' method
 
 When the reporter sees a Freeze message, it calls the report 
-engine implimentation with 'freeze' method
+engine implementation with 'freeze' method
 
 When the reporter sees a Freeze message, it calls the report 
-engine implimentation with 'freeze' method
+engine implementation with 'freeze' method
 
 =head1 SUBROUTINES/METHODS
 
@@ -303,7 +317,19 @@ function, storing the result, and conditionally emitting the buffered events.
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .

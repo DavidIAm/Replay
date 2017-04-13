@@ -9,14 +9,16 @@ use Replay::IdKey;
 our $VERSION = '0.02';
 
 class_type 'Clock', { class => 'Replay::Message::Clock' };
-coerce 'Clock', from 'HashRef', via { Replay::Message::Clock->new(%{$_}) };
+coerce 'Clock', from 'HashRef', via { Replay::Message::Clock->new( %{$_} ) };
 
 class_type 'IdKey', { class => 'Replay::IdKey' };
-coerce 'IdKey', from 'HashRef', via { Replay::IdKey->new(%{$_}) };
+coerce 'IdKey', from 'HashRef', via { Replay::IdKey->new( %{$_} ) };
 
 1;
 
-=pod 
+__END__
+
+=pod
 
 =head1 NAME
 
@@ -26,9 +28,13 @@ Replay::Types::Messages - Some utility type definitions
 
 Version 0.01
 
-=head1 SYNOPSIS
+=head1 DESCRIPTION
 
 provide coercion and short names for some types
+
+=head1 SYNOPSIS
+
+Type coercion definition
 
 =head1 TYPES
 
@@ -42,11 +48,31 @@ from HashRef -> IdKey
 
 from HashRef -> Clock
 
+=head1 SUBROUTINES/METHODS
+
+none
+
 =head1 AUTHOR
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
+
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .

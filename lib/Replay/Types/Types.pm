@@ -1,15 +1,15 @@
-package Replay::Types;
+package Replay::Types::Types;
 
 use Moose;
 use Moose::Util::TypeConstraints;
 
-use Replay::Role;     # include our roles
-use Replay::IdKey;    # one of our central types
+use Replay::Role::BusinessRule;    # include our roles
+use Replay::IdKey;                 # one of our central types
 
 our $VERSION = '0.02';
 
 subtype 'BusinessRule' =>
-    (as 'Object' => where sub { $_->does('Replay::Role::BusinessRule') });
+    ( as 'Object' => where sub { $_->does('Replay::Role::BusinessRule') } );
 
 1;
 
@@ -19,21 +19,45 @@ __END__
 
 =head1 NAME
 
-Replay::Types
+Replay::Types::Types
 
 =head1 VERSION
 
 Version 0.01
 
-=head1 SYNOPSIS
+=head1 DESCRIPTION
 
 Types for use in the replay code
+
+=head1 SYNOPSIS
+
+Just type definitions
+
+=head1 SUBROUTINES/METHODS
+
+none
 
 =head1 AUTHOR
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
+
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes .

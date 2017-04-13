@@ -28,14 +28,14 @@ has queue => (
     is      => 'ro',
     isa     => 'Replay::EventSystem::RabbitMQ::Queue',
     builder => '_build_queue',
-    lazy    => 1
+    lazy    => 1,
 );
 
 has bound_queue => (
     is      => 'ro',
     isa     => 'Replay::EventSystem::RabbitMQ::Queue',
     builder => '_build_bound_queue',
-    lazy    => 1
+    lazy    => 1,
 );
 
 has channel => (
@@ -46,7 +46,7 @@ has channel => (
     predicate => 'has_channel',
 );
 
-has purpose => (is => 'ro', isa => 'Str', required => 1,);
+has purpose => ( is => 'ro', isa => 'Str', required => 1, );
 
 has topic => (
     is       => 'ro',
@@ -54,35 +54,35 @@ has topic => (
     required => 1,
 );
 
-has passive => (is => 'ro', isa => 'Bool', default => 0,);
+has passive => ( is => 'ro', isa => 'Bool', default => 0, );
 
-has durable => (is => 'ro', isa => 'Bool', default => 1,);
+has durable => ( is => 'ro', isa => 'Bool', default => 1, );
 
-has exclusive => (is => 'ro', isa => 'Bool', default => 0,);
+has exclusive => ( is => 'ro', isa => 'Bool', default => 0, );
 
-has auto_delete => (is => 'ro', isa => 'Bool', default => 0,);
+has auto_delete => ( is => 'ro', isa => 'Bool', default => 0, );
 
 has queue_name =>
-    (is => 'ro', isa => 'Str', lazy => 1, builder => '_build_queue_name',);
+    ( is => 'ro', isa => 'Str', lazy => 1, builder => '_build_queue_name', );
 
 #has consumer_tag =>
 #    (is => 'ro', isa => 'Str', lazy => 1, builder => '_build_consumer',);
 
-has no_local => (is => 'ro', isa => 'Bool', lazy => 1, default => 0,);
+has no_local => ( is => 'ro', isa => 'Bool', lazy => 1, default => 0, );
 
-has no_ack => (is => 'ro', isa => 'Bool', default => 0,);
+has no_ack => ( is => 'ro', isa => 'Bool', default => 0, );
 
-sub _new_channel {
+sub _new_channel {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     return $self->rabbit->channel_open();
 }
 
-sub _receive {
-    my ($self, $message) = @_;
+sub _receive {        ## no critic (ProhibitUnusedPrivateSubroutines)
+    my ( $self, $message ) = @_;
 
-    my $frame = $self->bound_queue->get($self->channel, $self->queue_name,
-        { no_ack => $self->no_ack });
-    return unless defined $frame;
+    my $frame = $self->bound_queue->get( $self->channel, $self->queue_name,
+        { no_ack => $self->no_ack } );
+    return if !defined $frame;
     use Data::Dumper;
     my $rmes = Replay::EventSystem::RabbitMQ::Message->new(
         rabbit  => $self->rabbit,
@@ -104,20 +104,21 @@ sub _receive {
 
 sub purge {
     my ($self) = @_;
-    $self->rabbit->rabbit->rabbit->purge($self->channel, $self->queue_name);
+    return $self->rabbit->rabbit->rabbit->purge( $self->channel,
+        $self->queue_name );
 }
 
-sub _build_bound_queue {
+sub _build_bound_queue {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    $self->queue->queue_bind($self->channel, $self->queue_name,
-        $self->topic->topic->topic_name, '*');
+    $self->queue->queue_bind( $self->channel, $self->queue_name,
+        $self->topic->topic->topic_name, q/*/ );
     return $self;
 }
 
 sub DEMOLISH {
     my ($self) = @_;
-    if ($self->has_channel && defined $self->rabbit) {
-        $self->rabbit->channel_close($self->channel);
+    if ( $self->has_channel && defined $self->rabbit ) {
+        $self->rabbit->channel_close( $self->channel );
     }
     return;
 }
@@ -125,7 +126,8 @@ sub DEMOLISH {
 sub _build_queue_name {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     my $ug   = Data::UUID->new;
-    return join q(_), 'replay', $self->rabbit->config->{stage}, $self->purpose;
+    return join q(_), 'replay', $self->rabbit->config->{stage},
+        $self->purpose;
 }
 
 sub _build_queue {         ## no critic (ProhibitUnusedPrivateSubroutines)
@@ -136,7 +138,7 @@ sub _build_queue {         ## no critic (ProhibitUnusedPrivateSubroutines)
         exclusive   => $self->exclusive,
         auto_delete => $self->auto_delete,
     };
-    $self->rabbit->queue_declare($self->channel, $self->queue_name, $opt,);
+    $self->rabbit->queue_declare( $self->channel, $self->queue_name, $opt, );
     return $self;
 }
 
@@ -161,17 +163,19 @@ __END__
 
 =head1 NAME
 
-Replay::EventSystem::RabbitMQ - RabbitMQ Exchange/Queue implimentation
+Replay::EventSystem::RabbitMQ::Queue - RabbitMQ Exchange/Queue implementation
 
 =head1 VERSION
 
-Version 0.01
+Version 0.04
 
-head1 SYNOPSIS
+=head1 DESCRIPTION
 
-This is an Event System implimentation module targeting the RabbitMQ service
+This is an Event System implementation module targeting the RabbitMQ service
 If you were to instantiate it independently, it might 
 look like this.
+
+=head1 SYNOPSIS
 
 my $cv = AnyEvent->condvar;
 
@@ -229,7 +233,23 @@ Makes sure to properly clean up and disconnect from queues
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
+
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'

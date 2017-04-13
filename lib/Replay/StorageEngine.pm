@@ -7,13 +7,9 @@ use Carp qw/croak/;
 
 our $VERSION = '0.03';
 
-has config => (is => 'ro', isa => 'HashRef[Item]', required => 1,);
-has engine => (
-    is      => 'ro',
-    isa     => 'Object',
-    builder => '_build_engine',
-    lazy    => 1,
-);
+has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, );
+has engine =>
+    ( is => 'ro', isa => 'Object', builder => '_build_engine', lazy => 1, );
 has mode => (
     is       => 'ro',
     isa      => 'Str',
@@ -21,74 +17,80 @@ has mode => (
     builder  => '_build_mode',
     lazy     => 1,
 );
-has ruleSource  => (is => 'ro', isa => 'Replay::RuleSource',  required => 1,);
-has eventSystem => (is => 'ro', isa => 'Replay::EventSystem', required => 1,);
+has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1, );
+has eventSystem =>
+    ( is => 'ro', isa => 'Replay::EventSystem', required => 1, );
 
 # Delegate the api points
 sub retrieve {
-    my ($self, @args) = @_;
+    my ( $self, @args ) = @_;
     return $self->engine->retrieve(@args);
 }
 
 sub absorb {
-    my ($self, @args) = @_;
+    my ( $self, @args ) = @_;
     return $self->engine->absorb(@args);
 }
 
 sub fetch_canonical_state {
-    my ($self, @args) = @_;
+    my ( $self, @args ) = @_;
     return $self->engine->fetch_canonical_state(@args);
 }
 
 sub fetch_transitional_state {
-    my ($self, @args) = @_;
+    my ( $self, @args ) = @_;
     return $self->engine->fetch_transitional_state(@args);
 }
 
 sub revert {
-    my ($self, @args) = @_;
+    my ( $self, @args ) = @_;
     return $self->engine->revert(@args);
 }
 
 sub store_new_canonical_state {
-    my ($self, @args) = @_;
+    my ( $self, @args ) = @_;
     return $self->engine->store_new_canonical_state(@args);
 }
 
 sub window_all {
-    my ($self, @args) = @_;
+    my ( $self, @args ) = @_;
     return $self->engine->window_all(@args);
 }
 
 sub find_keys_need_reduce {
-    my ($self, @args) = @_;
+    my ( $self, @args ) = @_;
     return $self->engine->find_keys_need_reduce(@args);
 }
 
 sub _build_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
-    my ($self, @args) = @_;
+    my ( $self, @args ) = @_;
     my $classname = $self->mode;
- 
-    unless($classname->does('Replay::Role::StorageEngine')){
-        croak $classname.q( -->Must use the Replay::Role::StorageEngin 'Role' );
-        
-    }    
-    
-    return $classname->new(
+
+    if ( !$classname->does('Replay::Role::StorageEngine') ) {
+        croak $classname
+            . q( -->Must use the Replay::Role::StorageEngin 'Role' );
+
+    }
+
+    my $new = $classname->new(
         config      => $self->config,
         ruleSource  => $self->ruleSource,
         eventSystem => $self->eventSystem,
     );
+    return $new;
 }
 
-sub _build_mode {      ## no critic (ProhibitUnusedPrivateSubroutines)
-    my ($self, @args) = @_;
-    if (not $self->config->{StorageEngine}{Mode}) {
+sub _build_mode {    ## no critic (ProhibitUnusedPrivateSubroutines)
+    my ( $self, @args ) = @_;
+    if ( not $self->config->{StorageEngine}{Mode} ) {
         croak q(No StorageMode?);
     }
-    my $class = 'Replay::StorageEngine::' . $self->config->{StorageEngine}{Mode};
+    my $class
+        = 'Replay::StorageEngine::' . $self->config->{StorageEngine}{Mode};
     try {
-        if (eval "require $class") {
+        my $path = $class . '.pm';
+        $path =~ s{::}{/}gxsm;
+        if ( eval { require $path } ) {
         }
         else {
             croak $EVAL_ERROR;
@@ -125,6 +127,10 @@ You can instantiate a StorageEngine object with a list of rules and config
 use Replay::StorageEngine;
 
 my $storage = Replay::StorageEngine->new( ruleSource => $ruleSource, config => { StorageMode => 'Memory', engine_specific_config => 'as_relevant' } );
+
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Implied by context
 
 =head1 DESCRIPTION
 
@@ -190,7 +196,7 @@ This is expected to be something like:
 , desktop => [ <atoms in processing ]
 , canonical => [ a
 , locked => signature of a secret uuid with the idkey required to unlock.  presence indicates record is locked.
-, lockExpireEpoch => epoch time after which the lock has expired.  not presnet when not locked
+, lockExpireEpoch => epoch time after which the lock has expired.  not present when not locked
 } 
 
 
@@ -233,7 +239,7 @@ uuid and merged list returned
 
 call engine revert
 
-causes a revert of the checkout. - only works if the signature iwth the uuid supplied matches the lock or the lock is expired
+causes a revert of the checkout. - only works if the signature with the uuid supplied matches the lock or the lock is expired
 
 lock - reset with a new hash (append UNLOCKING to the hashed idkey/uuid string) 
 lockExpireEpoch - reset with a new time
@@ -261,7 +267,19 @@ see BaseStorageEngine find_keys_need_reduce
 
 David Ihnen, C<< <davidihnen at gmail.com> >>
 
-=head1 BUGS
+=head1 DIAGNOSTICS
+
+nothing to say here
+
+=head1 DEPENDENCIES
+
+Nothing outside the normal Replay world
+
+=head1 INCOMPATIBILITIES
+
+Nothing to report
+
+=head1 BUGS AND LIMITATIONS
 
 Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be notified, and then you'
@@ -355,7 +373,7 @@ canonSignature: q(SIGNATURE) - a sanity check to see if this canonical has been 
 Timeblocks: [ Array of input timeblock names ]
 Ruleversions: [ Array of objects like { name: <rulename>, version: <ruleversion> } ]
 
-STATE DOCUMENT SPECIFIC TO THIS IMPLIMENTATION
+STATE DOCUMENT SPECIFIC TO THIS IMPLEMENTATION
 
 db is determined by idkey->ruleversion
 collection is determined by idkey->collection
@@ -371,7 +389,7 @@ checkout
 
 rename inbox to desktop so that any new absorbs don't get confused with what is being processed
 
-=head1 STORAGE ENGINE IMPLIMENTATION METHODS 
+=head1 STORAGE ENGINE IMPLEMENTATION METHODS 
 
 =head2 (state) = retrieve ( idkey )
 

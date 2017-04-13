@@ -12,10 +12,10 @@ use Scalar::Util qw/blessed/;
 use Try::Tiny;
 use Time::HiRes qw/gettimeofday/;
 
-has eventSystem   => (is => 'ro', required => 1,);
-has storageEngine => (is => 'ro', required => 1,);
-has reportEngine  => (is => 'ro', required => 1,);
-has ruleSource    => (is => 'ro', required => 1,);
+has eventSystem   => (is => 'ro', required => 1,weak_ref => 1,);
+has storageEngine => (is => 'ro', required => 1,weak_ref => 1,);
+has reportEngine  => (is => 'ro', required => 1,weak_ref => 1,);
+has ruleSource    => (is => 'ro', required => 1,weak_ref => 1,);
 
 # dummy implimentation - Log them to a file
 sub BUILD {
@@ -40,8 +40,9 @@ sub BUILD {
 sub deliver {
     my ($self, $idkey) = @_;
     my $state = $self->storageEngine->retrieve($idkey);
+    my $rs = $self->ruleSource->by_idkey($idkey)->delivery($state->{canonical});
     return $self->reportEngine->newReportVersion(
-        report => $self->ruleSource->by_idkey($idkey)->delivery($state->{canonical}),
+        report => $rs,
         Ruleversions => $state->Ruleversions,
         Timeblocks   => $state->Timeblocks,
         Windows      => $state->Windows,
