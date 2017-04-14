@@ -29,10 +29,11 @@ has ruleSource => (
 
 sub _build_rule_source {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return Replay::RuleSource->new(
+    my $rules = Replay::RuleSource->new(
         rules       => $self->rules,
         eventSystem => $self->eventSystem
     );
+    return $rules;
 }
 
 has eventSystem => (
@@ -40,11 +41,12 @@ has eventSystem => (
     isa     => 'Replay::EventSystem',
     builder => '_build_event_system',
     lazy    => 1,
-);
+    );
 
 sub _build_event_system {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return Replay::EventSystem->new( config => $self->config );
+    my $event = Replay::EventSystem->new( config => $self->config );
+    return $event;
 }
 
 has reportEngine => (
@@ -56,12 +58,13 @@ has reportEngine => (
 
 sub _build_report_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return Replay::ReportEngine->new(
+    my $report = Replay::ReportEngine->new(
         config        => $self->config,
         eventSystem   => $self->eventSystem,
         ruleSource    => $self->ruleSource,
         storageEngine => $self->storageEngine,
     );
+    return $report;
 }
 
 has storageEngine => (
@@ -75,11 +78,12 @@ has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, );
 
 sub _build_storage_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return Replay::StorageEngine->new(
+    my $store = Replay::StorageEngine->new(
         config      => $self->config,
         ruleSource  => $self->ruleSource,
         eventSystem => $self->eventSystem
     );
+    return $store;
 }
 
 has reducer => (
@@ -87,15 +91,17 @@ has reducer => (
     isa     => 'Replay::Reducer',
     builder => '_build_reducer',
     lazy    => 1,
+    weak_ref => 1,
 );
 
 sub _build_reducer {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return Replay::Reducer->new(
+    my $reduce = Replay::Reducer->new(
         eventSystem   => $self->eventSystem,
         ruleSource    => $self->ruleSource,
         storageEngine => $self->storageEngine
     );
+    return $reduce;
 }
 
 has mapper => (
@@ -103,15 +109,17 @@ has mapper => (
     isa     => 'Replay::Mapper',
     builder => '_build_mapper',
     lazy    => 1,
+    weak_ref => 1,
 );
 
 sub _build_mapper {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return Replay::Mapper->new(
+    my $mapper = Replay::Mapper->new(
         eventSystem   => $self->eventSystem,
         ruleSource    => $self->ruleSource,
         storageEngine => $self->storageEngine
     );
+    return $mapper;
 }
 
 has worm => (
@@ -119,14 +127,16 @@ has worm => (
     isa     => 'Replay::WORM',
     builder => '_build_worm',
     lazy    => 1,
+    weak_ref => 1,
 );
 
 sub _build_worm {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return Replay::WORM->new(
+    my $worm = Replay::WORM->new(
         eventSystem => $self->eventSystem,
         config      => $self->config,
     );
+    return $worm;
 }
 
 has reporter => (
@@ -134,16 +144,18 @@ has reporter => (
     isa     => 'Replay::Reporter',
     builder => '_build_reporter',
     lazy    => 1,
+    weak_ref => 1,
 );
 
 sub _build_reporter {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return Replay::Reporter->new(
+    my $report = Replay::Reporter->new(
         eventSystem   => $self->eventSystem,
         ruleSource    => $self->ruleSource,
         storageEngine => $self->storageEngine,
         reportEngine  => $self->reportEngine,
     );
+    return $report;
 }
 
 1;
