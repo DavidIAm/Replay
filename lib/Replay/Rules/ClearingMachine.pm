@@ -35,14 +35,18 @@ package Replay::Rules::ClearingMachine;
 #        };
 
 use Moose;
+with qw/Replay::Role::BusinessRule/;
+
 use Scalar::Util qw/blessed/;
 use List::Util qw/min max/;
 use Data::Dumper;
 use JSON;
 use Try::Tiny;
 use Time::HiRes qw/gettimeofday/;
+use Carp qw/croak carp confess/;
 use Readonly;
 with qw/Replay::Role::BusinessRule/;
+use Readonly;
 
 our $VERSION = q(2);
 

@@ -42,6 +42,7 @@ use Try::Tiny;
 use Time::HiRes qw/gettimeofday/;
 use Replay::Message::Clock;
 use Replay::Message::Async;
+use Carp qw/croak carp confess/;
 use Readonly;
 with qw/Replay::Role::BusinessRule/;
 

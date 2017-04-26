@@ -24,7 +24,7 @@ sub absorb {
 
     my ( $self, $idkey, $atom, $meta ) = @_;
 
-    #     warn("Replay::StorageEngine::Mongo  absorb $self, $idkey" );
+         warn("Replay::StorageEngine::Mongo  absorb $self, $idkey" );
     use JSON;
     my $r = $self->db->run_command(
         [   findAndModify => $idkey->collection(),
