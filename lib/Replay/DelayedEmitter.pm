@@ -6,7 +6,7 @@ use Carp qw/confess/;
 our $VERSION = '0.02';
 
 has eventSystem =>
-    ( is => 'ro', isa => 'Replay::EventSystem', required => 1, weak_ref => 1 );
+    ( is => 'ro', isa => '', required => 1, weak_ref => 1 );
 has Timeblocks   => ( is => 'rw', isa => 'ArrayRef', required => 1, weak_ref => 1 );
 has Ruleversions => ( is => 'rw', isa => 'ArrayRef', required => 1, weak_ref => 1 );
 has messagesToSend =>

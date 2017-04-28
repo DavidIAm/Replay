@@ -45,7 +45,7 @@ has eventSystem => (
 
 sub _build_event_system {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    my $event = Replay::EventSystem->new( config => $self->config );
+    my $event = Replay::EventSystem->new( { domain=>$self->config->{EventSystem}->{domain} ,config => $self->config } );
     return $event;
 }
 
@@ -144,7 +144,7 @@ has reporter => (
     isa     => 'Replay::Reporter',
     builder => '_build_reporter',
     lazy    => 1,
-    weak_ref => 1,
+    #weak_ref => 1,
 );
 
 sub _build_reporter {    ## no critic (ProhibitUnusedPrivateSubroutines)
