@@ -32,6 +32,16 @@ sub absorb {
     return $self->engine->absorb(@args);
 }
 
+sub checkout {
+    my ( $self, @args ) = @_;
+    return $self->engine->inbox_to_desktop(@args)
+}
+
+sub desktop_cursor {
+    my ( $self, @args ) = @_;
+    return $self->engine->desktop_cursor(@args)
+}
+
 sub fetch_canonical_state {
     my ( $self, @args ) = @_;
     return $self->engine->fetch_canonical_state(@args);

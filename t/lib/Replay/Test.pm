@@ -40,7 +40,7 @@ Test::Class->runtests();
 package TESTRULE;
 
 use Moose;
-use Replay::Types;
+use Replay::Types::Types;
 use List::Util qw//;
 use Data::Dumper;
 use JSON qw/to_json/;

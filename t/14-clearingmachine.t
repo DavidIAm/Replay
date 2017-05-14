@@ -78,7 +78,7 @@ has 'workflow' => (
 package TESTRULE;
 
 use Moose;
-use Replay::Types;
+use Replay::Types::Types;
 with 'Replay::Role::ClearingMachine' => { -version => 0.02 };
 with 'Replay::Role::BusinessRule'    => { -version => 0.02 };
 

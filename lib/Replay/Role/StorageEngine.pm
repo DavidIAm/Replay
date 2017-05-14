@@ -83,7 +83,7 @@ sub checkout {
 
     if ( exists $lockresult->{locked} && $lockresult->{locked} eq $signature )
     {
-        super();
+        super($idkey);
         return $uuid;
     }
     elsif ( !exists $lockresult->{locked} ) {
@@ -134,7 +134,7 @@ sub checkout {
 
     my $lock_result
         = $self->checkout_record( $idkey, $newsignature, $timeout );
-    if ( defined $lock_result->{lock} ) {
+    if ( defined $lock_result->{locked} ) {
         super();
         return $newuuid;
     }
@@ -259,16 +259,24 @@ sub fetch_transitional_state {
 
     my $cubby = $self->retrieve($idkey);
 
-    # drop the checkout if we don't have any items to reduce
-    if ( 0 == scalar @{ $cubby->{desktop} || [] } ) {
+    my $cursor = $self->desktop_cursor($idkey);
+    unless ( $cursor->has_next ) {
         $self->revert( $idkey, $uuid );
         return;
     }
 
+    my $timeblocks   = Set::Scalar->new(@{$cubby->{Timeblocks} || []});
+    my $ruleversions = Set::Object->new(@{$cubby->{Ruleversions} || []});
+    map {
+      push @{$atoms}, $_->{atom};
+      $timeblocks->insert( $_ ) foreach @{$_->{meta}->{TimeBlocks}};
+      $ruleversions->insert( $_ ) foreach @{$_->{meta}->{Ruleversions}};
+    } $cursor->all
+
     # merge in canonical, moving atoms from desktop
     my $reducing;
     try {
-        $reducing = $self->merge( $idkey, $cubby->{desktop},
+        $reducing = $self->merge( $idkey, $atoms,
             $cubby->{canonical} || [] );
     }
     catch {
@@ -285,8 +293,8 @@ sub fetch_transitional_state {
     # return uuid and list
     return $uuid => {
         Windows      => $idkey->window,
-        Timeblocks   => $cubby->{Timeblocks} || [],
-        Ruleversions => $cubby->{Ruleversions} || [],
+        Timeblocks   => [$timeblocks->elements],
+        Ruleversions => [$ruleversions->members],
     } => @{$reducing};
 
 }
@@ -298,7 +306,6 @@ sub store_new_canonical_state {
     $cubby->{canonical} = [@atoms];
     $cubby->{canonSignature}
         = $self->state_signature( $idkey, $cubby->{canonical} );
-    delete $cubby->{desktop};
     my $newstate = $self->checkin( $idkey, $uuid, $cubby );
     $emitter->release;
 

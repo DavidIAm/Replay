@@ -19,6 +19,11 @@ sub retrieve {
         ||= $self->new_document($idkey);
 }
 
+sub desktop_cursor {
+  my ($self, $idkey) = @_;
+  # TODO: make a cursor object return here!
+}
+
 # State transition = add new atom to inbox
 sub absorb {
     my ( $self, $idkey, $atom, $meta ) = @_;

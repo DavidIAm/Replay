@@ -12,6 +12,7 @@ use Replay::Message::NoLock::DuringRevert;
 use Replay::Message;
 
 our $VERSION = 0.02;
+sub BOXES { "BOXES" }
 
 sub retrieve {
     my ( $self, $idkey ) = @_;
@@ -20,17 +21,47 @@ sub retrieve {
     return $self->document($idkey);
 }
 
+sub desktop_cursor {
+  my ($self, $idkey) = @_
+  $self->db->collection(BOXES)->find({ idkey: $idkey, state: "desktop" });
+}
+
+sub reabsorb {
+  my ($self, $idkey) = @_;
+  return $self->db->collection(BOXES)->update_many( {
+      idkey: $idkey,
+      state: "desktop"
+    },{
+      state: "inbox"
+    } );
+}
 sub absorb {
 
     my ( $self, $idkey, $atom, $meta ) = @_;
 
-         warn("Replay::StorageEngine::Mongo  absorb $self, $idkey" );
+    warn("Replay::StorageEngine::Mongo  absorb $self, $idkey" );
     use JSON;
-    my $r = $self->db->run_command(
-        [   findAndModify => $idkey->collection(),
+    my $r = $self->db->collection(BOXES)->insert(
+      { idkey => $idkey->cubby,
+        meta => $meta,
+        atom => $atom,
+        state => "inbox",
+      }
+}
+
+sub inbox_to_desktop {
+  my ($self, $idkey)  = @_;
+  $self->db->collection(BOXES)->update_many( {
+       idkey: $idkey,
+       state: "inbox",
+    }, { state: "desktop" } );
+}
+
+# TODO: call this or something like it!
+sub updateMeta {
+      $self->db->collection($self->collection($idkey))->update( {
             query         => { idkey => $idkey->cubby },
             update        => {
-                q^$^ . 'push' => { inbox => $atom },
                 q^$^
                     . 'addToSet' => {
                     Windows => $idkey->window,
@@ -97,7 +128,6 @@ sub checkin {
     if ($self->collection($idkey)->delete_one(
             {   idkey     => $idkey->cubby,
                 inbox     => { q^$^ . 'exists' => 0 },
-                desktop   => { q^$^ . 'exists' => 0 },
                 canonical => { q^$^ . 'exists' => 0 }
             }
         )
@@ -144,7 +174,6 @@ sub find_keys_need_reduce {
                 {   q^$^
                         . 'or' => [
                         { inbox           => { q^$^ . 'exists' => 1 } },
-                        { desktop         => { q^$^ . 'exists' => 1 } },
                         { locked          => { q^$^ . 'exists' => 1 } },
                         { lockExpireEpoch => { q^$^ . 'exists' => 1 } }
                         ]
@@ -425,7 +454,6 @@ db is determined by idkey->ruleversion
 collection is determined by idkey->collection
 idkey is determined by idkey->cubby
 
-desktop: [ Array of Atoms ] - the previously arrived atoms that are currently being processed
 locked: q(SIGNATURE) - if this is set, only a worker who knows the signature may update this
 lockExpireEpoch: TIMEINT - used in case of processing timeout to unlock the record
 

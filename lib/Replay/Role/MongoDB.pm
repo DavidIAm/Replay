@@ -58,10 +58,15 @@ sub checkout_record {
     my ( $self, $idkey, $signature, $timeout ) = @_;
 
     # try to get lock
-    my $lockresult = $self->collection($idkey)->update_many(
+    # # ready to be processed: desktop does not exist and inbox does
+    # # right record: idkey matches
+    # # unlocked OR expired
+    # # # unlocked - locked element does not exist
+    # # # expired - locked is the signature
+    # # #         - lock expire epoch is gt current time 
+    # # #        OR lockExpireEpoch does not exist
+    my $lockresult = $self->collection($idkey)->find_one_and_update(
         {   idkey   => $idkey->cubby,
-            desktop => { q^$^ . 'exists' => 0 },
-            inbox   => { q^$^ . 'exists' => 1 },
             q^$^
                 . 'or' => [
                 { locked => { q^$^ . 'exists' => 0 } },
@@ -87,6 +92,23 @@ sub checkout_record {
             q^$^ . 'rename' => { 'inbox' => 'desktop' },
         },
     );
+
+    # boxes collection
+    #
+    # absorb:
+    # create new document in boxes: {idkey:, atom:, state:"inbox"}
+    #
+    # checkout:
+    # lock the record
+    # update boxes {idkey: , state:"inbox"} to { {idkey: # , state: "desktop"}
+    #
+    # reduce:
+    # retrieve list { idkey: , state: "desktop" }
+    #
+    # checkin:
+    # update canonical
+    # delete boxes {idkey: , state:"desktop"}
+    # unlock the record
 
     return $self->lockreport($idkey);
 }
@@ -193,7 +215,7 @@ sub revert_this_record {
 
     # reabsorb all of the desktop atoms into the document
     foreach my $atom ( @{ $document->{'desktop'} || [] } ) {
-        $self->absorb( $idkey, $atom );
+        $self->reabsorb( $idkey );
     }
 
     # and clear the desktop state
@@ -211,8 +233,6 @@ sub update_and_unlock {
     my @unsetcanon = ();
     if ($state) {
         delete $state->{_id};       # cannot set _id!
-        delete $state->{inbox};     # we must not affect the inbox on updates!
-        delete $state->{desktop};   # there is no more desktop on checkin
         delete $state->{lockExpireEpoch}
             ;                       # there is no more expire time on checkin
         delete $state->{locked}
@@ -221,19 +241,19 @@ sub update_and_unlock {
             delete $state->{canonical};
             @unsetcanon = ( canonical => 1 );
         }
+        $self->db->collection("BOXES")($idkey)->delete_many({ idkey: $idkey->cubby, state: "desktop" });
     }
-    return $self->collection($idkey)->update_many(
+    return $self->collection($idkey)->find_one_and_update(
         { idkey => $idkey->cubby, locked => $signature },
         {   ( $state ? ( q^$^ . 'set' => $state ) : () ),
             q^$^
                 . 'unset' => {
-                desktop         => 1,
                 lockExpireEpoch => 1,
                 locked          => 1,
                 @unsetcanon
                 }
         },
-        { upsert => 0, new => 1 }
+        { upsert => 0 }
     );
 }
 
