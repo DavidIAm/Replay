@@ -1,18 +1,30 @@
 package Replay::StorageEngine::Memory::Cursor;
 
+  use Data::Dumper;
+
 sub new {
-  my ($class, @list) = @_;
+  my ($class, $list) = @_;
   my $self = bless {}, __PACKAGE__;
-  $self->{list} = [@list];
+  $self->{list} = $list;
+  $self->{index} = 0;
   return $self;
+}
+sub all {
+  my ($self) = @_;
+  return @{$self->{list}};
+}
+sub first {
+  my ($self) = @_;
+  $self->{index} = 0;
+  return $self->next;
 }
 sub next {
   my ($self) = @_;
-  shift @{$self->{list}}
+  $self->{list}->[$self->{index} ++]
 }
 sub has_next {
   my ($self) = @_;
-  return scalar @{$self->{list}};
+  return $self->{index} <= $#{$self->{list}} ;
 }
 
 package Replay::StorageEngine::Memory;
@@ -23,6 +35,8 @@ use Scalar::Util qw/blessed/;
 use Replay::Message::NoLock::DuringRevert;
 use Replay::Message::Cleared::State;
 use Replay::IdKey;
+use Set::Scalar;
+use Set::Object;
 use Carp qw/croak carp cluck/;
 
 has 'debug' => ( is => 'rw' );
@@ -38,7 +52,9 @@ sub retrieve {
 
 sub desktop_cursor {
   my ($self, $idkey) = @_;
-  Replay::StorageEngine::Memory::Cursor->new(@{$self->retrieve($idkey)->{inbox}});
+  Replay::StorageEngine::Memory::Cursor->new(
+    $self->retrieve($idkey)->{desktop}
+  );
 }
 
 # State transition = add new atom to inbox
@@ -47,24 +63,15 @@ sub absorb {
     $meta ||= {};
     my $state = $self->retrieve($idkey);
 
-    # unique list of Windows
-    my %windows = map { $_ => 1 } @{ $state->{Windows} }, $idkey->window;
-    $state->{Windows} = [ keys %windows ];
+    my $windows   = Set::Scalar->new(@{$meta->{Windows} || []});
+    my $timeblocks   = Set::Scalar->new(@{$meta->{Timeblocks} || []});
+    my $ruleversions = Set::Object->new(@{$meta->{Ruleversions} || []});
 
-    # unique list of Timeblocks
-    my %timeblocks = map { $_ => 1 } grep {$_} @{ $state->{Timeblocks} },
-        $meta->{timeblock};
-    $state->{Timeblocks} = [ keys %timeblocks ];
+    $state->{Windows} = [ $windows->members ];
+    $state->{Timeblocks} = [ $timeblocks->members ];
+    $state->{Ruleversions} = [ $ruleversions->members ];
 
-    # unique list of Ruleversions
-    my %ruleversions = ();
-    foreach my $m ( @{ $state->{Ruleversions} }, $meta->{ruleversion} ) {
-        $ruleversions{ join q(+),
-            map { $_ . q(-) . $m->{$_} } sort keys %{$m} } = $m;
-    }
-    $state->{Ruleversions} = [ values %ruleversions ];
     push @{ $state->{inbox} ||= [] }, $atom;
-    my $already = $state->{reducable_emitted};
     $state->{reducable_emitted} = 1;
     return 1;
 }

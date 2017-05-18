@@ -146,9 +146,7 @@ sub execute_reduce {
                         && $_->can('trace') ? $_->trace->as_string : $_
                 ),
             );
-        $self->eventSystem->control->emit($message
-            
-        );
+        $self->eventSystem->control->emit($message);
     };
     return;
 }

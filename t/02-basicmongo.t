@@ -1,4 +1,4 @@
-package Test::Replay::AWSQueue::Mongo::Filesystem;
+package Test::Replay::Null::Mongo::Filesystem;
 
 use lib 't/lib';
 use File::Path;

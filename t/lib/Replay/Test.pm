@@ -73,7 +73,6 @@ sub key_value_set {
             push @keyvalues, $key, $_;
         }
     }
-    warn "KEYVALUESET @keyvalues";
     return @keyvalues;
 }
 
@@ -85,22 +84,26 @@ sub compare {
 
 sub reduce {
     my ( $self, $emitter, @state ) = @_;
-    warn "REDUCING @state";
-    warn __FILE__ . ": PURGE FOUND" if grep { $_ eq 'purge' } @state;
-    return                          if grep { $_ eq 'purge' } @state;
-    return List::Util::reduce { $a + $b } @state;
+    warn __FILE__ . ": PURGE FOUND" if grep { ($_||'') eq 'purge' } @state;
+    return                          if grep { ($_||'') eq 'purge' } @state;
+    my @list = List::Util::reduce { $a + $b } @state;
+    use Carp qw/cluck/;
+    cluck unless defined $list[0];
+    return @list;
 }
 
 sub delivery {
     my ( $self, @state ) = @_;
     use Data::Dumper;
     warn __FILE__ . ": DELIVERY HIT";
+    use Carp qw/cluck/;
+    cluck unless defined $state[0];
     return [@state], to_json [@state];
 }
 
 sub summary {
     my ( $self, %deliverydatas ) = @_;
-    warn __FILE__ . ": SUMMARY HIT";
+    #warn __FILE__ . ": SUMMARY HIT";
     my @state =
       keys %deliverydatas
       ? List::Util::reduce { $a + $b }
@@ -111,7 +114,7 @@ sub summary {
 
 sub globsummary {
     my ( $self, %summarydatas ) = @_;
-    warn __FILE__ . ": GLOBSUMMARY HIT";
+#    warn __FILE__ . ": GLOBSUMMARY HIT";
     my @state =
       keys %summarydatas
       ? List::Util::reduce { $a + $b }
@@ -193,8 +196,8 @@ sub a_testruleoperation : Test(no_plan) {
     is $rule->compare( 'purge', 0 ),       1,  'compare permute';
     is $rule->compare( 'purge', 1 ),       1,  'compare permute';
 
-    is $rule->reduce( undef, qw[1 2 3 4 5] ),    15, 'reduce verify';
-    is $rule->reduce( undef, qw[1 2 3 4 5 10] ), 25, 'reduce verify';
+    is_deeply [ $rule->reduce( undef, qw[1 2 3 4 5] ) ],    [15], 'reduce verify';
+    is_deeply [ $rule->reduce( undef, qw[1 2 3 4 5 10] ) ], [25], 'reduce verify';
 
     is_deeply [ $rule->summary() ], [ [], '[]' ], 'summary verify empty';
     is_deeply [
@@ -287,39 +290,36 @@ sub testloop : Test(no_plan) {
         sub {
             my ($message) = @_;
 
-            warn __FILE__
-              . ": This is a origin message of type "
-              . $message->{MessageType} . "\n";
+#            warn __FILE__
+#              . ": This is a origin message of type "
+#              . $message->{MessageType} . "\n";
         }
     );
     $replay->eventSystem->map->subscribe(
         sub {
             my ($message) = @_;
 
-            warn __FILE__
-              . ": This is a map message of type "
-              . $message->{MessageType} . "\n";
+#            warn __FILE__
+#              . ": This is a map message of type "
+#              . $message->{MessageType} . "\n";
         }
     );
     $replay->eventSystem->reduce->subscribe(
         sub {
             my ($message) = @_;
 
-            warn __FILE__
-              . ": This is a reduce message of type "
-              . $message->{MessageType} . "\n";
-           use Data::Dumper;
-           $Data::Dumper::Sortkeys = 1;
-           warn Dumper $message
+#            warn __FILE__
+#              . ": This is a reduce message of type "
+#              . $message->{MessageType} . "\n";
         }
     );
     $replay->eventSystem->report->subscribe(
         sub {
             my ($message) = @_;
 
-            warn __FILE__
-              . ": This is a report message of type "
-              . $message->{MessageType} . "\n";
+#            warn __FILE__
+#              . ": This is a report message of type "
+#              . $message->{MessageType} . "\n";
         }
     );
 
@@ -338,10 +338,6 @@ sub testloop : Test(no_plan) {
     $replay->eventSystem->report->subscribe(
         sub {
             my ($message) = @_;
-
-            warn __FILE__
-              . ": This is a report message of type "
-              . $message->{MessageType} . "\n";
 
            # The behavior of this return plus the globsumcount increment is that
            # it will keep letting things run until it sees the third

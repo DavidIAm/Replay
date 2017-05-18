@@ -46,6 +46,7 @@ sub emit {
     }
 
     push @{ $self->{events} }, $message->marshall;
+
     return $message->UUID;
 }
 

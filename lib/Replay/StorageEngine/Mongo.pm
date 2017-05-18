@@ -21,14 +21,14 @@ sub BOXES {
 sub retrieve {
     my ( $self, $idkey ) = @_;
 
-    #    warn("Replay::StorageEngine::Mongo  retrieve $self, $idkey" );
+warn("Replay::StorageEngine::Mongo  retrieve $self, $idkey" );
     return $self->document($idkey);
 }
 
 sub desktop_cursor {
   my ($self, $idkey) = @_;
   my $c = $self->BOXES->find({ idkey => $idkey, state => "desktop" });
-  warn "finding cursor for idkey $idkey ($c)";
+warn "finding cursor for idkey $idkey ($c)";
   return $c;
 }
 
@@ -42,11 +42,8 @@ sub reabsorb {
     } );
 }
 sub absorb {
-
     my ( $self, $idkey, $atom, $meta ) = @_;
 
-    warn("Replay::StorageEngine::Mongo  absorb $self, $idkey" );
-    use JSON;
     my $r = $self->BOXES->insert_one(
       { idkey => $idkey->cubby,
         meta => $meta,
