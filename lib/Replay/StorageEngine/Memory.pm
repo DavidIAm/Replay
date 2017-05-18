@@ -1,3 +1,20 @@
+package Replay::StorageEngine::Memory::Cursor;
+
+sub new {
+  my ($class, @list) = @_;
+  my $self = bless {}, __PACKAGE__;
+  $self->{list} = [@list];
+  return $self;
+}
+sub next {
+  my ($self) = @_;
+  shift @{$self->{list}}
+}
+sub has_next {
+  my ($self) = @_;
+  return scalar @{$self->{list}};
+}
+
 package Replay::StorageEngine::Memory;
 
 use Moose;
@@ -21,7 +38,7 @@ sub retrieve {
 
 sub desktop_cursor {
   my ($self, $idkey) = @_;
-  # TODO: make a cursor object return here!
+  Replay::StorageEngine::Memory::Cursor->new(@{$self->retrieve($idkey)->{inbox}});
 }
 
 # State transition = add new atom to inbox

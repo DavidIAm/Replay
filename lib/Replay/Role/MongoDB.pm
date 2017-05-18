@@ -241,7 +241,7 @@ sub update_and_unlock {
             delete $state->{canonical};
             @unsetcanon = ( canonical => 1 );
         }
-        $self->db->collection("BOXES")($idkey)->delete_many({ idkey: $idkey->cubby, state: "desktop" });
+        $self->db->collection("BOXES")->delete_many({ idkey => $idkey->cubby, state => "desktop" });
     }
     return $self->collection($idkey)->find_one_and_update(
         { idkey => $idkey->cubby, locked => $signature },

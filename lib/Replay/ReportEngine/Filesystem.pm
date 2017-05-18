@@ -44,9 +44,8 @@ sub _build_root {    ## no critic (ProhibitUnusedPrivateSubroutines)
 
     my $directory = abs_path( $self->thisConfig->{Root} );
 
-    if ( !$directory ) {
-        my @test = mkpath $self->thisConfig->{Root};
-        $directory = shift @test;
+    if ( !-d $directory ) {
+        mkpath $directory;
     }
 
     if ( !-d $directory ) {

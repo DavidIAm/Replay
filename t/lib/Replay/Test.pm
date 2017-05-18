@@ -308,6 +308,18 @@ sub testloop : Test(no_plan) {
             warn __FILE__
               . ": This is a reduce message of type "
               . $message->{MessageType} . "\n";
+           use Data::Dumper;
+           $Data::Dumper::Sortkeys = 1;
+           warn Dumper $message
+        }
+    );
+    $replay->eventSystem->report->subscribe(
+        sub {
+            my ($message) = @_;
+
+            warn __FILE__
+              . ": This is a report message of type "
+              . $message->{MessageType} . "\n";
         }
     );
 

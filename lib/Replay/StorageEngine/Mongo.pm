@@ -12,7 +12,11 @@ use Replay::Message::NoLock::DuringRevert;
 use Replay::Message;
 
 our $VERSION = 0.02;
-sub BOXES { "BOXES" }
+
+sub BOXES {
+  my ($self) = @_;
+  $self->{db}->get_collection("BOXES");
+}
 
 sub retrieve {
     my ( $self, $idkey ) = @_;
@@ -22,17 +26,19 @@ sub retrieve {
 }
 
 sub desktop_cursor {
-  my ($self, $idkey) = @_
-  $self->db->collection(BOXES)->find({ idkey: $idkey, state: "desktop" });
+  my ($self, $idkey) = @_;
+  my $c = $self->BOXES->find({ idkey => $idkey, state => "desktop" });
+  warn "finding cursor for idkey $idkey ($c)";
+  return $c;
 }
 
 sub reabsorb {
   my ($self, $idkey) = @_;
-  return $self->db->collection(BOXES)->update_many( {
-      idkey: $idkey,
-      state: "desktop"
+  return $self->BOXES->update_many( {
+      idkey => $idkey,
+      state => "desktop"
     },{
-      state: "inbox"
+      state => "inbox"
     } );
 }
 sub absorb {
@@ -41,27 +47,28 @@ sub absorb {
 
     warn("Replay::StorageEngine::Mongo  absorb $self, $idkey" );
     use JSON;
-    my $r = $self->db->collection(BOXES)->insert(
+    my $r = $self->BOXES->insert_one(
       { idkey => $idkey->cubby,
         meta => $meta,
         atom => $atom,
         state => "inbox",
-      }
+      } );
 }
 
 sub inbox_to_desktop {
   my ($self, $idkey)  = @_;
-  $self->db->collection(BOXES)->update_many( {
-       idkey: $idkey,
-       state: "inbox",
-    }, { state: "desktop" } );
+  $self->BOXES->update_many( {
+       idkey => $idkey,
+       state => "inbox",
+    }, { state => "desktop" } );
 }
 
 # TODO: call this or something like it!
 sub updateMeta {
-      $self->db->collection($self->collection($idkey))->update( {
-            query         => { idkey => $idkey->cubby },
-            update        => {
+  my ($self, $idkey, $meta) = @_;
+  return $self->collection($idkey)->update( {
+            { idkey => $idkey->cubby },
+            {
                 q^$^
                     . 'addToSet' => {
                     Windows => $idkey->window,
@@ -75,14 +82,13 @@ sub updateMeta {
                     { idkey => $idkey->cubby, IdKey => $idkey->pack },
                 q^$^ . 'set' => { reducable_emitted => 1 },
             },
-            fields   => { reducable_emitted => 1 },
+            {fields   => { reducable_emitted => 1 },
             upsert   => 1,
             multiple => 0,
             new      => 0,
-        ],
+          }
+        },
     );
-
-    return $r;
 }
 
 sub relock_expired {

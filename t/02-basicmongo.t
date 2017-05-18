@@ -1,6 +1,7 @@
 package Test::Replay::AWSQueue::Mongo::Filesystem;
 
 use lib 't/lib';
+use File::Path;
 
 use base qw/Replay::Test/;
 
@@ -15,6 +16,7 @@ sub t_environment_reset : Test(startup) {
 sub a_replay_config : Test(startup) {
     my $self = shift;
     $self->{storedir} = '/tmp/testscript-02-' . $ENV{USER};
+    mkpath $self->{storedir};
     $self->{config}   = {
         timeout       => 40,
         stage         => 'testscript-02-' . $ENV{USER},

@@ -39,7 +39,9 @@ sub checkout {
 
 sub desktop_cursor {
     my ( $self, @args ) = @_;
-    return $self->engine->desktop_cursor(@args)
+    my $c = $self->engine->desktop_cursor(@args);
+    warn "Desktop cursor storageEngine ($c)";
+    return $c;
 }
 
 sub fetch_canonical_state {

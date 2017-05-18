@@ -27,8 +27,6 @@ has control => (
     predicate => 'has_control',
     lazy      => 1,
     clearer   => 'clear_control',
-    weak_ref => 1,
-    
 );
 has map => (
     is        => 'rw',
@@ -37,7 +35,6 @@ has map => (
     predicate => 'has_map',
     lazy      => 1,
     clearer   => 'clear_map',
-    weak_ref => 1,
 );
 has reduce => (
     is        => 'rw',
@@ -46,7 +43,6 @@ has reduce => (
     predicate => 'has_reduce',
     lazy      => 1,
     clearer   => 'clear_reduce',
-    weak_ref => 1,
 );
 has report => (
     is        => 'rw',
@@ -55,7 +51,6 @@ has report => (
     predicate => 'has_report',
     lazy      => 1,
     clearer   => 'clear_report',
-    weak_ref => 1,
 );
 has origin => (
     is        => 'rw',
@@ -64,7 +59,6 @@ has origin => (
     predicate => 'has_origin',
     lazy      => 1,
     clearer   => 'clear_origin',
-    weak_ref => 1,
 );
 has originsniffer => (
     is        => 'rw',
@@ -73,7 +67,6 @@ has originsniffer => (
     predicate => 'has_origin_sniffer',
     lazy      => 1,
     clearer   => 'clear_origin_sniffer',
-    weak_ref => 1,
 );
 has mapsniffer => (
     is        => 'rw',
@@ -82,7 +75,6 @@ has mapsniffer => (
     predicate => 'has_map_sniffer',
     lazy      => 1,
     clearer   => 'clear_map_sniffer',
-    weak_ref => 1,
 );
 has reducesniffer => (
     is        => 'rw',
@@ -91,7 +83,6 @@ has reducesniffer => (
     predicate => 'has_reduce_sniffer',
     lazy      => 1,
     clearer   => 'clear_reduce_sniffer',
-    weak_ref => 1,
 );
 has reportsniffer => (
     is        => 'rw',
@@ -100,7 +91,6 @@ has reportsniffer => (
     predicate => 'has_report_sniffer',
     lazy      => 1,
     clearer   => 'clear_report_sniffer',
-    weak_ref => 1,
 );
 has mode => (
     is       => 'ro',
@@ -108,7 +98,6 @@ has mode => (
     required => 1,
     builder  => '_build_mode',
     lazy     => 1,
-    weak_ref => 1,
 );
 has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1 );
 has domain => ( is => 'ro' );    # placeholder

@@ -267,11 +267,11 @@ sub fetch_transitional_state {
 
     my $timeblocks   = Set::Scalar->new(@{$cubby->{Timeblocks} || []});
     my $ruleversions = Set::Object->new(@{$cubby->{Ruleversions} || []});
-    map {
-      push @{$atoms}, $_->{atom};
+    my $atoms = [ map {
       $timeblocks->insert( $_ ) foreach @{$_->{meta}->{TimeBlocks}};
       $ruleversions->insert( $_ ) foreach @{$_->{meta}->{Ruleversions}};
-    } $cursor->all
+      $_->{atom};
+    } $cursor->all ];
 
     # merge in canonical, moving atoms from desktop
     my $reducing;
@@ -303,6 +303,7 @@ sub store_new_canonical_state {
     my ( $self, $idkey, $uuid, $emitter, @atoms ) = @_;
     my $cubby = $self->retrieve($idkey);
     $cubby->{canonVersion}++;
+    warn "DONE WITH CANON STATE STORE EMITTING FOR REPORT";
     $cubby->{canonical} = [@atoms];
     $cubby->{canonSignature}
         = $self->state_signature( $idkey, $cubby->{canonical} );
@@ -312,6 +313,7 @@ sub store_new_canonical_state {
     foreach my $atom ( @{ $emitter->atomsToDefer } ) {
         $self->absorb( $idkey, $atom, {} );
     }
+    warn "DONE WITH CANON STATE STORE EMITTING FOR REPORT";
     $self->eventSystem->report->emit(
         Replay::Message::NewCanonical->new( $idkey->marshall ) );
     $self->eventSystem->control->emit(
