@@ -9,7 +9,7 @@ sub t_environment_reset : Test(startup) {
     my $self   = shift;
     my $replay = $self->{replay};
     warn "STOREDIR " . $self->{storedir};
-    `rm -rf $self->{storedir}`;
+    `rm -rf $self->{storedir}/*`;
     $replay->storageEngine->engine->db->drop;
 }
 

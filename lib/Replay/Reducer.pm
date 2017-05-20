@@ -49,11 +49,9 @@ sub ARRAYREF_FLATTEN_ENABLED {
 
 sub BUILD {
     my $self = shift;
-    $self->eventSystem->reduce->subscribe(
-        sub {
-            $self->reduce_wrapper(@_);
-        }
-    );
+    my $cb = sub { $self->reduce_wrapper(@_) };
+warn "MY REDUCER SUBSCRIBE IS $cb\n";
+    $self->eventSystem->reduce->subscribe($cb);
     return;
 }
 

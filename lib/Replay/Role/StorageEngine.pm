@@ -3,6 +3,7 @@ package Replay::Role::StorageEngine;
 use Moose::Role;
 requires qw(absorb retrieve find_keys_need_reduce window_all checkin);
 use Digest::MD5 qw/md5_hex/;
+use feature "current_sub";
 use Data::Dumper;
 use Data::UUID;
 use Replay::Message::Fetched;
@@ -75,19 +76,21 @@ sub merge {
 # check it out
 sub checkout {
     my ( $self, $idkey, $timeout ) = @_;
+warn __PACKAGE__ . "::checkout $idkey $timeout \n";
     $timeout ||= $self->timeout;
     my $uuid = $self->generate_uuid;
 
     my $signature = $self->state_signature( $idkey, [$uuid] );
     my $lockresult = $self->checkout_record( $idkey, $signature, $timeout );
-
     if ( exists $lockresult->{locked} && $lockresult->{locked} eq $signature )
     {
-        super($idkey);
+warn "Replay::Role::StorageEngine::checkout CALLING SUPER with $idkey\n";
+        $self->inbox_to_desktop($idkey);
         return $uuid;
     }
     elsif ( !exists $lockresult->{locked} ) {
 
+warn "Replay::Role::StorageEngine::checkout NO LOCKED RETURNING EMPTY\n";
         # no lock, no action, all good
         return;
     }
@@ -284,9 +287,9 @@ sub fetch_transitional_state {
 
     # return uuid and list
     return $uuid => {
-        Windows      => $idkey->window,
-        Timeblocks   => $cubby->{Timeblocks},
-        Ruleversions => $cubby->{Ruleversions},
+        Windows      => $idkey->window || [],
+        Timeblocks   => $cubby->{Timeblocks} || [],
+        Ruleversions => $cubby->{Ruleversions} || [],
     } => @{$reducing};
 
 }

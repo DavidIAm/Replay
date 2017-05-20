@@ -20,6 +20,7 @@ use Carp qw/croak confess carp cluck/;
 use MongoDB;
 use MongoDB::OID;
 use JSON;
+use Try::Tiny;
 requires(
     qw(_build_mongo
         _build_db
@@ -58,40 +59,43 @@ sub checkout_record {
     my ( $self, $idkey, $signature, $timeout ) = @_;
 
     # try to get lock
-    # # ready to be processed: desktop does not exist and inbox does
     # # right record: idkey matches
     # # unlocked OR expired
     # # # unlocked - locked element does not exist
     # # # expired - locked is the signature
     # # #         - lock expire epoch is gt current time 
     # # #        OR lockExpireEpoch does not exist
-    my $lockresult = $self->collection($idkey)->find_one_and_update(
+warn "trying to find under ".$idkey->cubby." if its locked\n";
+    # make sure we have an index for this collection
+    $self->collection($idkey)->indexes
+      ->create_one( [ idkey => 1 ], { unique => 1 } );
+    # Happy path - cleanly grab the lock
+try {
+   my $lockresult = $self->collection($idkey)->find_one_and_update(
         {   idkey   => $idkey->cubby,
-            q^$^
-                . 'or' => [
-                { locked => { q^$^ . 'exists' => 0 } },
-                {   q^$^
-                        . 'and' => [
-                        { locked => $signature },
-                        {   q^$^
-                                . 'or' => [
-                                {   lockExpireEpoch => { q^$^ . 'gt' => time }
-                                },
-                                {   lockExpireEpoch =>
-                                        { q^$^ . 'exists' => 0 }
-                                }
-                                ]
-                        }
-                        ]
-                }
-                ]
+            locked => { q^$^ . 'exists' => 0 },
         },
         {   q^$^
                 . 'set' =>
                 { locked => $signature, lockExpireEpoch => time + $timeout, },
-            q^$^ . 'rename' => { 'inbox' => 'desktop' },
+        },
+        {   upsert => 1,
+            returnNewDocument => 1,
         },
     );
+use Data::Dumper;
+$Data::Dumper::Sortkeys = 1;
+warn "got lock result for $signature of " . Dumper $lockresult;
+} catch {
+    # Unhappy - didn't get it.  Let somebody else handle the situation
+    if ($_->isa("MongoDB::DuplicateKeyError")) {
+        warn $idkey->cubby . " dup-inserted meaning already locked?";
+    } else {
+        die $_;
+    }
+};
+
+return $self->lockreport($idkey);
 
     # boxes collection
     #
@@ -110,7 +114,6 @@ sub checkout_record {
     # delete boxes {idkey: , state:"desktop"}
     # unlock the record
 
-    return $self->lockreport($idkey);
 }
 
 sub collection {
@@ -147,7 +150,7 @@ sub relock {
                 lockExpireEpoch => time + $timeout,
                 },
         },
-        { upsert => 0, new => 1, }
+        { upsert => 0, returnNewDocument => 1, }
     );
 
     return $unlockresult;
@@ -170,7 +173,7 @@ sub relock_expired {
                 . 'set' =>
                 { locked => $signature, lockExpireEpoch => time + $timeout, },
         },
-        { upsert => 0, new => 1, }
+        { upsert => 0, returnNewDocument => 1, }
     );
 
     return $unlockresult;
@@ -188,7 +191,7 @@ sub relock_i_match_with {
                 lockExpireEpoch => time + $self->timeout,
                 },
         },
-        { upsert => 0, new => 1, }
+        { upsert => 0, returnNewDocument => 1, }
     );
     if ( $response->matched_count == 0 ) {
         carp q(tried to do a revert but didn't have a lock on it);
@@ -209,21 +212,24 @@ sub revert_this_record {
     cluck 'REVERTING???';
     my $document = $self->retrieve($idkey);
     carp 'This document isn\'t locked with this signature ('
-        . $document->{locked} . q/,/
+        . $document->{locked} . q/!=/
         . $signature . ')'
-        if $document->{locked} || q{} ne $signature;
+        if ($document->{locked} || q{}) ne $signature;
 
     # reabsorb all of the desktop atoms into the document
-    foreach my $atom ( @{ $document->{'desktop'} || [] } ) {
-        $self->reabsorb( $idkey );
-    }
+    $self->db->get_collection("BOXES")
+        ->update_many( { idkey => $idkey->cubby, state => 'desktop' } =>
+            { q^$^. 'set' => { 'state' => 'inbox' } } );
 
-    # and clear the desktop state
-    my $unlockresult
-        = $self->collection($idkey)
-        ->update_many( { idkey => $idkey->cubby, locked => $signature } =>
-            { q^$^ . 'unset' => { desktop => 1 } } );
-    croak q(UNABLE TO RESET DESKTOP AFTER REVERT ) if $unlockresult->{n} == 0;
+    my $unlockresult = $self->collection($idkey)
+        ->update_one( { idkey => $idkey->cubby, lock => $signature } =>
+            { q^$^ . 'unset' => {
+                    'lock' => 1,
+                    lockExpireEpoch => 1,
+                }
+            } );
+    croak q(UNABLE TO RESET DESKTOP AFTER REVERT ) 
+      if ($unlockresult->{n}||0) == 0;
     return $unlockresult;
 }
 
@@ -241,7 +247,7 @@ sub update_and_unlock {
             delete $state->{canonical};
             @unsetcanon = ( canonical => 1 );
         }
-        $self->db->collection("BOXES")->delete_many({ idkey => $idkey->cubby, state => "desktop" });
+        $self->db->get_collection("BOXES")->delete_many({ idkey => $idkey->cubby, state => "desktop" });
     }
     return $self->collection($idkey)->find_one_and_update(
         { idkey => $idkey->cubby, locked => $signature },

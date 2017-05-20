@@ -24,17 +24,13 @@ has eventSystem =>
 # Delegate the api points
 sub retrieve {
     my ( $self, @args ) = @_;
+warn "Replay::StorageEngine::retrieve @args\n";
     return $self->engine->retrieve(@args);
 }
 
 sub absorb {
     my ( $self, @args ) = @_;
     return $self->engine->absorb(@args);
-}
-
-sub checkout {
-    my ( $self, @args ) = @_;
-    return $self->engine->inbox_to_desktop(@args)
 }
 
 sub desktop_cursor {
@@ -46,11 +42,13 @@ sub desktop_cursor {
 
 sub fetch_canonical_state {
     my ( $self, @args ) = @_;
+warn "Replay::StorageEngine::fetch_canonical_state @args\n";
     return $self->engine->fetch_canonical_state(@args);
 }
 
 sub fetch_transitional_state {
     my ( $self, @args ) = @_;
+warn "Replay::StorageEngine::fetch_transitional_state @args\n";
     return $self->engine->fetch_transitional_state(@args);
 }
 

@@ -8,7 +8,6 @@ use JSON;
 use Carp qw/croak carp/;
 use Replay::Message::Reducable;
 use Replay::Message::Cleared::State;
-use Replay::Message::NoLock::DuringRevert;
 use Replay::Message;
 
 our $VERSION = 0.02;
@@ -27,18 +26,18 @@ warn("Replay::StorageEngine::Mongo  retrieve $self, $idkey" );
 
 sub desktop_cursor {
   my ($self, $idkey) = @_;
-  my $c = $self->BOXES->find({ idkey => $idkey, state => "desktop" });
-warn "finding cursor for idkey $idkey ($c)";
+  my $c = $self->BOXES->find({ idkey => $idkey->cubby, state => "desktop" });
+warn "Replay::StorageEngine::Mongo  finding cursor for idkey $idkey ($c)";
   return $c;
 }
 
 sub reabsorb {
   my ($self, $idkey) = @_;
   return $self->BOXES->update_many( {
-      idkey => $idkey,
+      idkey => $idkey->cubby,
       state => "desktop"
     },{
-      state => "inbox"
+      q^$^ . 'set' => { state => "inbox" }
     } );
 }
 sub absorb {
@@ -54,10 +53,14 @@ sub absorb {
 
 sub inbox_to_desktop {
   my ($self, $idkey)  = @_;
-  $self->BOXES->update_many( {
-       idkey => $idkey,
+  my $r = $self->BOXES->update_many( {
+       idkey => $idkey->cubby,
        state => "inbox",
-    }, { state => "desktop" } );
+    },{
+      q^$^ . 'set' => { state => "desktop" }
+    }
+  );
+  return $r;
 }
 
 # TODO: call this or something like it!

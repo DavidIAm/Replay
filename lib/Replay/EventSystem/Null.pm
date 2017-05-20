@@ -23,6 +23,7 @@ sub poll {
         $c++;
         foreach ( @{ $self->subscribers } ) {
             try {
+warn "Processing " . $message->{MessageType} . " via $_\n";
                 $_->($message);
             }
             catch {
@@ -40,6 +41,7 @@ sub emit {
         $message = Replay::Message->new($message);
     }
 
+warn "Emitting " . $message->marshall->{MessageType};
     # THIS MUST DOES A Replay::Role::Envelope
     if ( !$message->does('Replay::Role::Envelope') ) {
         confess 'Can only emit Replay::Role::Envelope consumer';

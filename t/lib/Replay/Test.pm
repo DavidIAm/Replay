@@ -66,6 +66,7 @@ sub window {
 
 sub key_value_set {
     my ( $self, $message ) = @_;
+warn __FILE__ . ": REDUCE HIT";
     my @keyvalues = ();
     foreach my $key ( keys %{ $message->{Message} } ) {
         next unless 'ARRAY' eq ref $message->{Message}->{$key};
@@ -84,6 +85,7 @@ sub compare {
 
 sub reduce {
     my ( $self, $emitter, @state ) = @_;
+warn __FILE__ . ": REDUCE HIT";
     warn __FILE__ . ": PURGE FOUND" if grep { ($_||'') eq 'purge' } @state;
     return                          if grep { ($_||'') eq 'purge' } @state;
     my @list = List::Util::reduce { $a + $b } @state;

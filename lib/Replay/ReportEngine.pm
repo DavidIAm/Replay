@@ -35,16 +35,19 @@ has reportEngineSelector => (
 # Delegate the api points
 sub delivery {
     my ( $self, $idkey ) = @_;
+warn "Delivery in ReportEngine\n";
     return $self->engine($idkey)->delivery( $idkey->delivery );
 }
 
 sub summary {
     my ( $self, $idkey ) = @_;
+warn "Summary in ReportEngine\n";
     return $self->engine($idkey)->summary( $idkey->summary );
 }
 
 sub globsummary {
     my ( $self, $idkey ) = @_;
+warn "Globsummary in ReportEngine\n";
     return $self->engine($idkey)->globsummary( $idkey->globsummary );
 }
 
