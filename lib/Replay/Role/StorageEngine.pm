@@ -304,7 +304,7 @@ sub fetch_transitional_state {
                     Timeblocks   => ( $cubby->{Timeblocks}   || [] ),
                     Ruleversions => ( $cubby->{Ruleversions} || [] ),
                     atom         => $_,
-            } @{ $cubby->{canonical} || [] }
+            }, @{ $cubby->{canonical} || [] }
         );
     }
     catch {
