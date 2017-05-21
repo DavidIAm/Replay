@@ -88,7 +88,7 @@ sub checkout_record {
     catch {
         # Unhappy - didn't get it.  Let somebody else handle the situation
         if ( $_->isa("MongoDB::DuplicateKeyError") ) {
-            warn $idkey->cubby . " dup-inserted meaning already locked?";
+            warn $$ . " - " . $idkey->cubby . " dup-inserted meaning already locked!";
         }
         else {
             die $_;
@@ -230,6 +230,7 @@ sub update_and_unlock {
     my ( $self, $idkey, $uuid, $state ) = @_;
     my $signature = $self->state_signature( $idkey, [$uuid] );
     my @unsetcanon = ();
+warn "$$ - Update an unlock signature $signature\n";
     if ($state) {
         delete $state->{_id};    # cannot set _id!
         delete $state->{lockExpireEpoch}
@@ -244,7 +245,7 @@ sub update_and_unlock {
             ->delete_many(
             { idkey => $idkey->full_spec, state => "desktop" } );
         use Data::Dumper;$Data::Dumper::Sortkeys=1;
-        warn "Delete of used atoms result: " . Dumper $r;
+        warn "$$ Delete of used atoms result: " . Dumper $r;
     }
     return $self->collection($idkey)->find_one_and_update(
         { idkey => $idkey->cubby, locked => $signature },

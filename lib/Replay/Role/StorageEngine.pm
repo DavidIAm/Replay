@@ -107,6 +107,7 @@ sub checkout {
     my $lockresult = $self->checkout_record( $idkey, $signature, $timeout );
     if ( exists $lockresult->{locked} && $lockresult->{locked} eq $signature )
     {
+warn $$ . " we are locked $lockresult->{locked} vs. $signature ";
         $self->inbox_to_desktop($idkey);
         return $uuid;
     }
