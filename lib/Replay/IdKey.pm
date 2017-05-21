@@ -95,13 +95,13 @@ sub parse_full_spec {
     my ( $class, $spec ) = @_;
     my ( $domain, $rule, $version, $window, $key, $revision )
         = $spec
-        =~ /^domain-(.+)-rule-(.+)-version-(.+)-wind-(.+)-key-(.+)-revision(.+)$/smix;
-    return domain => $domain,
+        =~ /^domain-(.+)-rule-(.+)-version-(.+)-wind-(.+)-key-(.+)-revision-(.+)$/smix;
+    return ($domain eq 'null' ? domain => $domain : ()),
         rule      => $rule,
         version   => $version,
         window    => $window,
         key       => $key,
-        revision  => $revision;
+        ($revision eq 'null' ? revision  => $revision : ());
 }
 
 sub parse_cubby {
@@ -112,7 +112,7 @@ sub parse_cubby {
 
 sub domain_rule_prefix {
     my ($self) = @_;
-    return join q{-}, 'domain', $self->domain || 'null', 'rule',
+    return join q{-}, 'domain', ($self->domain || 'null'), 'rule',
         $self->rule_spec, 'version', $self->version;
 }
 
