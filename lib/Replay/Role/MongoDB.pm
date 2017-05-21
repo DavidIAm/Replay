@@ -82,6 +82,8 @@ sub checkout_record {
             },
             { upsert => 1, returnNewDocument => 1, },
         );
+        use Data::Dumper;$Data::Dumper::Sortkeys=1;
+        warn "$$ Lock Result ".$idkey->cubby.": " . Dumper $lockresult;
     }
     catch {
         # Unhappy - didn't get it.  Let somebody else handle the situation
@@ -215,7 +217,7 @@ sub revert_this_record {
         ->update_many( { idkey => $idkey->full_spec, state => 'desktop' } =>
             { q^$^ . 'set' => { 'state' => 'inbox' } } );
     use Data::Dumper;$Data::Dumper::Sortkeys=1;
-    warn "Update of revert atoms result: " . Dumper $r;
+    warn "$$ Update of revert atoms result: " . Dumper $r;
 
     return $self->collection($idkey)->find_one_and_update(
         { idkey => $idkey->cubby, locked => $signature } =>

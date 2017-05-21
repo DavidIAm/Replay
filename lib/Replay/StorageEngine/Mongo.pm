@@ -37,7 +37,7 @@ sub reabsorb {
         { q^$^ . 'set' => { state => "inbox" } }
     );
     use Data::Dumper;$Data::Dumper::Sortkeys=1;
-    warn "Update of reabsorb atoms result: " . Dumper $r;
+    warn "$$ Update of reabsorb atoms result: " . Dumper $r;
     return $r;
 }
 
@@ -60,7 +60,7 @@ sub inbox_to_desktop {
         { q^$^ . 'set' => { state => "desktop" } }
     );
     use Data::Dumper;$Data::Dumper::Sortkeys=1;
-    warn "Update of inbox to desktop result: " . Dumper $r;
+    warn "$$ Update of inbox to desktop result: " . Dumper $r;
     return $r;
 }
 
