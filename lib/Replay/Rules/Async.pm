@@ -46,7 +46,7 @@ use Carp qw/croak carp confess/;
 use Readonly;
 with qw/Replay::Role::BusinessRule/;
 
-#requires qw/initial_match attempt on_error on_exception on_success value_set/;
+requires qw/initial_match attempt on_error on_exception on_success value_set/;
 has '+name' => ( default => 'Async' );
 our $VERSION = q(2);
 

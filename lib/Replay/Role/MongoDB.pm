@@ -63,36 +63,37 @@ sub checkout_record {
     # # unlocked OR expired
     # # # unlocked - locked element does not exist
     # # # expired - locked is the signature
-    # # #         - lock expire epoch is gt current time 
+    # # #         - lock expire epoch is gt current time
     # # #        OR lockExpireEpoch does not exist
     # make sure we have an index for this collection
-    $self->collection($idkey)->indexes
-      ->create_one( [ idkey => 1 ], { unique => 1 } );
-    # Happy path - cleanly grab the lock
-try {
-   my $lockresult = $self->collection($idkey)->find_one_and_update(
-        {   idkey   => $idkey->cubby,
-            locked => { q^$^ . 'exists' => 0 },
-        },
-        {   q^$^
-                . 'set' =>
-                { locked => $signature, lockExpireEpoch => time + $timeout, },
-            q^$^ . 'setOnInsert' => { IdKey => $idkey->marshall },
-        },
-        {   upsert => 1,
-            returnNewDocument => 1,
-        },
-    );
-} catch {
-    # Unhappy - didn't get it.  Let somebody else handle the situation
-    if ($_->isa("MongoDB::DuplicateKeyError")) {
-        warn $idkey->cubby . " dup-inserted meaning already locked?";
-    } else {
-        die $_;
-    }
-};
+    $self->collection($idkey)
+        ->indexes->create_one( [ idkey => 1 ], { unique => 1 } );
 
-return $self->lockreport($idkey);
+    # Happy path - cleanly grab the lock
+    try {
+        my $lockresult = $self->collection($idkey)->find_one_and_update(
+            { idkey => $idkey->cubby, locked => { q^$^ . 'exists' => 0 }, },
+            {   q^$^
+                    . 'set' => {
+                    locked          => $signature,
+                    lockExpireEpoch => time + $timeout,
+                    },
+                q^$^ . 'setOnInsert' => { IdKey => $idkey->marshall },
+            },
+            { upsert => 1, returnNewDocument => 1, },
+        );
+    }
+    catch {
+        # Unhappy - didn't get it.  Let somebody else handle the situation
+        if ( $_->isa("MongoDB::DuplicateKeyError") ) {
+            warn $idkey->cubby . " dup-inserted meaning already locked?";
+        }
+        else {
+            die $_;
+        }
+    };
+
+    return $self->lockreport($idkey);
 
     # boxes collection
     #
@@ -201,30 +202,26 @@ sub relock_i_match_with {
 sub revert_this_record {
     my ( $self, $idkey, $signature ) = @_;
 
-#    use Carp qw/cluck/;
-#    cluck 'REVERTING???';
+    #    use Carp qw/cluck/;
+    #    cluck 'REVERTING???';
     my $document = $self->retrieve($idkey);
     carp 'This document isn\'t locked with this signature ('
         . $document->{locked} . q/!=/
         . $signature . ')'
-        if ($document->{locked} || q{}) ne $signature;
+        if ( $document->{locked} || q{} ) ne $signature;
 
     # reabsorb all of the desktop atoms into the document
-    $self->db->get_collection("BOXES")
+    my $r = $self->db->get_collection("BOXES")
         ->update_many( { idkey => $idkey->full_spec, state => 'desktop' } =>
-            { q^$^. 'set' => { 'state' => 'inbox' } } );
+            { q^$^ . 'set' => { 'state' => 'inbox' } } );
+    use Data::Dumper;$Data::Dumper::Sortkeys=1;
+    warn "Update of revert atoms result: " . Dumper $r;
 
-    return $self->collection($idkey)
-        ->find_one_and_update(
-            { idkey => $idkey->cubby, locked => $signature } =>
-            { q^$^ . 'unset' => {
-                    'lock' => 1,
-                    lockExpireEpoch => 1,
-                }
-            },
-            { returnNewDocument => 1,
-            }
-          );
+    return $self->collection($idkey)->find_one_and_update(
+        { idkey => $idkey->cubby, locked => $signature } =>
+            { q^$^ . 'unset' => { 'lock' => 1, lockExpireEpoch => 1, } },
+        { returnNewDocument  => 1, }
+    );
 }
 
 sub update_and_unlock {
@@ -232,26 +229,27 @@ sub update_and_unlock {
     my $signature = $self->state_signature( $idkey, [$uuid] );
     my @unsetcanon = ();
     if ($state) {
-        delete $state->{_id};       # cannot set _id!
+        delete $state->{_id};    # cannot set _id!
         delete $state->{lockExpireEpoch}
-            ;                       # there is no more expire time on checkin
+            ;                    # there is no more expire time on checkin
         delete $state->{locked}
             ;    # there is no more locked signature on checkin
         if ( @{ $state->{canonical} || [] } == 0 ) {
             delete $state->{canonical};
             @unsetcanon = ( canonical => 1 );
         }
-        $self->db->get_collection("BOXES")->delete_many({ idkey => $idkey->full_spec, state => "desktop" });
+        my $r = $self->db->get_collection("BOXES")
+            ->delete_many(
+            { idkey => $idkey->full_spec, state => "desktop" } );
+        use Data::Dumper;$Data::Dumper::Sortkeys=1;
+        warn "Delete of used atoms result: " . Dumper $r;
     }
     return $self->collection($idkey)->find_one_and_update(
         { idkey => $idkey->cubby, locked => $signature },
         {   ( $state ? ( q^$^ . 'set' => $state ) : () ),
             q^$^
-                . 'unset' => {
-                lockExpireEpoch => 1,
-                locked          => 1,
-                @unsetcanon
-                }
+                . 'unset' =>
+                { lockExpireEpoch => 1, locked => 1, @unsetcanon }
         },
         { upsert => 0 }
     );
