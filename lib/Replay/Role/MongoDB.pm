@@ -83,7 +83,7 @@ sub checkout_record {
             { upsert => 1, returnNewDocument => 1, },
         );
         use Data::Dumper;$Data::Dumper::Sortkeys=1;
-        warn "$$ Lock Result ".$idkey->cubby.": " . $lockresult->{locked};
+        warn "$$ Lock Result ".$idkey->cubby.": " . Dumper $lockresult;
     }
     catch {
         # Unhappy - didn't get it.  Let somebody else handle the situation
