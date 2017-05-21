@@ -96,12 +96,12 @@ sub parse_full_spec {
     my ( $domain, $rule, $version, $window, $key, $revision )
         = $spec
         =~ /^domain-(.+)-rule-(.+)-version-(.+)-wind-(.+)-key-(.+)-revision-(.+)$/smix;
-    return ($domain eq 'null' ? domain => $domain : ()),
+    return ($domain eq 'null' ? (domain => $domain) : ()),
         rule      => $rule,
         version   => $version,
         window    => $window,
         key       => $key,
-        ($revision eq 'null' ? revision  => $revision : ());
+        ($revision eq 'null' ? (revision => $revision) : ());
 }
 
 sub parse_cubby {
