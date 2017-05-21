@@ -25,14 +25,14 @@ sub retrieve {
 
 sub desktop_cursor {
   my ($self, $idkey) = @_;
-  my $c = $self->BOXES->find({ idkey => $idkey->cubby, state => "desktop" });
+  my $c = $self->BOXES->find({ idkey => $idkey->full_spec, state => "desktop" });
   return $c;
 }
 
 sub reabsorb {
   my ($self, $idkey) = @_;
   return $self->BOXES->update_many( {
-      idkey => $idkey->cubby,
+      idkey => $idkey->full_spec,
       state => "desktop"
     },{
       q^$^ . 'set' => { state => "inbox" }
@@ -42,7 +42,7 @@ sub absorb {
     my ( $self, $idkey, $atom, $meta ) = @_;
 
     my $r = $self->BOXES->insert_one(
-      { idkey => $idkey->cubby,
+      { idkey => $idkey->full_spec,
         meta => $meta,
         atom => $atom,
         state => "inbox",
@@ -52,7 +52,7 @@ sub absorb {
 sub inbox_to_desktop {
   my ($self, $idkey)  = @_;
   my $r = $self->BOXES->update_many( {
-       idkey => $idkey->cubby,
+       idkey => $idkey->full_spec,
        state => "inbox",
     },{
       q^$^ . 'set' => { state => "desktop" }
@@ -77,7 +77,7 @@ sub update_meta {
                     },
                 q^$^
                     . 'setOnInsert' =>
-                    { idkey => $idkey->cubby, IdKey => $idkey->pack },
+                    { idkey => $idkey->cubby, IdKey => $idkey->marshall },
                 q^$^ . 'set' => { reducable_emitted => 1 },
             },
             {fields   => { reducable_emitted => 1 },
@@ -177,7 +177,6 @@ sub find_keys_need_reduce {
             $self->collection($idkey)->find(
                 {   q^$^
                         . 'or' => [
-                        { inbox           => { q^$^ . 'exists' => 1 } },
                         { locked          => { q^$^ . 'exists' => 1 } },
                         { lockExpireEpoch => { q^$^ . 'exists' => 1 } }
                         ]
@@ -194,6 +193,10 @@ sub find_keys_need_reduce {
                 );
         }
     }
+    push @idkeys,
+        map { Replay::IdKey->new( Replay::IdKey->parse_spec( $_ ) ) }
+        Set::Scalar->new( map { $_->{idkey} }
+            $self->BOXES->find( {}, { idkey => 1 } )->all )->members;
     return @idkeys;
 }
 

@@ -66,7 +66,7 @@ sub window {
 
 sub key_value_set {
     my ( $self, $message ) = @_;
-warn __FILE__ . ": REDUCE HIT";
+#    warn __FILE__ . ": KEY VALUE HIT";
     my @keyvalues = ();
     foreach my $key ( keys %{ $message->{Message} } ) {
         next unless 'ARRAY' eq ref $message->{Message}->{$key};
@@ -85,12 +85,10 @@ sub compare {
 
 sub reduce {
     my ( $self, $emitter, @state ) = @_;
-warn __FILE__ . ": REDUCE HIT";
+#    warn __FILE__ . ": REDUCE HIT";
     warn __FILE__ . ": PURGE FOUND" if grep { ($_||'') eq 'purge' } @state;
     return                          if grep { ($_||'') eq 'purge' } @state;
-    warn "LSIT IN  @state\n";
     my @list = List::Util::reduce { $a + $b } @state;
-    warn "LSIT OUT @list\n";
     use Carp qw/cluck/;
     cluck unless defined $list[0];
     return @list;
@@ -100,20 +98,22 @@ sub delivery {
     my ( $self, @state ) = @_;
     use Data::Dumper;
     warn __FILE__ . ": DELIVERY HIT";
+    my @list = List::Util::reduce { $a + $b } @state;
     use Carp qw/cluck/;
     cluck unless defined $state[0];
-    return [@state], to_json [@state];
+    return [@state], to_json [map { $_+0 } @state];
 }
 
 sub summary {
     my ( $self, %deliverydatas ) = @_;
-    #warn __FILE__ . ": SUMMARY HIT";
+    warn __FILE__ . ": SUMMARY HIT";
+    use Data::Dumper;
     my @state =
       keys %deliverydatas
       ? List::Util::reduce { $a + $b }
     map { @{ $deliverydatas{$_} } } keys %deliverydatas
       : ();
-    return [@state], to_json [@state];
+    return [@state], to_json [map { $_+0 } @state];
 }
 
 sub globsummary {

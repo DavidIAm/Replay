@@ -62,18 +62,18 @@ sub merge {
     my ( $self, $idkey, @list ) = @_;
     my $meta = {};
     foreach my $k (
-        Set::Scalar->new( map { keys %{ $_->{meta} } } @list )->members )
+        Set::Object->new( map { keys %{ $_->{meta} } } @list )->members )
     {
         $meta->{$k}
-            = Set::Scalar->new( map { $_->{meta}->{$k} } @list )->members,;
+            = Set::Object->new( map { $_->{meta}->{$k} } @list )->members,;
     }
 
     # for each rule involved
     foreach (
-        Scalar::Set->new( map { $_->{rule} } @{ $meta->{Ruleversions} } )
+        Set::Scalar->new( map { $_->{rule} } @{ $meta->{Ruleversions} } )
         ->members )
     {
-        if (scalar Scalar::Set->new(
+        if (scalar Set::Scalar->new(
                 map { $_->{version} } @{ $meta->{Ruleversions} }
             )->size > 1
             )
@@ -292,18 +292,20 @@ sub fetch_transitional_state {
     }
 
     # merge in canonical, moving atoms from desktop
-    my ( $meta, @state );
-    warn "$meta is a thing";
+    my ( $mergedmeta, @state );
     try {
-        ( $meta, @state ) = $self->merge(
+        ( $mergedmeta, @state ) = $self->merge(
             $idkey,
-            [ $cursor->all ],
+            $cursor->all,
             map {
-                idkey            => ( $idkey->cubby          || '' ),
-                    Domain       => ( $cubby->{Domain}       || [] ),
-                    Timeblocks   => ( $cubby->{Timeblocks}   || [] ),
-                    Ruleversions => ( $cubby->{Ruleversions} || [] ),
-                    atom         => $_,
+                {   idkey => ( $idkey->cubby || '' ),
+                    meta => {
+                        Domain       => ( $cubby->{Domain}       || [] ),
+                        Timeblocks   => ( $cubby->{Timeblocks}   || [] ),
+                        Ruleversions => ( $cubby->{Ruleversions} || [] ),
+                    },
+                    atom => $_,
+                }
             } @{ $cubby->{canonical} || [] }
         );
     }
@@ -313,14 +315,18 @@ sub fetch_transitional_state {
         $self->revert( $idkey, $uuid );
         return;
     };
-    warn "$meta is a thing";
+
+    # New document special case.  Awkward!
+    $mergedmeta->{Timeblocks}  ||= [];
+    $mergedmeta->{Domain}       ||= [];
+    $mergedmeta->{Ruleversions} ||= [];
 
     # notify interested parties
     $self->eventSystem->control->emit(
         Replay::Message::Reducing->new( $idkey->marshall ) );
 
     # return uuid and list
-    return $uuid => $meta => @state;
+    return $uuid => $mergedmeta => @state;
 }
 
 sub store_new_canonical_state {
@@ -723,17 +729,3 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 =cut
 
 1;    # End of Replay
-711:	final indentation level: 1
-
-Final nesting depth of '{'s is 1
-The most recent un-matched '{' is on line 61
-61: sub merge {
-              ^
-711:	To save a full .LOG file rerun with -g
-738:	final indentation level: 1
-
-Final nesting depth of '{'s is 1
-The most recent un-matched '{' is on line 61
-61: sub merge {
-              ^
-738:	To save a full .LOG file rerun with -g

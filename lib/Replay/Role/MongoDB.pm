@@ -77,6 +77,7 @@ try {
         {   q^$^
                 . 'set' =>
                 { locked => $signature, lockExpireEpoch => time + $timeout, },
+            q^$^ . 'setOnInsert' => { IdKey => $idkey->marshall },
         },
         {   upsert => 1,
             returnNewDocument => 1,
@@ -210,7 +211,7 @@ sub revert_this_record {
 
     # reabsorb all of the desktop atoms into the document
     $self->db->get_collection("BOXES")
-        ->update_many( { idkey => $idkey->cubby, state => 'desktop' } =>
+        ->update_many( { idkey => $idkey->full_spec, state => 'desktop' } =>
             { q^$^. 'set' => { 'state' => 'inbox' } } );
 
     return $self->collection($idkey)
@@ -240,7 +241,7 @@ sub update_and_unlock {
             delete $state->{canonical};
             @unsetcanon = ( canonical => 1 );
         }
-        $self->db->get_collection("BOXES")->delete_many({ idkey => $idkey->cubby, state => "desktop" });
+        $self->db->get_collection("BOXES")->delete_many({ idkey => $idkey->full_spec, state => "desktop" });
     }
     return $self->collection($idkey)->find_one_and_update(
         { idkey => $idkey->cubby, locked => $signature },

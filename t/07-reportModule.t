@@ -22,7 +22,7 @@ sub a_replay_config : Test(startup) {
         ReportEngines => [{ Mode =>'Filesystem',
                             Root => $self->{storedir},
                             Name => 'Filesystemtest',
-                            Access => 'public' } ]
+                            Access => 'public' } ],
        timeout => 10,
     };
 }

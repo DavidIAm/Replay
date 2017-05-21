@@ -26,7 +26,7 @@ sub a_replay_config : Test(startup) {
                             MongoUser => 'replayuser',
                             Name=>'MongoTest',
                             MongoPass => 'replaypass'},
-                          ]
+                          ],
         timeout => 10,
     };
 }

@@ -3,9 +3,9 @@ package Replay::StorageEngine::Memory::Cursor;
   use Data::Dumper;
 
 sub new {
-  my ($class, $list) = @_;
+  my ($class, @list) = @_;
   my $self = bless {}, __PACKAGE__;
-  $self->{list} = $list;
+  $self->{list} = [@list];
   $self->{index} = 0;
   return $self;
 }
@@ -24,6 +24,7 @@ sub next {
 }
 sub has_next {
   my ($self) = @_;
+  use Data::Dumper;
   return $self->{index} <= $#{$self->{list}} ;
 }
 
@@ -50,30 +51,34 @@ sub retrieve {
         ||= $self->new_document($idkey);
 }
 
+# find_keys_need_reduce is tighly coupled to this logic!
+sub BOXES {
+  my ($self, $idkey)  = @_;
+  $self->{BOXES}{$idkey->full_spec} ||= [];
+}
+
 sub desktop_cursor {
   my ($self, $idkey) = @_;
   Replay::StorageEngine::Memory::Cursor->new(
-    $self->retrieve($idkey)->{desktop}
+    grep { $_->{state} eq 'desktop' } @{$self->BOXES($idkey)}
   );
+}
+
+sub inbox_to_desktop {
+    my ($self, $idkey) = @_;
+    $_->{state} = 'desktop' foreach @{$self->BOXES($idkey)};
 }
 
 # State transition = add new atom to inbox
 sub absorb {
     my ( $self, $idkey, $atom, $meta ) = @_;
-    $meta ||= {};
-    my $state = $self->retrieve($idkey);
 
-    my $windows   = Set::Scalar->new(@{$meta->{Windows} || []});
-    my $timeblocks   = Set::Scalar->new(@{$meta->{Timeblocks} || []});
-    my $ruleversions = Set::Object->new(@{$meta->{Ruleversions} || []});
-
-    $state->{Windows} = [ $windows->members ];
-    $state->{Timeblocks} = [ $timeblocks->members ];
-    $state->{Ruleversions} = [ $ruleversions->members ];
-
-    push @{ $state->{inbox} ||= [] }, $atom;
-    $state->{reducable_emitted} = 1;
-    return 1;
+    push @{$self->BOXES($idkey)},
+      { idkey => $idkey->full_spec,
+        meta => $meta,
+        atom => $atom,
+        state => "inbox",
+      };
 }
 
 sub checkout_record {
@@ -83,11 +88,9 @@ sub checkout_record {
     my $state = $self->retrieve($idkey);
     use Data::Dumper;
     carp 'PRECHECKOUT STATE' . $state if $self->{debug};
-    return                            if exists $state->{desktop};
     return                            if exists $state->{locked};
     $state->{locked}            = $signature;
     $state->{lockExpireEpoch}   = time + $timeout;
-    $state->{desktop}           = delete $state->{inbox} || [];
     $state->{reducable_emitted} = 0;
     carp 'POSTCHECKOUT STATE' . $state if $self->{debug};
 
@@ -145,8 +148,7 @@ sub checkin {
     my $result = $self->update_and_unlock( $idkey, $uuid, $state );
 
     # if any of these three exist, we maintain state
-    return $result if exists $result->{inbox};
-    return $result if exists $result->{desktop};
+    return $result if scalar grep { $_->{state} eq 'inbox' } @{$self->BOXES($idkey)};
     return $result if exists $result->{canonical};
 
     # otherwise we clear it entirely
@@ -168,27 +170,6 @@ sub window_all {
             keys %{$collection} };
 }
 
-sub revert {
-    my ( $self, $idkey, $uuid ) = @_;
-    my $signature    = $self->state_signature( $idkey, [$uuid] );
-    my $unluuid      = $self->generate_uuid;
-    my $unlsignature = $self->state_signature( $idkey, [$unluuid] );
-    my $state        = $self->retrieve($idkey);
-    if ( exists $state->{locked} && $state->{locked} ne $signature ) {
-        carp q(tried to do a revert but didn't have a lock on it);
-        $self->eventSystem->control->emit(
-            Replay::Message::NoLock::DuringRevert->new( $idkey->hash_list ),
-        );
-    }
-
-    $state->{locked}          = $unlsignature;
-    $state->{lockExpireEpoch} = time + $self->timeout;
-
-    $self->revert_this_record( $idkey, $unlsignature, $state );
-    my $result = $self->unlock( $idkey, $unluuid, $state );
-    return defined $result;
-}
-
 sub revert_this_record {
     my ( $self, $idkey, $signature, $document ) = @_;
 
@@ -199,13 +180,9 @@ sub revert_this_record {
         if $document->{locked} ne $signature;
 
     # reabsorb all of the desktop atoms into the document
-    foreach my $atom ( @{ $document->{'desktop'} || [] } ) {
-        $self->absorb( $idkey, $atom );
-    }
+    $_->{state} = 'inbox' foreach @{$self->BOXES($idkey)};
 
-    # and clear the desktop state
-    my $desktop = delete $state->{desktop};
-    return $desktop;
+    return;
 }
 
 sub update_and_unlock {
@@ -214,7 +191,7 @@ sub update_and_unlock {
     return                           if !exists $state->{locked};
     carp 'LOCKED' . $state->{locked} if $self->debug;
     return                           if $state->{locked} ne $signature;
-    delete $state->{desktop};    # there is no more desktop on checkin
+    @{$self->BOXES($idkey)} = grep { $_->{state} ne 'desktop' } @{$self->BOXES($idkey)};
     delete $state->{lockExpireEpoch}
         ;                        # there is no more expire time on checkin
     delete $state->{locked};    # there is no more locked signature on checkin
@@ -260,13 +237,14 @@ sub find_keys_need_reduce {
                 version => $rule->version,
                 Replay::IdKey->parse_cubby( $_->{idkey} )
             );
-            } grep {
-            exists $_->{inbox}
-                || exists $_->{desktop}
-                || exists $_->{locked}
-                || exists $_->{lockExpireEpoch}
-            } values %{$store};
+            } grep { exists $_->{locked} || exists $_->{lockExpireEpoch} }
+            values %{$store};
     }
+    # Tightly coupled to BOXES and how it stores information
+    push @idkeys,
+        map { Replay::IdKey->new( Replay::IdKey->parse_spec( $_->spec ) ) }
+        grep { 0 < scalar @{ $self->{BOXES}{$_} || [] } }
+        keys %{ $self->{BOXES} };
     return @idkeys;
 }
 

@@ -91,10 +91,29 @@ sub collection {
     return 'replay-' . $self->name . $self->version;
 }
 
+sub parse_full_spec {
+    my ( $class, $spec ) = @_;
+    my ( $domain, $rule, $version, $window, $key, $revision )
+        = $spec
+        =~ /^domain-(.+)-rule-(.+)-version-(.+)-wind-(.+)-key-(.+)-revision(.+)$/smix;
+    return domain => $domain,
+        rule      => $rule,
+        version   => $version,
+        window    => $window,
+        key       => $key,
+        revision  => $revision;
+}
+
 sub parse_cubby {
     my ( $class,  $cubby ) = @_;
     my ( $window, $key )   = $cubby =~ /^wind-(.+)-key-(.+)$/smix;
     return window => $window, key => $key;
+}
+
+sub domain_rule_prefix {
+    my ($self) = @_;
+    return join q{-}, 'domain', $self->domain || 'null', 'rule',
+        $self->rule_spec, 'version', $self->version;
 }
 
 sub window_prefix {
@@ -109,8 +128,8 @@ sub cubby {
 
 sub full_spec {
     my ($self) = @_;
-    return join q{-}, $self->domain, $self->rule_spec, $self->cubby,
-        $self->revision;
+    return join q{-}, $self->domain_rule_prefix, $self->cubby, 'revision',
+        $self->revision || 'null';
 }
 
 sub rule_spec {

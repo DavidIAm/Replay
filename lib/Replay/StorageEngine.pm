@@ -24,7 +24,6 @@ has eventSystem =>
 # Delegate the api points
 sub retrieve {
     my ( $self, @args ) = @_;
-warn "Replay::StorageEngine::retrieve @args\n";
     return $self->engine->retrieve(@args);
 }
 
@@ -36,19 +35,16 @@ sub absorb {
 sub desktop_cursor {
     my ( $self, @args ) = @_;
     my $c = $self->engine->desktop_cursor(@args);
-    warn "Desktop cursor storageEngine ($c)";
     return $c;
 }
 
 sub fetch_canonical_state {
     my ( $self, @args ) = @_;
-warn "Replay::StorageEngine::fetch_canonical_state @args\n";
     return $self->engine->fetch_canonical_state(@args);
 }
 
 sub fetch_transitional_state {
     my ( $self, @args ) = @_;
-warn "Replay::StorageEngine::fetch_transitional_state @args\n";
     return $self->engine->fetch_transitional_state(@args);
 }
 
