@@ -211,10 +211,10 @@ sub find_keys_need_reduce {
                 );
         }
     }
-    push @idkeys,
-        map { Replay::IdKey->new( Replay::IdKey->parse_full_spec($_) ) }
-        Set::Scalar->new( map { $_->{idkey} }
-            $self->BOXES->find( {}, { idkey => 1 } )->all )->members;
+#    push @idkeys,
+#        map { Replay::IdKey->new( Replay::IdKey->parse_full_spec($_) ) }
+#        Set::Scalar->new( map { $_->{idkey} }
+#            $self->BOXES->find( {}, { idkey => 1 } )->all )->members;
     return @idkeys;
 }
 
