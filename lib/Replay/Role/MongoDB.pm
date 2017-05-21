@@ -86,7 +86,7 @@ sub checkout_record {
     catch {
         # Unhappy - didn't get it.  Let somebody else handle the situation
         if ( $_->isa("MongoDB::DuplicateKeyError") ) {
-            # There is nothing to do here, its just a normal already locked
+            $self->relock_expired($idkey, $signature, $timeout);
         }
         else {
             die $_;
@@ -132,8 +132,6 @@ sub lockreport {
     my ( $self, $idkey ) = @_;
     return $self->collection($idkey)->find_one( { idkey => $idkey->cubby },
         { locked => 1, lockExpireEpoch => 1, } );
-
-    #        { locked => JSON::true, lockExpireEpoch => JSON::true } );
 }
 
 sub relock {
@@ -170,8 +168,7 @@ sub relock_expired {
         {         q^$^
                 . 'set' =>
                 { locked => $signature, lockExpireEpoch => time + $timeout, },
-        },
-        { upsert => 0, returnNewDocument => 1, }
+        }
     );
     return $self->lockreport($idkey);
 }

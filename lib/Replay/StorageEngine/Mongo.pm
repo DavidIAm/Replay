@@ -34,7 +34,8 @@ sub desktop_cursor {
 sub ensure_locked {
     my ( $self, $idkey, $signature ) = @_;
     my $lock = $self->lockreport($idkey);
-    confess 'This document ".$idkey->cubby." isn\'t locked with this signature ('
+    confess
+        'This document ".$idkey->cubby." isn\'t locked with this signature ('
         . $lock->{locked} . q/!=/
         . $signature . ')'
         unless $lock->{locked} eq $signature;
@@ -145,13 +146,12 @@ sub relock_expired {
 sub checkin {
     my ( $self, $idkey, $uuid, $state ) = @_;
 
-    my $signature = $self->state_signature($idkey, [$uuid]);
+    my $signature = $self->state_signature( $idkey, [$uuid] );
+
     # warn("Replay::StorageEngine::Mongo  checkin" );
     my $result = $self->update_and_unlock( $idkey, $uuid, $state );
     if ($self->collection($idkey)->delete_one(
-            {   idkey     => $idkey->cubby,
-                canonical => { q^$^ . 'exists' => 0 }
-            }
+            { idkey => $idkey->cubby, canonical => { q^$^ . 'exists' => 0 } }
         )
         )
     {
@@ -211,10 +211,11 @@ sub find_keys_need_reduce {
                 );
         }
     }
-#    push @idkeys,
-#        map { Replay::IdKey->new( Replay::IdKey->parse_full_spec($_) ) }
-#        Set::Scalar->new( map { $_->{idkey} }
-#            $self->BOXES->find( {}, { idkey => 1 } )->all )->members;
+
+    #    push @idkeys,
+    #        map { Replay::IdKey->new( Replay::IdKey->parse_full_spec($_) ) }
+    #        Set::Scalar->new( map { $_->{idkey} }
+    #            $self->BOXES->find( {}, { idkey => 1 } )->all )->members;
     return @idkeys;
 }
 
