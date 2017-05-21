@@ -88,7 +88,9 @@ sub reduce {
 warn __FILE__ . ": REDUCE HIT";
     warn __FILE__ . ": PURGE FOUND" if grep { ($_||'') eq 'purge' } @state;
     return                          if grep { ($_||'') eq 'purge' } @state;
+    warn "LSIT IN  @state\n";
     my @list = List::Util::reduce { $a + $b } @state;
+    warn "LSIT OUT @list\n";
     use Carp qw/cluck/;
     cluck unless defined $list[0];
     return @list;

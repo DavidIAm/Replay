@@ -9,6 +9,8 @@ use Data::UUID;
 use Replay::Message::Fetched;
 use Replay::Message::FoundKeysForReduce;
 use Replay::Message::Locked;
+use Set::Scalar;
+use Set::Object;
 use Replay::Message::NewCanonical;
 use Replay::Message::NoLock::DuringRevert;
 use Replay::Message::NoLock;
@@ -57,10 +59,32 @@ sub rule {
 
 # merge a list of atoms with the existing list in that slot
 sub merge {
-    my ( $self, $idkey, $alpha, $beta ) = @_;
-    my @sorted = sort { $self->rule($idkey)->compare( $a, $b ) } @{$alpha},
-        @{$beta};
-    return [@sorted];
+    my ( $self, $idkey, @list ) = @_;
+    my $meta = {};
+    foreach my $k (
+        Set::Scalar->new( map { keys %{ $_->{meta} } } @list )->members )
+    {
+        $meta->{$k}
+            = Set::Scalar->new( map { $_->{meta}->{$k} } @list )->members,;
+    }
+
+    # for each rule involved
+    foreach (
+        Scalar::Set->new( map { $_->{rule} } @{ $meta->{Ruleversions} } )
+        ->members )
+    {
+        if (scalar Scalar::Set->new(
+                map { $_->{version} } @{ $meta->{Ruleversions} }
+            )->size > 1
+            )
+        {
+            die "data model integrity error! "
+                . "More than one version of the same rule reffed!";
+        }
+    }
+    return $meta,
+        sort { $self->rule($idkey)->compare( $a, $b ) }
+        map { $_->{atom} } @list;
 }
 
 # Locking states
@@ -76,7 +100,6 @@ sub merge {
 # check it out
 sub checkout {
     my ( $self, $idkey, $timeout ) = @_;
-warn __PACKAGE__ . "::checkout $idkey $timeout \n";
     $timeout ||= $self->timeout;
     my $uuid = $self->generate_uuid;
 
@@ -84,13 +107,11 @@ warn __PACKAGE__ . "::checkout $idkey $timeout \n";
     my $lockresult = $self->checkout_record( $idkey, $signature, $timeout );
     if ( exists $lockresult->{locked} && $lockresult->{locked} eq $signature )
     {
-warn "Replay::Role::StorageEngine::checkout CALLING SUPER with $idkey\n";
         $self->inbox_to_desktop($idkey);
         return $uuid;
     }
     elsif ( !exists $lockresult->{locked} ) {
 
-warn "Replay::Role::StorageEngine::checkout NO LOCKED RETURNING EMPTY\n";
         # no lock, no action, all good
         return;
     }
@@ -187,10 +208,12 @@ sub revert {
     my $unlsignature = $self->state_signature( $idkey, [$unluuid] );
     my $state
         = $self->relock( $idkey, $signature, $unlsignature, $self->timeout );
-    carp q(tried to do a revert but didn't have a lock on it) if not $state;
-    $self->eventSystem->control->emit(
-        Replay::Message::NoLock::DuringRevert->new( $idkey->marshall ) );
-    return if not $state;
+    if ( $state->{locked} ne $unlsignature ) {
+        carp q(tried to do a revert but didn't have a lock on it);
+        $self->eventSystem->control->emit(
+            Replay::Message::NoLock::DuringRevert->new( $idkey->marshall ) );
+        return;
+    }
     $self->revert_this_record( $idkey, $unlsignature, $state );
     my $result = $self->unlock( $idkey, $unluuid, $state );
     return if !defined $result;
@@ -269,10 +292,20 @@ sub fetch_transitional_state {
     }
 
     # merge in canonical, moving atoms from desktop
-    my $reducing;
+    my ( $meta, @state );
+    warn "$meta is a thing";
     try {
-        $reducing = $self->merge( $idkey, [$cursor->all],
-            $cubby->{canonical} || [] );
+        ( $meta, @state ) = $self->merge(
+            $idkey,
+            [ $cursor->all ],
+            map {
+                idkey            => ( $idkey->cubby          || '' ),
+                    Domain       => ( $cubby->{Domain}       || [] ),
+                    Timeblocks   => ( $cubby->{Timeblocks}   || [] ),
+                    Ruleversions => ( $cubby->{Ruleversions} || [] ),
+                    atom         => $_,
+            } @{ $cubby->{canonical} || [] }
+        );
     }
     catch {
         carp 'Reverting because doing the merge caused an exception ' . $_
@@ -280,18 +313,14 @@ sub fetch_transitional_state {
         $self->revert( $idkey, $uuid );
         return;
     };
+    warn "$meta is a thing";
 
     # notify interested parties
     $self->eventSystem->control->emit(
         Replay::Message::Reducing->new( $idkey->marshall ) );
 
     # return uuid and list
-    return $uuid => {
-        Windows      => $idkey->window || [],
-        Timeblocks   => $cubby->{Timeblocks} || [],
-        Ruleversions => $cubby->{Ruleversions} || [],
-    } => @{$reducing};
-
+    return $uuid => $meta => @state;
 }
 
 sub store_new_canonical_state {
@@ -305,7 +334,7 @@ sub store_new_canonical_state {
     $emitter->release;
 
     foreach my $atom ( @{ $emitter->atomsToDefer } ) {
-      warn "ABSORB DEFERRED ATOM";
+        warn "ABSORB DEFERRED ATOM";
         $self->absorb( $idkey, $atom, {} );
     }
     $self->eventSystem->report->emit(
@@ -694,3 +723,17 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 =cut
 
 1;    # End of Replay
+711:	final indentation level: 1
+
+Final nesting depth of '{'s is 1
+The most recent un-matched '{' is on line 61
+61: sub merge {
+              ^
+711:	To save a full .LOG file rerun with -g
+738:	final indentation level: 1
+
+Final nesting depth of '{'s is 1
+The most recent un-matched '{' is on line 61
+61: sub merge {
+              ^
+738:	To save a full .LOG file rerun with -g

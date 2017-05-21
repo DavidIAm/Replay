@@ -20,14 +20,12 @@ sub BOXES {
 sub retrieve {
     my ( $self, $idkey ) = @_;
 
-warn("Replay::StorageEngine::Mongo  retrieve $self, $idkey" );
     return $self->document($idkey);
 }
 
 sub desktop_cursor {
   my ($self, $idkey) = @_;
   my $c = $self->BOXES->find({ idkey => $idkey->cubby, state => "desktop" });
-warn "Replay::StorageEngine::Mongo  finding cursor for idkey $idkey ($c)";
   return $c;
 }
 
@@ -64,7 +62,7 @@ sub inbox_to_desktop {
 }
 
 # TODO: call this or something like it!
-sub updateMeta {
+sub update_meta {
   my ($self, $idkey, $meta) = @_;
   return $self->collection($idkey)->update( {
             { idkey => $idkey->cubby },
@@ -85,7 +83,7 @@ sub updateMeta {
             {fields   => { reducable_emitted => 1 },
             upsert   => 1,
             multiple => 0,
-            new      => 0,
+            returnNewDocument      => 0,
           }
         },
     );
@@ -95,7 +93,7 @@ sub relock_expired {
     my ( $self, $idkey, $signature, $timeout ) = @_;
 
     # Lets try to get an expire lock, if it has timed out
-    my $unlockresult = $self->collection($idkey)->update_many(
+    my $unlockresult = $self->collection($idkey)->update_one(
         {   idkey  => $idkey->cubby,
             locked => { q^$^ . 'exists' => 1 },
             q^$^
@@ -108,7 +106,7 @@ sub relock_expired {
                 . 'set' =>
                 { locked => $signature, lockExpireEpoch => time + $timeout, },
         },
-        { upsert => 0, new => 1, }
+        { upsert => 0, returnNewDocument => 1, }
     );
 
     return $unlockresult;

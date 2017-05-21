@@ -65,7 +65,6 @@ sub checkout_record {
     # # # expired - locked is the signature
     # # #         - lock expire epoch is gt current time 
     # # #        OR lockExpireEpoch does not exist
-warn "trying to find under ".$idkey->cubby." if its locked\n";
     # make sure we have an index for this collection
     $self->collection($idkey)->indexes
       ->create_one( [ idkey => 1 ], { unique => 1 } );
@@ -83,9 +82,6 @@ try {
             returnNewDocument => 1,
         },
     );
-use Data::Dumper;
-$Data::Dumper::Sortkeys = 1;
-warn "got lock result for $signature of " . Dumper $lockresult;
 } catch {
     # Unhappy - didn't get it.  Let somebody else handle the situation
     if ($_->isa("MongoDB::DuplicateKeyError")) {
@@ -142,7 +138,7 @@ sub relock {
     my ( $self, $idkey, $current_signature, $new_signature, $timeout ) = @_;
 
     # Lets try to get an expire lock, if it has timed out
-    my $unlockresult = $self->collection($idkey)->update_many(
+    return $self->collection($idkey)->find_one_and_update(
         { idkey => $idkey->cubby, locked => $current_signature },
         {   q^$^
                 . 'set' => {
@@ -152,15 +148,13 @@ sub relock {
         },
         { upsert => 0, returnNewDocument => 1, }
     );
-
-    return $unlockresult;
 }
 
 sub relock_expired {
     my ( $self, $idkey, $signature, $timeout ) = @_;
 
     # Lets try to get an expire lock, if it has timed out
-    my $unlockresult = $self->collection($idkey)->update_many(
+    return $self->collection($idkey)->find_one_and_update(
         {   idkey  => $idkey->cubby,
             locked => { q^$^ . 'exists' => 1 },
             q^$^
@@ -175,15 +169,13 @@ sub relock_expired {
         },
         { upsert => 0, returnNewDocument => 1, }
     );
-
-    return $unlockresult;
 }
 
 sub relock_i_match_with {
     my ( $self, $idkey, $oldsignature, $newsignature ) = @_;
     my $unluuid      = $self->generate_uuid;
     my $unlsignature = $self->state_signature( $idkey, [$unluuid] );
-    my $response     = $self->collection($idkey)->update_many(
+    my $response     = $self->collection($idkey)->find_one_and_update(
         { idkey => $idkey->cubby, locked => $oldsignature, },
         {   q^$^
                 . 'set' => {
@@ -208,8 +200,8 @@ sub relock_i_match_with {
 sub revert_this_record {
     my ( $self, $idkey, $signature ) = @_;
 
-    use Carp qw/cluck/;
-    cluck 'REVERTING???';
+#    use Carp qw/cluck/;
+#    cluck 'REVERTING???';
     my $document = $self->retrieve($idkey);
     carp 'This document isn\'t locked with this signature ('
         . $document->{locked} . q/!=/
@@ -221,16 +213,17 @@ sub revert_this_record {
         ->update_many( { idkey => $idkey->cubby, state => 'desktop' } =>
             { q^$^. 'set' => { 'state' => 'inbox' } } );
 
-    my $unlockresult = $self->collection($idkey)
-        ->update_one( { idkey => $idkey->cubby, lock => $signature } =>
+    return $self->collection($idkey)
+        ->find_one_and_update(
+            { idkey => $idkey->cubby, locked => $signature } =>
             { q^$^ . 'unset' => {
                     'lock' => 1,
                     lockExpireEpoch => 1,
                 }
-            } );
-    croak q(UNABLE TO RESET DESKTOP AFTER REVERT ) 
-      if ($unlockresult->{n}||0) == 0;
-    return $unlockresult;
+            },
+            { returnNewDocument => 1,
+            }
+          );
 }
 
 sub update_and_unlock {

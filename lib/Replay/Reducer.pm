@@ -119,6 +119,9 @@ sub execute_reduce {
     try {
         ( $uuid, $meta, @state )
             = $self->storageEngine->fetch_transitional_state($idkey);
+use Data::Dumper;
+$Data::Dumper::Sortkeys=1;
+warn "EXECUTE REDUCE RETURN FROLM FETCH: " . Dumper [ $uuid, $meta, @state ];
         if ( !$uuid || !$meta ) {return} # there was nothing to do, apparently
         my $emitter = $self->make_delayed_emitter($meta);
 
