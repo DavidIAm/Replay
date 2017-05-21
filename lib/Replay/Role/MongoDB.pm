@@ -83,12 +83,13 @@ sub checkout_record {
             { upsert => 1, returnNewDocument => 1, },
         );
         use Data::Dumper;$Data::Dumper::Sortkeys=1;
-        warn "$$ Lock Result ".$idkey->cubby.": " . Dumper $lockresult;
+        warn "$$ Lock Result ".$idkey->cubby.": " . $lockresult->{locked};
     }
     catch {
         # Unhappy - didn't get it.  Let somebody else handle the situation
         if ( $_->isa("MongoDB::DuplicateKeyError") ) {
-            warn $$ . " - " . $idkey->cubby . " dup-inserted meaning already locked!";
+use Data::Dumper;
+            warn $$ . " - " . $idkey->cubby . " dup-inserted meaning already locked!" . Dumper $self->lockreport($idkey);
         }
         else {
             die $_;
