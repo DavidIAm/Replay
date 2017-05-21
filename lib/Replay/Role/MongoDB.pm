@@ -71,7 +71,7 @@ sub checkout_record {
 
     # Happy path - cleanly grab the lock
     try {
-        my $lockresult = $self->collection($idkey)->find_one_and_update(
+        my $lockresult = $self->collection($idkey)->update_one(
             { idkey => $idkey->cubby, locked => { q^$^ . 'exists' => 0 }, },
             {   q^$^
                     . 'set' => {
@@ -82,14 +82,11 @@ sub checkout_record {
             },
             { upsert => 1, returnNewDocument => 1, },
         );
-        use Data::Dumper;$Data::Dumper::Sortkeys=1;
-        warn "$$ Lock Result ".$idkey->cubby.": " . Dumper $lockresult;
     }
     catch {
         # Unhappy - didn't get it.  Let somebody else handle the situation
         if ( $_->isa("MongoDB::DuplicateKeyError") ) {
-use Data::Dumper;
-            warn $$ . " - " . $idkey->cubby . " dup-inserted meaning already locked!" . Dumper $self->lockreport($idkey);
+            # There is nothing to do here, its just a normal already locked
         }
         else {
             die $_;
@@ -140,10 +137,12 @@ sub lockreport {
 }
 
 sub relock {
-    my ( $self, $idkey, $current_signature, $new_signature, $timeout ) = @_;
+    my ( $self, $idkey, $uuid, $newuuid, $timeout ) = @_;
+    my $current_signature = $self->state_signature($idkey, $uuid);
+    my $new_signature = $self->state_signature($idkey, $newuuid);
 
     # Lets try to get an expire lock, if it has timed out
-    return $self->collection($idkey)->find_one_and_update(
+    my $rl = $self->collection($idkey)->update_one(
         { idkey => $idkey->cubby, locked => $current_signature },
         {   q^$^
                 . 'set' => {
@@ -151,15 +150,15 @@ sub relock {
                 lockExpireEpoch => time + $timeout,
                 },
         },
-        { upsert => 0, returnNewDocument => 1, }
     );
+    return $self->lockreport($idkey);
 }
 
 sub relock_expired {
     my ( $self, $idkey, $signature, $timeout ) = @_;
 
     # Lets try to get an expire lock, if it has timed out
-    return $self->collection($idkey)->find_one_and_update(
+    $self->collection($idkey)->update_one(
         {   idkey  => $idkey->cubby,
             locked => { q^$^ . 'exists' => 1 },
             q^$^
@@ -174,32 +173,7 @@ sub relock_expired {
         },
         { upsert => 0, returnNewDocument => 1, }
     );
-}
-
-sub relock_i_match_with {
-    my ( $self, $idkey, $oldsignature, $newsignature ) = @_;
-    my $unluuid      = $self->generate_uuid;
-    my $unlsignature = $self->state_signature( $idkey, [$unluuid] );
-    my $response     = $self->collection($idkey)->find_one_and_update(
-        { idkey => $idkey->cubby, locked => $oldsignature, },
-        {   q^$^
-                . 'set' => {
-                locked          => $unlsignature,
-                lockExpireEpoch => time + $self->timeout,
-                },
-        },
-        { upsert => 0, returnNewDocument => 1, }
-    );
-    if ( $response->matched_count == 0 ) {
-        carp q(tried to do a revert but didn't have a lock on it);
-        $self->eventSystem->control->emit(
-            MessageType => 'NoLockDuringRevert',
-            $idkey->hash_list,
-        );
-        return;
-    }
-    $self->revert_this_record( $idkey, $unlsignature );
-    return $self->unlock( $idkey, $unluuid )->matched_count > 0;
+    return $self->lockreport($idkey);
 }
 
 sub revert_this_record {
@@ -207,31 +181,24 @@ sub revert_this_record {
 
     #    use Carp qw/cluck/;
     #    cluck 'REVERTING???';
+    $self->ensure_locked($idkey, $signature);
     my $document = $self->retrieve($idkey);
-    carp 'This document isn\'t locked with this signature ('
-        . $document->{locked} . q/!=/
-        . $signature . ')'
-        if ( $document->{locked} || q{} ) ne $signature;
 
     # reabsorb all of the desktop atoms into the document
-    my $r = $self->db->get_collection("BOXES")
-        ->update_many( { idkey => $idkey->full_spec, state => 'desktop' } =>
-            { q^$^ . 'set' => { 'state' => 'inbox' } } );
-    use Data::Dumper;$Data::Dumper::Sortkeys=1;
-    warn "$$ Update of revert atoms result: " . Dumper $r;
+    my $r = $self->reabsorb($idkey, $signature);
 
-    return $self->collection($idkey)->find_one_and_update(
-        { idkey => $idkey->cubby, locked => $signature } =>
-            { q^$^ . 'unset' => { 'lock' => 1, lockExpireEpoch => 1, } },
-        { returnNewDocument  => 1, }
+    my $unlock = $self->collection($idkey)->update_one(
+        { idkey => $idkey->cubby, locked => $signature },
+        { q^$^ . 'unset' => { locked => 1, lockExpireEpoch => 1, } },
     );
+    my $lr =  $self->lockreport($idkey);
+    return $lr;
 }
 
 sub update_and_unlock {
     my ( $self, $idkey, $uuid, $state ) = @_;
     my $signature = $self->state_signature( $idkey, [$uuid] );
     my @unsetcanon = ();
-warn "$$ - Update an unlock signature $signature\n";
     if ($state) {
         delete $state->{_id};    # cannot set _id!
         delete $state->{lockExpireEpoch}
@@ -242,21 +209,19 @@ warn "$$ - Update an unlock signature $signature\n";
             delete $state->{canonical};
             @unsetcanon = ( canonical => 1 );
         }
-        my $r = $self->db->get_collection("BOXES")
-            ->delete_many(
-            { idkey => $idkey->full_spec, state => "desktop" } );
-        use Data::Dumper;$Data::Dumper::Sortkeys=1;
-        warn "$$ Delete of used atoms result: " . Dumper $r;
+        my $document = $self->retrieve($idkey);
+        my $r = $self->clear_desktop($idkey, $signature);
     }
-    return $self->collection($idkey)->find_one_and_update(
+    my $newstate = $self->collection($idkey)->update_one(
         { idkey => $idkey->cubby, locked => $signature },
         {   ( $state ? ( q^$^ . 'set' => $state ) : () ),
             q^$^
                 . 'unset' =>
                 { lockExpireEpoch => 1, locked => 1, @unsetcanon }
         },
-        { upsert => 0 }
+        { upsert => 0, returnNewDocument => 1 }
     );
+    return $self->retrieve($idkey);
 }
 
 1;
@@ -324,10 +289,6 @@ the timeout doesn't expire
 =head2 relock_expired 
 
 given an IdKey to a lock with an expired record, take over the lock
-
-=head2 relock_i_match_with 
-
-unclear how this varies from relock...
 
 =head2 revert_this_record 
 

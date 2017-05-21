@@ -107,10 +107,11 @@ sub checkout {
     my $lockresult = $self->checkout_record( $idkey, $signature, $timeout );
     if ( exists $lockresult->{locked} && $lockresult->{locked} eq $signature )
     {
-warn $$ . " we are locked $lockresult->{locked} vs. $signature ";
-        $self->inbox_to_desktop($idkey);
+        $self->inbox_to_desktop($idkey, $signature);
         return $uuid;
     }
+    return;
+if (1) { }
     elsif ( !exists $lockresult->{locked} ) {
 
         # no lock, no action, all good
@@ -153,7 +154,7 @@ warn $$ . " we are locked $lockresult->{locked} vs. $signature ";
     if ( not defined $relockresult ) {
         carp 'Unable to relock after revert ('
             . $unlsignature . ')? '
-            . $idkey->checkstring . qq(\n);
+            . $idkey->cubby . qq(\n);
         return;
     }
 
@@ -205,19 +206,8 @@ after 'absorb' => sub {
 sub revert {
     my ( $self, $idkey, $uuid ) = @_;
     my $signature    = $self->state_signature( $idkey, [$uuid] );
-    my $unluuid      = $self->generate_uuid;
-    my $unlsignature = $self->state_signature( $idkey, [$unluuid] );
-    my $state
-        = $self->relock( $idkey, $signature, $unlsignature, $self->timeout );
-    if ( $state->{locked} ne $unlsignature ) {
-        carp q(tried to do a revert but didn't have a lock on it);
-        $self->eventSystem->control->emit(
-            Replay::Message::NoLock::DuringRevert->new( $idkey->marshall ) );
-        return;
-    }
-    $self->revert_this_record( $idkey, $unlsignature, $state );
-    my $result = $self->unlock( $idkey, $unluuid, $state );
-    return if !defined $result;
+    my $result = $self->revert_this_record( $idkey, $signature );
+    return if $result->{locked};
     return $self->eventSystem->control->emit(
         Replay::Message::Reverted->new( $idkey->marshall ) );
 }
@@ -238,41 +228,10 @@ sub delay_to_do_once {
 sub state_signature {
     my ( $self, $idkey, $list ) = @_;
     return if !defined $list;
-    my $newlist = $self->stringtouch($list);
-    my $sig     = md5_hex( $idkey->hash . freeze($newlist) );
+    use Carp qw/cluck/;
+    cluck "What $list" unless ref $list;
+    my $sig     = md5_hex( $idkey->hash . freeze($list) );
     return $sig;
-}
-
-sub stringtouch {
-    my ( $self, $struct ) = @_;
-    if ( not ref $struct ) {
-        return $struct;
-    }
-    if ( 'ARRAY' eq ref $struct ) {
-        my $ary = [];
-        foreach ( 0 .. $#{$struct} ) {
-            if ( ref $struct->[$_] ) {
-                push @{$ary}, $self->stringtouch( $struct->[$_] );
-            }
-            else {
-                push @{$ary}, q();
-            }
-        }
-        return $ary;
-    }
-    if ( 'HASH' eq ref $struct ) {
-        my $hsh = {};
-        foreach ( keys %{$struct} ) {
-            if ( ref $struct->{$_} ) {
-                $hsh->{$_} = $self->stringtouch( $struct->{$_} );
-            }
-            else {
-                $hsh->{$_} = q();
-            }
-        }
-        return $hsh;
-    }
-    return $struct;
 }
 
 sub fetch_transitional_state {
@@ -283,10 +242,11 @@ sub fetch_transitional_state {
     if ( !defined $uuid ) {
         return;
     }
+    my $signature = $self->state_signature($idkey, [$uuid]);
 
     my $cubby = $self->retrieve($idkey);
 
-    my $cursor = $self->desktop_cursor($idkey);
+    my $cursor = $self->desktop_cursor($idkey, $signature);
     unless ( $cursor->has_next ) {
         $self->revert( $idkey, $uuid );
         return;
@@ -361,7 +321,7 @@ sub fetch_canonical_state {
 
     my $cubby = $self->retrieve($idkey);
 
-    my $e = $self->state_signature( $idkey, $cubby->{canonical} ) || q();
+    my $e = $self->state_signature( $idkey, $cubby->{canonical}||[] ) || q();
     if ( ( $cubby->{canonSignature} || q() ) ne ( $e || q() ) ) {
 
         #  use Data::Dumper;
@@ -408,12 +368,14 @@ sub _build_uuid {    ## no critic (ProhibitUnusedPrivateSubroutines)
 
 sub generate_uuid {
     my ($self) = @_;
-    return $self->uuid->to_string( $self->uuid->create );
+    my $string = $self->uuid->to_string( $self->uuid->create );
+    return $string;
 }
 
 sub unlock {
     my ( $self, $idkey, $uuid, $state ) = @_;
-    return $self->update_and_unlock( $idkey, $uuid, $state );
+    $self->set_canonical( $idkey, $uuid, $state );
+    $self->just_unlock($idkey, $uuid);
 }
 
 1;
@@ -613,11 +575,6 @@ accessor to grab the rule object for a particular idkey
 =head2 state_signature
 
 logic that creates a signature from a state - probably used for canonicalSignature field
-
-=head2 stringtouch(structure)
-
-Attempts to concatenate q() with any non-references to make them strings so that
-the signature will be more canonical.
 
 =head2 delay_to_do_once(name, code)
 

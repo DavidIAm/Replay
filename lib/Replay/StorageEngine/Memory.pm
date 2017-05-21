@@ -1,31 +1,35 @@
 package Replay::StorageEngine::Memory::Cursor;
 
-  use Data::Dumper;
+use Data::Dumper;
 
 sub new {
-  my ($class, @list) = @_;
-  my $self = bless {}, __PACKAGE__;
-  $self->{list} = [@list];
-  $self->{index} = 0;
-  return $self;
+    my ( $class, @list ) = @_;
+    my $self = bless {}, __PACKAGE__;
+    $self->{list}  = [@list];
+    $self->{index} = 0;
+    return $self;
 }
+
 sub all {
-  my ($self) = @_;
-  return @{$self->{list}};
+    my ($self) = @_;
+    return @{ $self->{list} };
 }
+
 sub first {
-  my ($self) = @_;
-  $self->{index} = 0;
-  return $self->next;
+    my ($self) = @_;
+    $self->{index} = 0;
+    return $self->next;
 }
+
 sub next {
-  my ($self) = @_;
-  $self->{list}->[$self->{index} ++]
+    my ($self) = @_;
+    $self->{list}->[ $self->{index}++ ];
 }
+
 sub has_next {
-  my ($self) = @_;
-  use Data::Dumper;
-  return $self->{index} <= $#{$self->{list}} ;
+    my ($self) = @_;
+    use Data::Dumper;
+    return $self->{index} <= $#{ $self->{list} };
 }
 
 package Replay::StorageEngine::Memory;
@@ -53,32 +57,32 @@ sub retrieve {
 
 # find_keys_need_reduce is tighly coupled to this logic!
 sub BOXES {
-  my ($self, $idkey)  = @_;
-  $self->{BOXES}{$idkey->full_spec} ||= [];
+    my ( $self, $idkey ) = @_;
+    $self->{BOXES}{ $idkey->full_spec } ||= [];
 }
 
 sub desktop_cursor {
-  my ($self, $idkey) = @_;
-  Replay::StorageEngine::Memory::Cursor->new(
-    grep { $_->{state} eq 'desktop' } @{$self->BOXES($idkey)}
-  );
+    my ( $self, $idkey ) = @_;
+    Replay::StorageEngine::Memory::Cursor->new(
+        grep { $_->{state} eq 'desktop' } @{ $self->BOXES($idkey) } );
 }
 
 sub inbox_to_desktop {
-    my ($self, $idkey) = @_;
-    $_->{state} = 'desktop' foreach @{$self->BOXES($idkey)};
+    my ( $self, $idkey ) = @_;
+    $_->{state} = 'desktop' foreach @{ $self->BOXES($idkey) };
 }
 
 # State transition = add new atom to inbox
 sub absorb {
     my ( $self, $idkey, $atom, $meta ) = @_;
 
-    push @{$self->BOXES($idkey)},
-      { idkey => $idkey->full_spec,
-        meta => $meta,
-        atom => $atom,
+    push @{ $self->BOXES($idkey) },
+        {
+        idkey => $idkey->full_spec,
+        meta  => $meta,
+        atom  => $atom,
         state => "inbox",
-      };
+        };
 }
 
 sub checkout_record {
@@ -88,7 +92,7 @@ sub checkout_record {
     my $state = $self->retrieve($idkey);
     use Data::Dumper;
     carp 'PRECHECKOUT STATE' . $state if $self->{debug};
-    return                            if exists $state->{locked};
+    return if exists $state->{locked};
     $state->{locked}            = $signature;
     $state->{lockExpireEpoch}   = time + $timeout;
     $state->{reducable_emitted} = 0;
@@ -148,7 +152,8 @@ sub checkin {
     my $result = $self->update_and_unlock( $idkey, $uuid, $state );
 
     # if any of these three exist, we maintain state
-    return $result if scalar grep { $_->{state} eq 'inbox' } @{$self->BOXES($idkey)};
+    return $result
+        if scalar grep { $_->{state} eq 'inbox' } @{ $self->BOXES($idkey) };
     return $result if exists $result->{canonical};
 
     # otherwise we clear it entirely
@@ -170,19 +175,34 @@ sub window_all {
             keys %{$collection} };
 }
 
-sub revert_this_record {
-    my ( $self, $idkey, $signature, $document ) = @_;
-
-    my $state = $self->retrieve($idkey);
+sub ensure_locked {
+    my ( $self, $idkey, $signature ) = @_;
+    my $document = $self->retrieve($idkey);
     croak 'This document isn\'t locked with this signature ('
         . $document->{locked} . q/,/
         . $signature . ')'
         if $document->{locked} ne $signature;
+}
+
+sub revert_this_record {
+    my ( $self, $idkey, $signature ) = @_;
+
+    $self->ensure_locked( $idkey, $signature );
 
     # reabsorb all of the desktop atoms into the document
-    $_->{state} = 'inbox' foreach @{$self->BOXES($idkey)};
+    $_->{state} = 'inbox' foreach @{ $self->BOXES($idkey) };
 
+    $self->just_unlock( $idkey, $signature );
     return;
+}
+
+sub just_unlock {
+    my ( $self, $idkey, $signature ) = @_;
+
+    $self->ensure_locked( $idkey, $signature );
+    my $state = $self->retrieve($idkey);
+    delete $state->{locked};
+    delete $state->{lockExpireEpoch};
 }
 
 sub update_and_unlock {
@@ -191,19 +211,18 @@ sub update_and_unlock {
     return                           if !exists $state->{locked};
     carp 'LOCKED' . $state->{locked} if $self->debug;
     return                           if $state->{locked} ne $signature;
-    @{$self->BOXES($idkey)} = grep { $_->{state} ne 'desktop' } @{$self->BOXES($idkey)};
-    delete $state->{lockExpireEpoch}
-        ;                        # there is no more expire time on checkin
-    delete $state->{locked};    # there is no more locked signature on checkin
+    @{ $self->BOXES($idkey) }
+        = grep { $_->{state} ne 'desktop' } @{ $self->BOXES($idkey) };
 
     if ( @{ $state->{canonical} || [] } == 0 ) {
         delete $state->{canonical};
     }
+    $self->just_unlock( $idkey, $signature );
     return $state;
 }
 
 sub collections {
-    my $self = @_;
+    my ($self) = @_;
     return keys %{$store};
 }
 
@@ -240,6 +259,7 @@ sub find_keys_need_reduce {
             } grep { exists $_->{locked} || exists $_->{lockExpireEpoch} }
             values %{$store};
     }
+
     # Tightly coupled to BOXES and how it stores information
     push @idkeys,
         map { Replay::IdKey->new( Replay::IdKey->parse_spec( $_->spec ) ) }

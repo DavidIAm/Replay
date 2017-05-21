@@ -5,7 +5,7 @@ with qw (Replay::Role::MongoDB Replay::Role::StorageEngine );
 use Replay::IdKey;
 use Readonly;
 use JSON;
-use Carp qw/croak carp/;
+use Carp qw/confess croak carp/;
 use Replay::Message::Reducable;
 use Replay::Message::Cleared::State;
 use Replay::Message;
@@ -24,20 +24,37 @@ sub retrieve {
 }
 
 sub desktop_cursor {
-    my ( $self, $idkey ) = @_;
+    my ( $self, $idkey, $signature ) = @_;
+    $self->ensure_locked( $idkey, $signature );
     my $c = $self->BOXES->find(
         { idkey => $idkey->full_spec, state => "desktop" } );
     return $c;
 }
 
+sub ensure_locked {
+    my ( $self, $idkey, $signature ) = @_;
+    my $lock = $self->lockreport($idkey);
+    confess 'This document ".$idkey->cubby." isn\'t locked with this signature ('
+        . $lock->{locked} . q/!=/
+        . $signature . ')'
+        unless $lock->{locked} eq $signature;
+}
+
+sub clear_desktop {
+    my ( $self, $idkey, $signature ) = @_;
+    $self->ensure_locked( $idkey, $signature );
+    my $r = $self->db->get_collection("BOXES")
+        ->delete_many( { idkey => $idkey->full_spec, state => "desktop" } );
+    return $r;
+}
+
 sub reabsorb {
-    my ( $self, $idkey ) = @_;
+    my ( $self, $idkey, $signature ) = @_;
+    $self->ensure_locked( $idkey, $signature );
     my $r = $self->BOXES->update_many(
         { idkey => $idkey->full_spec, state => "desktop" },
         { q^$^ . 'set' => { state => "inbox" } }
     );
-    use Data::Dumper;$Data::Dumper::Sortkeys=1;
-    warn "$$ Update of reabsorb atoms result: " . Dumper $r;
     return $r;
 }
 
@@ -54,13 +71,12 @@ sub absorb {
 }
 
 sub inbox_to_desktop {
-    my ( $self, $idkey ) = @_;
+    my ( $self, $idkey, $signature ) = @_;
+    $self->ensure_locked( $idkey, $signature );
     my $r = $self->BOXES->update_many(
         { idkey => $idkey->full_spec, state => "inbox" },
         { q^$^ . 'set' => { state => "desktop" } }
     );
-    use Data::Dumper;$Data::Dumper::Sortkeys=1;
-    warn "$$ Update of inbox to desktop result: " . Dumper $r;
     return $r;
 }
 
@@ -129,11 +145,11 @@ sub relock_expired {
 sub checkin {
     my ( $self, $idkey, $uuid, $state ) = @_;
 
+    my $signature = $self->state_signature($idkey, [$uuid]);
     # warn("Replay::StorageEngine::Mongo  checkin" );
     my $result = $self->update_and_unlock( $idkey, $uuid, $state );
     if ($self->collection($idkey)->delete_one(
             {   idkey     => $idkey->cubby,
-                inbox     => { q^$^ . 'exists' => 0 },
                 canonical => { q^$^ . 'exists' => 0 }
             }
         )
