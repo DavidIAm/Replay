@@ -47,8 +47,12 @@ sub cursor_each {
 
 sub ensure_locked {
     my ( $self, $lock ) = @_;
+    
+      my ($package, $filename, $line) = caller;    
+     warn("pid =$$ ensure_locked, package=$package, file=$filename, line=$line");
     my $curlock = $self->lockreport( $lock->idkey );
-    confess 'This document '
+    confess " $$ "
+        . 'This document '
         . $lock->idkey->full_spec
         . ' isn\'t locked with this signature ('
         . ( $lock->locked    || q^^ ) . q/!=/
@@ -73,7 +77,7 @@ sub reabsorb {
     my ( $self, $lock ) = @_;
     $self->ensure_locked($lock);
     my $r = $self->BOXES->update_many(
-        { idkey => $lock->idkey->full_spec, state => 'desktop' },
+        { idkey => $lock->idkey->full_spec, state => 'desktop', locked => $lock->locked },
         {   q^$^ . 'set'   => { state  => 'inbox' },
             q^$^ . 'unset' => { locked => 1, lockExpireEpoch => 1 }
         }

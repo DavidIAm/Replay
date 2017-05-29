@@ -144,11 +144,18 @@ sub document {
 sub lockreport {
     my ( $self, $idkey ) = @_;
     confess 'idkey for lockreport must be passed' if !$idkey;
+    my ($package, $filename, $line) = caller(2);    
+     warn("pid =$$ lockreport, package=$package, file=$filename, line=$line");
+   
     my $found
         = $self->db->get_collection( $idkey->collection )
         ->find_one( { idkey => $idkey->cubby },
         { locked => 1, lockExpireEpoch => 1, } )
         || {};
+        
+    use Data::Dumper;
+    warn("pid =$$ lockreport found=".Dumper($found));
+    
     return Replay::StorageEngine::Lock->new(
         idkey => $idkey,
         (   $found->{locked}
@@ -188,13 +195,13 @@ sub revert_this_record {
     my ( $self, $lock ) = @_;
 
     my $current = $self->lockreport( $lock->idkey );
-    confess 'cannot revert record is not locked' if !$lock->locked;
-    confess 'cannot revert because this is not my lock - sig '
+    confess " $$ cannot revert record is not locked" if !$lock->locked;
+    confess " $$  cannot revert because this is not my lock - sig "
         . $current->locked
         . ' lock '
         . $lock->locked . ' or '
         if !$lock->matches($current);
-    confess 'cannot revert because this lock is expired '
+    confess " $$ cannot revert because this lock is expired "
         . ( $lock->{lockExpireEpoch} - time )
         . ' seconds overdue.'
         if $lock->is_expired;
@@ -202,11 +209,14 @@ sub revert_this_record {
 
     # reabsorb all of the desktop atoms into the document
     my $r = $self->reabsorb($lock);
-
+   
     my $unlock = $self->collection( $lock->idkey )->update_one(
         { idkey => $lock->idkey->cubby, locked => $lock->locked },
         { q^$^ . 'unset' => { locked => 1, lockExpireEpoch => 1, } },
     );
+    
+   warn("pid =$$ revert_this_record unlock=".Dumper($unlock));
+       
     my $lr = $self->lockreport( $lock->idkey );
     return $lr;
 }
@@ -227,6 +237,8 @@ sub update_and_unlock {
         my $document = $self->retrieve( $lock->idkey );
         my $r        = $self->clear_desktop($lock);
     }
+    my ($package, $filename, $line) = caller;    
+    warn("pid =$$ update_and_unlock, package=$package, file=$filename, line=$line");
     my $newstate = $self->collection( $lock->idkey )->update_one(
         { idkey => $lock->idkey->cubby, locked => $lock->locked },
         {   ( $state ? ( q^$^ . 'set' => $state ) : () ),
