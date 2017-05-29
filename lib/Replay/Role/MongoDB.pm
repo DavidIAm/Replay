@@ -148,7 +148,7 @@ sub document {
 
 sub lockreport {
     my ( $self, $idkey ) = @_;
-    confess 'idkey for lockreport must be passed' if !$idkey;
+    croak 'idkey for lockreport must be passed' if !$idkey;
 
     my $found
         = $self->db->get_collection( $idkey->collection )
@@ -200,13 +200,13 @@ sub revert_this_record {
     my ( $self, $lock ) = @_;
 
     my $current = $self->lockreport( $lock->idkey );
-    confess " $$ cannot revert record is not locked" if !$lock->locked;
-    confess " $$  cannot revert because this is not my lock - sig "
+    croak " $$ cannot revert record is not locked" if !$lock->locked;
+    croak " $$  cannot revert because this is not my lock - sig "
         . $current->locked
         . ' lock '
         . $lock->locked . ' or '
         if !$lock->matches($current);
-    confess " $$ cannot revert because this lock is expired "
+    croak " $$ cannot revert because this lock is expired "
         . ( $lock->{lockExpireEpoch} - time )
         . ' seconds overdue.'
         if $lock->is_expired;
