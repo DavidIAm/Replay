@@ -13,13 +13,22 @@ use Try::Tiny;
 
 our $VERSION = '0.02';
 
-has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1,weak_ref => 1 );
+has ruleSource =>
+    ( is => 'ro', isa => 'Replay::RuleSource', required => 1, weak_ref => 1 );
 
-has eventSystem =>
-    ( is => 'ro', isa => 'Replay::EventSystem', required => 1,weak_ref => 1 );
+has eventSystem => (
+    is       => 'ro',
+    isa      => 'Replay::EventSystem',
+    required => 1,
+    weak_ref => 1
+);
 
-has storageEngine =>
-    ( is => 'ro', isa => 'Replay::StorageEngine', required => 1,weak_ref => 1 );
+has storageEngine => (
+    is       => 'ro',
+    isa      => 'Replay::StorageEngine',
+    required => 1,
+    weak_ref => 1
+);
 
 has config => (
     is       => 'ro',
@@ -114,16 +123,17 @@ sub make_reduced_message {
 sub execute_reduce {
     my ( $self, $idkey ) = @_;
 
-    my ( $uuid, $meta, @state );
+    my ( $lock, $meta, @state );
     try {
-        ( $uuid, $meta, @state )
+        ( $lock, $meta, @state )
             = $self->storageEngine->fetch_transitional_state($idkey);
-        if ( !$uuid || !$meta ) {
-          return} # there was nothing to do, apparently
+        if ( !$lock || !$lock->locked || !$meta ) {
+            return;
+        }    # there was nothing to do, apparently
         my $emitter = $self->make_delayed_emitter($meta);
 
         $self->storageEngine->store_new_canonical_state(
-            $idkey, $uuid, $emitter,
+            $lock, $emitter,
             $self->arrayref_flatten(
                 $self->null_filter(
                     $self->rule($idkey)->reduce( $emitter, @state )
@@ -134,16 +144,23 @@ sub execute_reduce {
             $self->make_reduced_message($idkey) );
     }
     catch {
-        carp "REDUCING EXCEPTION: $_";
-        carp "Reverting state because there was a reduce exception\n";
-        $self->storageEngine->revert( $idkey, $uuid );
+        carp "REDUCING EXCEPTION: $_\n";
+        if (!$lock) {
+            carp "failed to get record lock in reducer.";
+        }
+        elsif ($lock->locked) {
+            carp "Reverting state because there was a reduce exception\n";
+            $self->storageEngine->revert( $lock );
+        }
+        else {
+            carp "Locking error apparently?\n" unless $lock->locked;
+        }
         my $message = Replay::Message::Exception::Reducer->new(
-                $idkey->hash_list,
-                exception => (
-                    blessed $_
-                        && $_->can('trace') ? $_->trace->as_string : $_
-                ),
-            );
+            $idkey->hash_list,
+            exception => (
+                blessed $_ && $_->can('trace') ? $_->trace->as_string : $_
+            ),
+        );
         $self->eventSystem->control->emit($message);
     };
     return;

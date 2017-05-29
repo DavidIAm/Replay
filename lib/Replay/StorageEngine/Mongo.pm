@@ -14,7 +14,7 @@ our $VERSION = 0.02;
 
 sub BOXES {
     my ($self) = @_;
-    $self->{db}->get_collection("BOXES");
+    return $self->{db}->get_collection('BOXES');
 }
 
 sub retrieve {
@@ -24,37 +24,59 @@ sub retrieve {
 }
 
 sub desktop_cursor {
-    my ( $self, $idkey, $signature ) = @_;
-    $self->ensure_locked( $idkey, $signature );
+    my ( $self, $lock ) = @_;
+    $self->ensure_locked($lock);
     my $c = $self->BOXES->find(
-        { idkey => $idkey->full_spec, state => "desktop" } );
+        {   idkey  => $lock->idkey->full_spec,
+            state  => 'desktop',
+            locked => $lock->locked,
+        }
+    );
     return $c;
 }
 
+sub cursor_each {
+    my ( $self, $cursor, $callback ) = @_;
+    while (1) {
+        my @list = $cursor->batch;
+        return if 0 == scalar @list;
+        foreach (@list) { $callback->($_); }
+    }
+    return ();
+}
+
 sub ensure_locked {
-    my ( $self, $idkey, $signature ) = @_;
-    my $lock = $self->lockreport($idkey);
-    confess
-        'This document ".$idkey->cubby." isn\'t locked with this signature ('
-        . $lock->{locked} . q/!=/
-        . $signature . ')'
-        unless $lock->{locked} eq $signature;
+    my ( $self, $lock ) = @_;
+    my $curlock = $self->lockreport( $lock->idkey );
+    confess 'This document '
+        . $lock->idkey->full_spec
+        . ' isn\'t locked with this signature ('
+        . ( $lock->locked    || q^^ ) . q/!=/
+        . ( $curlock->locked || q^^ ) . ")\n"
+        if !$curlock->matches($lock);
+    return 1;
 }
 
 sub clear_desktop {
-    my ( $self, $idkey, $signature ) = @_;
-    $self->ensure_locked( $idkey, $signature );
-    my $r = $self->db->get_collection("BOXES")
-        ->delete_many( { idkey => $idkey->full_spec, state => "desktop" } );
+    my ( $self, $lock ) = @_;
+    $self->ensure_locked($lock);
+    my $r = $self->BOXES->delete_many(
+        {   idkey  => $lock->idkey->full_spec,
+            state  => 'desktop',
+            locked => $lock->locked,
+        }
+    );
     return $r;
 }
 
 sub reabsorb {
-    my ( $self, $idkey, $signature ) = @_;
-    $self->ensure_locked( $idkey, $signature );
+    my ( $self, $lock ) = @_;
+    $self->ensure_locked($lock);
     my $r = $self->BOXES->update_many(
-        { idkey => $idkey->full_spec, state => "desktop" },
-        { q^$^ . 'set' => { state => "inbox" } }
+        { idkey => $lock->idkey->full_spec, state => 'desktop' },
+        {   q^$^ . 'set'   => { state  => 'inbox' },
+            q^$^ . 'unset' => { locked => 1, lockExpireEpoch => 1 }
+        }
     );
     return $r;
 }
@@ -66,17 +88,21 @@ sub absorb {
         {   idkey => $idkey->full_spec,
             meta  => $meta,
             atom  => $atom,
-            state => "inbox",
+            state => 'inbox',
         }
     );
+    return $r;
 }
 
 sub inbox_to_desktop {
-    my ( $self, $idkey, $signature ) = @_;
-    $self->ensure_locked( $idkey, $signature );
+    my ( $self, $lock ) = @_;
+    $self->ensure_locked($lock);
     my $r = $self->BOXES->update_many(
-        { idkey => $idkey->full_spec, state => "inbox" },
-        { q^$^ . 'set' => { state => "desktop" } }
+        {   idkey  => $lock->idkey->full_spec,
+            state  => 'inbox',
+            locked => { q^$^ . 'exists' => 0 }
+        },
+        { q^$^ . 'set' => { state => 'desktop', locked => $lock->locked, } }
     );
     return $r;
 }
@@ -85,50 +111,25 @@ sub inbox_to_desktop {
 sub update_meta {
     my ( $self, $idkey, $meta ) = @_;
     return $self->collection($idkey)->update(
-        {   { idkey => $idkey->cubby },
-            {   q^$^
-                    . 'addToSet' => {
-                    Windows => $idkey->window,
-                    Timeblocks =>
-                        { q^$^ . 'each' => $meta->{Timeblocks} || [] },
-                    Ruleversions =>
-                        { q^$^ . 'each' => $meta->{Ruleversions} || [] },
-                    },
-                q^$^
-                    . 'setOnInsert' =>
-                    { idkey => $idkey->cubby, IdKey => $idkey->marshall },
-                q^$^ . 'set' => { reducable_emitted => 1 },
-            },
-            {   fields            => { reducable_emitted => 1 },
-                upsert            => 1,
-                multiple          => 0,
-                returnNewDocument => 0,
-            }
-        },
-    );
-}
-
-sub relock_expired {
-    my ( $self, $idkey, $signature, $timeout ) = @_;
-
-    # Lets try to get an expire lock, if it has timed out
-    my $unlockresult = $self->collection($idkey)->update_one(
-        {   idkey  => $idkey->cubby,
-            locked => { q^$^ . 'exists' => 1 },
+        { idkey => $idkey->cubby },
+        {   q^$^
+                . 'addToSet' => {
+                Windows    => $idkey->window,
+                Timeblocks => { q^$^ . 'each' => $meta->{Timeblocks} || [] },
+                Ruleversions =>
+                    { q^$^ . 'each' => $meta->{Ruleversions} || [] },
+                },
             q^$^
-                . 'or' => [
-                { lockExpireEpoch => { q^$^ . 'lt'     => time } },
-                { lockExpireEpoch => { q^$^ . 'exists' => 0 } }
-                ]
+                . 'setOnInsert' =>
+                { idkey => $idkey->cubby, IdKey => $idkey->marshall },
+            q^$^ . 'set' => { reducable_emitted => 1 },
         },
-        {         q^$^
-                . 'set' =>
-                { locked => $signature, lockExpireEpoch => time + $timeout, },
-        },
-        { upsert => 0, returnNewDocument => 1, }
+        {   fields            => { reducable_emitted => 1 },
+            upsert            => 1,
+            multiple          => 0,
+            returnNewDocument => 0,
+        }
     );
-
-    return $unlockresult;
 }
 
 # Locking states
@@ -144,19 +145,19 @@ sub relock_expired {
 # check it out
 
 sub checkin {
-    my ( $self, $idkey, $uuid, $state ) = @_;
+    my ( $self, $lock, $state ) = @_;
 
-    my $signature = $self->state_signature( $idkey, [$uuid] );
-
-    # warn("Replay::StorageEngine::Mongo  checkin" );
-    my $result = $self->update_and_unlock( $idkey, $uuid, $state );
-    if ($self->collection($idkey)->delete_one(
-            { idkey => $idkey->cubby, canonical => { q^$^ . 'exists' => 0 } }
+    # warn('Replay::StorageEngine::Mongo  checkin' );
+    my $result = $self->update_and_unlock( $lock, $state );
+    if ($self->collection( $lock->idkey )->delete_one(
+            {   idkey     => $lock->idkey->cubby,
+                canonical => { q^$^ . 'exists' => 0 }
+            }
         )
         )
     {
         $self->eventSystem->control->emit(
-            Replay::Message::Cleared::State->new( $idkey->marshall ),
+            Replay::Message::Cleared::State->new( $lock->idkey->marshall ),
         );
     }
     return if not defined $result;
@@ -176,10 +177,9 @@ sub window_all {
 }
 
 sub find_keys_need_reduce {
-
     my ($self) = @_;
 
-    #    warn("Replay::StorageEngine::Mongo  find_keys_need_reduce $self" );
+    #    warn('Replay::StorageEngine::Mongo  find_keys_need_reduce $self' );
     my @idkeys = ();
     my $rule;
     while ( $rule
@@ -413,7 +413,7 @@ L<http://search.cpan.org/dist/Replay/>
 =back
 
 
-=head1 ACKNOWLEDGEMENTS
+=head1 ACKNOWLEDGMENTS
 
 
 =head1 LICENSE AND COPYRIGHT
@@ -448,7 +448,7 @@ direct or contributory patent infringement, then this Artistic License
 to you shall terminate on the date that such litigation is filed.
 
 Disclaimer of Warranty: THE PACKAGE IS PROVIDED BY THE COPYRIGHT HOLDER
-AND CONTRIBUTORS "AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
+AND CONTRIBUTORS 'AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
 THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
 PURPOSE, OR NON-INFRINGEMENT ARE DISCLAIMED TO THE EXTENT PERMITTED BY
 YOUR LOCAL LAW. UNLESS REQUIRED BY LAW, NO COPYRIGHT HOLDER OR

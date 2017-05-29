@@ -93,15 +93,21 @@ sub collection {
 
 sub parse_full_spec {
     my ( $class, $spec ) = @_;
+    my $dom      = qr/domain-(.+)/smix;
+    my $nam      = qr/name-(.+)/smix;
+    my $ver      = qr/version-(.+)/smix;
+    my $win      = qr/wind-(.+)/smix;
+    my $kay      = qr/key-(.+)/smix;
+    my $rev      = qr/revision-(.+)/smix;
+    my $parse_re = qr/${dom}-${nam}-${ver}-${win}-${kay}-${rev}/smix;
     my ( $domain, $name, $version, $window, $key, $revision )
-        = $spec
-        =~ /^domain-(.+)-name-(.+)-version-(.+)-wind-(.+)-key-(.+)-revision-(.+)$/smix;
-    return ($domain eq 'null' ? (domain => $domain) : ()),
-        name      => $name,
-        version   => $version,
-        window    => $window,
-        key       => $key,
-        ($revision eq 'null' ? (revision => $revision) : ());
+        = $spec =~ /${parse_re}$/smix;
+    return ( $domain eq 'null' ? ( domain => $domain ) : () ),
+        name    => $name,
+        version => $version,
+        window  => $window,
+        key     => $key,
+        ( $revision eq 'null' ? ( revision => $revision ) : () );
 }
 
 sub parse_cubby {
@@ -112,8 +118,7 @@ sub parse_cubby {
 
 sub domain_rule_prefix {
     my ($self) = @_;
-    return join q{-}, 'domain', ($self->domain || 'null'), 'name',
-        $self->rule_spec, 'version', $self->version;
+    return join q{-}, 'domain', ( $self->domain || 'null' ), $self->rule_spec;
 }
 
 sub window_prefix {
@@ -324,7 +329,7 @@ L<http://search.cpan.org/dist/Replay/>
 =back
 
 
-=head1 ACKNOWLEDGEMENTS
+=head1 ACKNOWLEDGMENTS
 
 
 =head1 LICENSE AND COPYRIGHT

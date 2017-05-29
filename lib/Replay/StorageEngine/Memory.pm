@@ -1,42 +1,9 @@
-package Replay::StorageEngine::Memory::Cursor;
-
-use Data::Dumper;
-
-sub new {
-    my ( $class, @list ) = @_;
-    my $self = bless {}, __PACKAGE__;
-    $self->{list}  = [@list];
-    $self->{index} = 0;
-    return $self;
-}
-
-sub all {
-    my ($self) = @_;
-    return @{ $self->{list} };
-}
-
-sub first {
-    my ($self) = @_;
-    $self->{index} = 0;
-    return $self->next;
-}
-
-sub next {
-    my ($self) = @_;
-    $self->{list}->[ $self->{index}++ ];
-}
-
-sub has_next {
-    my ($self) = @_;
-    use Data::Dumper;
-    return $self->{index} <= $#{ $self->{list} };
-}
-
 package Replay::StorageEngine::Memory;
 
 use Moose;
 with 'Replay::Role::StorageEngine';
 use Scalar::Util qw/blessed/;
+use Replay::StorageEngine::Memory::Cursor;
 use Replay::Message::NoLock::DuringRevert;
 use Replay::Message::Cleared::State;
 use Replay::IdKey;
@@ -58,66 +25,61 @@ sub retrieve {
 # find_keys_need_reduce is tighly coupled to this logic!
 sub BOXES {
     my ( $self, $idkey ) = @_;
-    $self->{BOXES}{ $idkey->full_spec } ||= [];
+    return $self->{BOXES}{ $idkey->full_spec } ||= [];
 }
 
 sub desktop_cursor {
-    my ( $self, $idkey ) = @_;
-    Replay::StorageEngine::Memory::Cursor->new(
-        grep { $_->{state} eq 'desktop' } @{ $self->BOXES($idkey) } );
+    my ( $self, $lock ) = @_;
+    $self->ensure_locked($lock);
+    return Replay::StorageEngine::Memory::Cursor->new(
+        grep { $_->{state} eq 'desktop' } @{ $self->BOXES( $lock->idkey ) } );
 }
 
 sub inbox_to_desktop {
-    my ( $self, $idkey ) = @_;
-    $_->{state} = 'desktop' foreach @{ $self->BOXES($idkey) };
+    my ( $self, $lock ) = @_;
+    foreach ( @{ $self->BOXES( $lock->idkey ) } ) {
+        $_->{state} = 'desktop';
+    }
+    return;
 }
 
 # State transition = add new atom to inbox
 sub absorb {
     my ( $self, $idkey, $atom, $meta ) = @_;
 
-    push @{ $self->BOXES($idkey) },
+    return push @{ $self->BOXES($idkey) },
         {
         idkey => $idkey->full_spec,
         meta  => $meta,
         atom  => $atom,
-        state => "inbox",
+        state => 'inbox',
         };
 }
 
 sub checkout_record {
-    my ( $self, $idkey, $signature, $timeout ) = @_;
+    my ( $self, $lock ) = @_;
 
-    # try to get lock
-    my $state = $self->retrieve($idkey);
+    my $state = $self->retrieve( $lock->idkey );
     use Data::Dumper;
     carp 'PRECHECKOUT STATE' . $state if $self->{debug};
-    return if exists $state->{locked};
-    $state->{locked}            = $signature;
-    $state->{lockExpireEpoch}   = time + $timeout;
+    return Replay::StorageEngine::Lock->empty( $lock->idkey )
+        if $state->{locked};
+    $state->{locked}            = $lock->locked;
+    $state->{lockExpireEpoch}   = $lock->lockExpireEpoch;
     $state->{reducable_emitted} = 0;
     carp 'POSTCHECKOUT STATE' . $state if $self->{debug};
 
-#    carp 'POSTCHECKOUT STATE' . Dumper $self->collection($idkey) if $self->{debug};
-    return $state;
-}
-
-sub relock {
-    my ( $self, $idkey, $current_signature, $new_signature, $timeout ) = @_;
-
-    # Lets try to get an expire lock, if it has timed out
-    my $state = $self->retrieve($idkey);
-    return if !$state;
-    return if $state->{locked} ne $current_signature;
-    $state->{locked}          = $new_signature;
-    $state->{lockExpireEpoch} = time + $timeout;
-
-    return $state;
+    return $lock;
 }
 
 sub purge {
     my ( $self, $idkey ) = @_;
-    return delete $self->collection($idkey)->{ $idkey->cubby };
+    my $document = delete $self->collection($idkey)->{ $idkey->cubby };
+    if ( exists $document->{canonical} ) {
+        $self->collection($idkey) = $document;
+        confess "Tried to clear a non-empty canonical. Sorry.\n";
+    }
+    return $document;
 }
 
 sub document_exists {
@@ -126,12 +88,12 @@ sub document_exists {
 }
 
 sub relock_expired {
-    my ( $self, $idkey, $signature, $timeout ) = @_;
+    my ( $self, $lock ) = @_;
 
     # Lets try to get an expire lock, if it has timed out
-    return if !$self->document_exists($idkey);
-    my $state = $self->retrieve($idkey);
-    return $state     if $state->{locked} eq $signature;
+    return if !$self->document_exists( $lock->idkey );
+    my $state = $self->retrieve( $lock->idkey );
+    return $state     if $state->{locked} eq $lock->locked;
     carp 'NOT LOCKED' if !exists $state->{locked};
     carp 'NO EPOCH'   if !exists $state->{lockExpireEpoch};
     carp 'UNEXPIRED ( ' . $state->{lockExpireEpoch} . ')'
@@ -140,27 +102,28 @@ sub relock_expired {
     return
         if exists $state->{lockExpireEpoch}
         && $state->{lockExpireEpoch} >= time;
-    $state->{locked}          = $signature;
-    $state->{lockExpireEpoch} = time + $timeout;
+    $state->{locked}          = $lock->locked;
+    $state->{lockExpireEpoch} = $lock->lockExpireEpoch;
 
     return $state;
 }
 
 sub checkin {
-    my ( $self, $idkey, $uuid, $state ) = @_;
+    my ( $self, $lock, $state ) = @_;
 
-    my $result = $self->update_and_unlock( $idkey, $uuid, $state );
+    my $result = $self->update_and_unlock( $lock, $state );
 
     # if any of these three exist, we maintain state
     return $result
-        if scalar grep { $_->{state} eq 'inbox' } @{ $self->BOXES($idkey) };
+        if scalar grep { $_->{state} eq 'inbox' }
+        @{ $self->BOXES( $lock->idkey ) };
     return $result if exists $result->{canonical};
 
     # otherwise we clear it entirely
-    $self->purge($idkey);
+    $self->purge( $lock->idkey );
 
     $self->eventSystem->control->emit(
-        Replay::Message::Cleared::State->new( $idkey->hash_list ),
+        Replay::Message::Cleared::State->new( $lock->idkey->hash_list ),
     );
 
     return;
@@ -176,48 +139,49 @@ sub window_all {
 }
 
 sub ensure_locked {
-    my ( $self, $idkey, $signature ) = @_;
-    my $document = $self->retrieve($idkey);
-    croak 'This document isn\'t locked with this signature ('
-        . $document->{locked} . q/,/
-        . $signature . ')'
-        if $document->{locked} ne $signature;
+    my ( $self, $lock ) = @_;
+    my $document = $self->retrieve( $lock->idkey );
+    confess 'This document isn\'t locked with this signature ('
+        . ( $document->{locked} || q^^ ) . q/,/
+        . ( $lock->locked || q^^ ) . ')'
+        if !$lock->is_mine( $document->{locked} );
+    return 1;
 }
 
 sub revert_this_record {
-    my ( $self, $idkey, $signature ) = @_;
+    my ( $self, $lock ) = @_;
 
-    $self->ensure_locked( $idkey, $signature );
+    $self->ensure_locked($lock);
 
     # reabsorb all of the desktop atoms into the document
-    $_->{state} = 'inbox' foreach @{ $self->BOXES($idkey) };
+    foreach ( @{ $self->BOXES( $lock->idkey ) } ) { $_->{state} = 'inbox'; }
 
-    $self->just_unlock( $idkey, $signature );
+    $self->just_unlock($lock);
     return;
 }
 
 sub just_unlock {
-    my ( $self, $idkey, $signature ) = @_;
+    my ( $self, $lock ) = @_;
 
-    $self->ensure_locked( $idkey, $signature );
-    my $state = $self->retrieve($idkey);
+    $self->ensure_locked($lock);
+    my $state = $self->retrieve( $lock->idkey );
     delete $state->{locked};
     delete $state->{lockExpireEpoch};
+    return;
 }
 
 sub update_and_unlock {
-    my ( $self, $idkey, $uuid, $state ) = @_;
-    my $signature = $self->state_signature( $idkey, [$uuid] );
+    my ( $self, $lock, $state ) = @_;
     return                           if !exists $state->{locked};
     carp 'LOCKED' . $state->{locked} if $self->debug;
-    return                           if $state->{locked} ne $signature;
-    @{ $self->BOXES($idkey) }
-        = grep { $_->{state} ne 'desktop' } @{ $self->BOXES($idkey) };
+    return                           if !$lock->is_proper( $state->{locked} );
+    @{ $self->BOXES( $lock->idkey ) }
+        = grep { $_->{state} ne 'desktop' } @{ $self->BOXES( $lock->idkey ) };
 
     if ( @{ $state->{canonical} || [] } == 0 ) {
         delete $state->{canonical};
     }
-    $self->just_unlock( $idkey, $signature );
+    $self->just_unlock($lock);
     return $state;
 }
 
@@ -363,7 +327,7 @@ L<http://search.cpan.org/dist/Replay/>
 =back
 
 
-=head1 ACKNOWLEDGEMENTS
+=head1 ACKNOWLEDGMENTS
 
 
 =head1 LICENSE AND COPYRIGHT

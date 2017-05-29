@@ -17,6 +17,7 @@ package Replay::Role::MongoDB;
 
 use Moose::Role;
 use Carp qw/croak confess carp cluck/;
+use Replay::StorageEngine::Lock;
 use MongoDB;
 use MongoDB::OID;
 use JSON;
@@ -56,7 +57,8 @@ sub _build_mongo {    ## no critic (ProhibitUnusedPrivateSubroutines)
 }
 
 sub checkout_record {
-    my ( $self, $idkey, $signature, $timeout ) = @_;
+    my ( $self, $lock ) = @_;
+    my $idkey = $lock->idkey;
 
     # try to get lock
     # # right record: idkey matches
@@ -72,11 +74,17 @@ sub checkout_record {
     # Happy path - cleanly grab the lock
     try {
         my $lockresult = $self->collection($idkey)->update_one(
-            { idkey => $idkey->cubby, locked => { q^$^ . 'exists' => 0 }, },
+            {   idkey => $idkey->cubby,
+                q^$^
+                    . 'or' => [
+                    { locked => { q^$^ . 'exists' => 0 } },
+                    { locked => $lock->locked }
+                    ]
+            },
             {   q^$^
                     . 'set' => {
-                    locked          => $signature,
-                    lockExpireEpoch => time + $timeout,
+                    locked          => $lock->locked,
+                    lockExpireEpoch => $lock->lockExpireEpoch,
                     },
                 q^$^ . 'setOnInsert' => { IdKey => $idkey->marshall },
             },
@@ -85,11 +93,15 @@ sub checkout_record {
     }
     catch {
         # Unhappy - didn't get it.  Let somebody else handle the situation
-        if ( $_->isa("MongoDB::DuplicateKeyError") ) {
-            $self->relock_expired($idkey, $signature, $timeout);
+        if ( $_->isa('MongoDB::DuplicateKeyError') ) {
+            $self->relock_expired(
+                Replay::StorageEngine::Lock->prospective(
+                    $idkey, $lock->timeout
+                )
+            );
         }
         else {
-            die $_;
+            croak $_;
         }
     };
 
@@ -98,18 +110,19 @@ sub checkout_record {
     # boxes collection
     #
     # absorb:
-    # create new document in boxes: {idkey:, atom:, state:"inbox"}
+    # create new document in boxes: {idkey:, atom:, state:'inbox'}
     #
     # checkout:
     # lock the record
-    # update boxes {idkey: , state:"inbox"} to { {idkey: # , state: "desktop"}
+    # update boxes {idkey: , state:'inbox'} to { {idkey: # , state: 'desktop'}
+    # }
     #
     # reduce:
-    # retrieve list { idkey: , state: "desktop" }
+    # retrieve list { idkey: , state: 'desktop' }
     #
     # checkin:
     # update canonical
-    # delete boxes {idkey: , state:"desktop"}
+    # delete boxes {idkey: , state:'desktop'}
     # unlock the record
 
 }
@@ -130,30 +143,26 @@ sub document {
 
 sub lockreport {
     my ( $self, $idkey ) = @_;
-    return $self->collection($idkey)->find_one( { idkey => $idkey->cubby },
-        { locked => 1, lockExpireEpoch => 1, } );
-}
-
-sub relock {
-    my ( $self, $idkey, $uuid, $newuuid, $timeout ) = @_;
-    my $current_signature = $self->state_signature($idkey, $uuid);
-    my $new_signature = $self->state_signature($idkey, $newuuid);
-
-    # Lets try to get an expire lock, if it has timed out
-    my $rl = $self->collection($idkey)->update_one(
-        { idkey => $idkey->cubby, locked => $current_signature },
-        {   q^$^
-                . 'set' => {
-                locked          => $new_signature,
-                lockExpireEpoch => time + $timeout,
-                },
-        },
+    confess 'idkey for lockreport must be passed' if !$idkey;
+    my $found
+        = $self->db->get_collection( $idkey->collection )
+        ->find_one( { idkey => $idkey->cubby },
+        { locked => 1, lockExpireEpoch => 1, } )
+        || {};
+    return Replay::StorageEngine::Lock->new(
+        idkey => $idkey,
+        (   $found->{locked}
+            ? ( locked          => $found->{locked},
+                lockExpireEpoch => $found->{lockExpireEpoch}
+                )
+            : ()
+        ),
     );
-    return $self->lockreport($idkey);
 }
 
 sub relock_expired {
-    my ( $self, $idkey, $signature, $timeout ) = @_;
+    my ( $self, $relock ) = @_;
+    my $idkey = $relock->idkey;
 
     # Lets try to get an expire lock, if it has timed out
     $self->collection($idkey)->update_one(
@@ -165,36 +174,45 @@ sub relock_expired {
                 { lockExpireEpoch => { q^$^ . 'exists' => 0 } }
                 ]
         },
-        {         q^$^
-                . 'set' =>
-                { locked => $signature, lockExpireEpoch => time + $timeout, },
+        {   q^$^
+                . 'set' => {
+                locked          => $relock->locked,
+                lockExpireEpoch => $relock->lockExpireEpoch,
+                },
         }
     );
     return $self->lockreport($idkey);
 }
 
 sub revert_this_record {
-    my ( $self, $idkey, $signature ) = @_;
+    my ( $self, $lock ) = @_;
 
-    #    use Carp qw/cluck/;
-    #    cluck 'REVERTING???';
-    $self->ensure_locked($idkey, $signature);
-    my $document = $self->retrieve($idkey);
+    my $current = $self->lockreport( $lock->idkey );
+    confess 'cannot revert record is not locked' if !$lock->locked;
+    confess 'cannot revert because this is not my lock - sig '
+        . $current->locked
+        . ' lock '
+        . $lock->locked . ' or '
+        if !$lock->matches($current);
+    confess 'cannot revert because this lock is expired '
+        . ( $lock->{lockExpireEpoch} - time )
+        . ' seconds overdue.'
+        if $lock->is_expired;
+    my $document = $self->retrieve( $lock->idkey );
 
     # reabsorb all of the desktop atoms into the document
-    my $r = $self->reabsorb($idkey, $signature);
+    my $r = $self->reabsorb($lock);
 
-    my $unlock = $self->collection($idkey)->update_one(
-        { idkey => $idkey->cubby, locked => $signature },
+    my $unlock = $self->collection( $lock->idkey )->update_one(
+        { idkey => $lock->idkey->cubby, locked => $lock->locked },
         { q^$^ . 'unset' => { locked => 1, lockExpireEpoch => 1, } },
     );
-    my $lr =  $self->lockreport($idkey);
+    my $lr = $self->lockreport( $lock->idkey );
     return $lr;
 }
 
 sub update_and_unlock {
-    my ( $self, $idkey, $uuid, $state ) = @_;
-    my $signature = $self->state_signature( $idkey, [$uuid] );
+    my ( $self, $lock, $state ) = @_;
     my @unsetcanon = ();
     if ($state) {
         delete $state->{_id};    # cannot set _id!
@@ -206,11 +224,11 @@ sub update_and_unlock {
             delete $state->{canonical};
             @unsetcanon = ( canonical => 1 );
         }
-        my $document = $self->retrieve($idkey);
-        my $r = $self->clear_desktop($idkey, $signature);
+        my $document = $self->retrieve( $lock->idkey );
+        my $r        = $self->clear_desktop($lock);
     }
-    my $newstate = $self->collection($idkey)->update_one(
-        { idkey => $idkey->cubby, locked => $signature },
+    my $newstate = $self->collection( $lock->idkey )->update_one(
+        { idkey => $lock->idkey->cubby, locked => $lock->locked },
         {   ( $state ? ( q^$^ . 'set' => $state ) : () ),
             q^$^
                 . 'unset' =>
@@ -218,7 +236,7 @@ sub update_and_unlock {
         },
         { upsert => 0, returnNewDocument => 1 }
     );
-    return $self->retrieve($idkey);
+    return $self->retrieve( $lock->idkey );
 }
 
 1;
@@ -355,7 +373,7 @@ L<http://search.cpan.org/dist/Replay/>
 =back
 
 
-=head1 ACKNOWLEDGEMENTS
+=head1 ACKNOWLEDGMENTS
 
 
 =head1 LICENSE AND COPYRIGHT
