@@ -201,7 +201,7 @@ sub relock_expired {
     else {
         carp $$ . ' INOUT relock_expired - did not lock ' . $idkey->cubby;
     }
-    return $self->lockreport($idkey);
+    return $relock;
 }
 
 sub revert_this_record {
@@ -240,8 +240,7 @@ sub revert_this_record {
             . $lock->idkey->cubby;
     }
 
-    my $lr = $self->lockreport( $lock->idkey );
-    return $lr;
+    return $lock;
 }
 
 sub update_and_unlock {

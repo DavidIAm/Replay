@@ -535,11 +535,6 @@ if the record is locked, (expiration agnostic)
 else
   return nothing, we aren't allowed to do this
 
-=head2 lockreport ( idkey )
-
-For debugging purposes - returns a string that shows the current state
-of the lock on this record
-
 =cut
 
 1;
