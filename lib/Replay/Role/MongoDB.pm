@@ -118,7 +118,7 @@ sub checkout_record {
         }
     };
 
-    return $self->lockreport($idkey);
+    return $lock;
 
     # boxes collection
     #
