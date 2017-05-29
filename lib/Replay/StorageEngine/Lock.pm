@@ -72,11 +72,6 @@ sub prospective {
     return $lock;
 }
 
-sub DESTROY {
-  my ($self) = @_;
-    carp $$ . ' INOUT dropped lock object for '.$self->idkey->cubby.' with sig '.$self->locked;
-
-}
 sub empty {
     my ( $class, $idkey ) = @_;
     confess 'idkey required for empty lock' if !$idkey;

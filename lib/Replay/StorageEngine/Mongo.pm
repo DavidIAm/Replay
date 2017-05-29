@@ -346,12 +346,6 @@ Given a valid oldsignature, updates the lock time and installs the new signature
 
 returns the state document, or undef if signature doesn't match or it is not locked
 
-=head2 relock_expired(idkey, signature)
-
-will relock a state with an expired lock.
-
-returns the state document, or undef if the state is not expired or is not locked
-
 =head2 update_and_unlock(idkey, signature)
 
 updates the state document, and unlocks the record.

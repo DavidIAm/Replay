@@ -182,11 +182,7 @@ sub relock_expired {
     my $r = $self->collection($idkey)->update_one(
         {   idkey  => $idkey->cubby,
             locked => { q^$^ . 'exists' => 1 },
-            q^$^
-                . 'or' => [
-                { lockExpireEpoch => { q^$^ . 'lt'     => time } },
-                { lockExpireEpoch => { q^$^ . 'exists' => 0 } }
-                ]
+            lockExpireEpoch => { q^$^ . 'lt'     => time },
         },
         {   q^$^
                 . 'set' => {
@@ -243,8 +239,6 @@ sub revert_this_record {
             . ' INOUT revert_this_record - DID NOT UNLOCK '
             . $lock->idkey->cubby;
     }
-
-    warn( "pid =$$ revert_this_record unlock=" . Dumper($unlock) );
 
     my $lr = $self->lockreport( $lock->idkey );
     return $lr;
