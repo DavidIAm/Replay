@@ -90,6 +90,11 @@ sub checkout_record {
             },
             { upsert => 1, returnNewDocument => 1, },
         );
+    if ($lockresult->modified_count > 0 ) {
+        carp $$ . ' checkout_record - locked '. $lock->idkey->cubby . ' with ' . $lock->locked;
+    } else {
+        carp $$ . ' checkout_record - DID NOT LOCK '. $lock->idkey->cubby;
+    }
     }
     catch {
         # Unhappy - didn't get it.  Let somebody else handle the situation
@@ -144,18 +149,13 @@ sub document {
 sub lockreport {
     my ( $self, $idkey ) = @_;
     confess 'idkey for lockreport must be passed' if !$idkey;
-    my ($package, $filename, $line) = caller(2);    
-     warn("pid =$$ lockreport, package=$package, file=$filename, line=$line");
-   
+
     my $found
         = $self->db->get_collection( $idkey->collection )
         ->find_one( { idkey => $idkey->cubby },
         { locked => 1, lockExpireEpoch => 1, } )
         || {};
-        
-    use Data::Dumper;
-    warn("pid =$$ lockreport found=".Dumper($found));
-    
+
     return Replay::StorageEngine::Lock->new(
         idkey => $idkey,
         (   $found->{locked}
@@ -172,7 +172,7 @@ sub relock_expired {
     my $idkey = $relock->idkey;
 
     # Lets try to get an expire lock, if it has timed out
-    $self->collection($idkey)->update_one(
+    my $r = $self->collection($idkey)->update_one(
         {   idkey  => $idkey->cubby,
             locked => { q^$^ . 'exists' => 1 },
             q^$^
@@ -188,6 +188,11 @@ sub relock_expired {
                 },
         }
     );
+    if ($r->modified_count > 0 ) {
+        carp $$ . ' relock_expired - locked '. $idkey->cubby . ' with ' . $relock->locked;
+    } else {
+        carp $$ . ' relock_expired - did not lock '. $idkey->cubby;
+    }
     return $self->lockreport($idkey);
 }
 
@@ -209,14 +214,20 @@ sub revert_this_record {
 
     # reabsorb all of the desktop atoms into the document
     my $r = $self->reabsorb($lock);
-   
+
     my $unlock = $self->collection( $lock->idkey )->update_one(
         { idkey => $lock->idkey->cubby, locked => $lock->locked },
         { q^$^ . 'unset' => { locked => 1, lockExpireEpoch => 1, } },
     );
-    
-   warn("pid =$$ revert_this_record unlock=".Dumper($unlock));
-       
+
+    if ($unlock->modified_count > 0 ) {
+        carp $$ . ' revert_this_record - UNlockked '. $lock->idkey->cubby . ' from ' . $lock->locked;
+    } else {
+        carp $$ . ' revert_this_record - DID NOT UNLOCK '. $lock->idkey->cubby;
+    }
+
+    warn( "pid =$$ revert_this_record unlock=" . Dumper($unlock) );
+
     my $lr = $self->lockreport( $lock->idkey );
     return $lr;
 }
@@ -237,8 +248,10 @@ sub update_and_unlock {
         my $document = $self->retrieve( $lock->idkey );
         my $r        = $self->clear_desktop($lock);
     }
-    my ($package, $filename, $line) = caller;    
-    warn("pid =$$ update_and_unlock, package=$package, file=$filename, line=$line");
+    my ( $package, $filename, $line ) = caller;
+    warn(
+        "pid =$$ update_and_unlock, package=$package, file=$filename, line=$line"
+    );
     my $newstate = $self->collection( $lock->idkey )->update_one(
         { idkey => $lock->idkey->cubby, locked => $lock->locked },
         {   ( $state ? ( q^$^ . 'set' => $state ) : () ),
@@ -246,8 +259,13 @@ sub update_and_unlock {
                 . 'unset' =>
                 { lockExpireEpoch => 1, locked => 1, @unsetcanon }
         },
-        { upsert => 0, returnNewDocument => 1 }
+        { upsert => 0 }
     );
+    if ($newstate->modified_count > 0 ) {
+        carp $$ . ' update_and_unlock - UNlockked '. $lock->idkey->cubby . ' from ' . $lock->locked;
+    } else {
+        carp $$ . ' update_and_unlock - DID NOT UNLOCK '. $lock->idkey->cubby;
+    }
     return $self->retrieve( $lock->idkey );
 }
 
@@ -288,43 +306,43 @@ implements
 
 =over 4
 
-=head2 _build_mongo 
+=head2 _build_mongo
 
 build the mongo connection handle
 
-=head2 checkout_record 
+=head2 checkout_record
 
 given an IdKey, lock the document and return the uuid for the lock
 
-=head2 collection 
+=head2 collection
 
 given an IdKey, return the collection it will be found in
 
-=head2 document 
+=head2 document
 
 given an IdKey, retrieve the document
 
-=head2 lockreport 
+=head2 lockreport
 
 given an IdKey, return a summary of its lock state
 
-=head2 relock 
+=head2 relock
 
-given an IdKey and a uuid, relock the record - presumably so that 
+given an IdKey and a uuid, relock the record - presumably so that
 the timeout doesn't expire
 
-=head2 relock_expired 
+=head2 relock_expired
 
 given an IdKey to a lock with an expired record, take over the lock
 
-=head2 revert_this_record 
+=head2 revert_this_record
 
 given an idkey to a locked record and its uuid key, revert this to its
 unchecked out, unchanged state
 
-=head2 update_and_unlock 
+=head2 update_and_unlock
 
-given an idkey to a locked record and its uuid key and a new 
+given an idkey to a locked record and its uuid key and a new
 canonical state, update canonical state clear desktop and unlock
 
 =head1 AUTHOR
@@ -349,10 +367,10 @@ Nothing to report
 
 =head1 BUGS AND LIMITATIONS
 
-Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>, 
-or through the web interface at 
-L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be 
-notified, and then you'll automatically be notified of progress on your 
+Please report any bugs or feature requests to C<bug-replay at rt.cpan.org>,
+or through the web interface at
+L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Replay>.  I will be
+notified, and then you'll automatically be notified of progress on your
 bug as I make changes .
 
 =head1 SUPPORT

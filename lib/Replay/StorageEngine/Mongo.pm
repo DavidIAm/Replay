@@ -47,13 +47,14 @@ sub cursor_each {
 
 sub ensure_locked {
     my ( $self, $lock ) = @_;
-    
-      my ($package, $filename, $line) = caller;    
-     warn("pid =$$ ensure_locked, package=$package, file=$filename, line=$line");
+
+    my ( $package, $filename, $line ) = caller;
+    warn("pid =$$ ensure_locked, package=$package, file=$filename, line=$line"
+    );
     my $curlock = $self->lockreport( $lock->idkey );
     confess " $$ "
         . 'This document '
-        . $lock->idkey->full_spec
+        . $lock->idkey->cubby
         . ' isn\'t locked with this signature ('
         . ( $lock->locked    || q^^ ) . q/!=/
         . ( $curlock->locked || q^^ ) . ")\n"
@@ -77,9 +78,12 @@ sub reabsorb {
     my ( $self, $lock ) = @_;
     $self->ensure_locked($lock);
     my $r = $self->BOXES->update_many(
-        { idkey => $lock->idkey->full_spec, state => 'desktop', locked => $lock->locked },
+        {   idkey  => $lock->idkey->full_spec,
+            state  => 'desktop',
+            locked => $lock->locked
+        },
         {   q^$^ . 'set'   => { state  => 'inbox' },
-            q^$^ . 'unset' => { locked => 1, lockExpireEpoch => 1 }
+            q^$^ . 'unset' => { locked => 1 }
         }
     );
     return $r;
@@ -308,10 +312,6 @@ Replay::StorageEngine::Mongo->new( ruleSource => $rs, eventSystem => $es, config
 
 =head1 SUBROUTINES/METHODS
 
-=head2 revert_this_record
-
-reversion implementation
-
 =head2 _build_mongo
 
 mongo builder/connector
@@ -473,7 +473,7 @@ Atom: defined by the rule being processed; storage engine shouldn't care about i
 STATE DOCUMENT GENERAL TO STORAGE ENGINE
 
 inbox: [ Array of Atoms ] - freshly arrived atoms are stored here.
-canonical: [ Array of Atoms ] - the current reduced 
+canonical: [ Array of Atoms ] - the current reduced
 canonSignature: q(SIGNATURE) - a sanity check to see if this canonical has been mucked with
 Timeblocks: [ Array of input timeblock names ]
 Ruleversions: [ Array of objects like { name: <rulename>, version: <ruleversion> } ]
@@ -487,17 +487,17 @@ idkey is determined by idkey->cubby
 locked: q(SIGNATURE) - if this is set, only a worker who knows the signature may update this
 lockExpireEpoch: TIMEINT - used in case of processing timeout to unlock the record
 
-STATE TRANSITIONS IN THIS IMPLEMENTATION 
+STATE TRANSITIONS IN THIS IMPLEMENTATION
 
 checkout
 
 rename inbox to desktop so that any new absorbs don't get confused with what is being processed
 
-=head1 STORAGE ENGINE IMPLEMENTATION METHODS 
+=head1 STORAGE ENGINE IMPLEMENTATION METHODS
 
 =head2 (state) = retrieve ( idkey )
 
-Unconditionally return the entire state record 
+Unconditionally return the entire state record
 
 =head2 (success) = absorb ( idkey, message, meta )
 
@@ -512,7 +512,7 @@ if the record is locked already
       clear desktop
       clear lock
       clear expire time
-  else 
+  else
     return nothing
 else
   lock the record atomically so no other processes may lock it with a uuid
@@ -528,9 +528,9 @@ if the record is locked with this uuid
       clear desktop
       clear lock
       clear expire time
-  else 
+  else
     return nothing, this isn't available for reverting
-else 
+else
   return nothing, this isn't available for reverting
 
 =head2 checkin ( idkey, uuid, state )
