@@ -91,18 +91,6 @@ sub checkout_record {
             },
             { upsert => 1, returnNewDocument => 1, },
         );
-        if ( $lockresult->modified_count > 0 ) {
-            carp $$
-                . ' INOUT checkout_record - locked '
-                . $lock->idkey->cubby
-                . ' with '
-                . $lock->locked;
-        }
-        else {
-            carp $$
-                . ' INOUT checkout_record - DID NOT LOCK '
-                . $lock->idkey->cubby;
-        }
     }
     catch {
         # Unhappy - didn't get it.  Let somebody else handle the situation
@@ -196,16 +184,6 @@ sub relock_expired {
                 },
         }
     );
-    if ( $r->modified_count > 0 ) {
-        carp $$
-            . ' INOUT relock_expired - locked '
-            . $idkey->cubby
-            . ' with '
-            . $relock->locked;
-    }
-    else {
-        carp $$ . ' INOUT relock_expired - did not lock ' . $idkey->cubby;
-    }
     return $relock;
 }
 
@@ -231,19 +209,6 @@ sub revert_this_record {
         { idkey => $lock->idkey->cubby, locked => $lock->locked },
         { q^$^ . 'unset' => { locked => 1, lockExpireEpoch => 1, } },
     );
-
-    if ( $unlock->modified_count > 0 ) {
-        carp $$
-            . ' INOUT revert_this_record - UNlockked '
-            . $lock->idkey->cubby
-            . ' from '
-            . $lock->locked;
-    }
-    else {
-        carp $$
-            . ' INOUT revert_this_record - DID NOT UNLOCK '
-            . $lock->idkey->cubby;
-    }
 
     return $lock;
 }
@@ -273,18 +238,6 @@ sub update_and_unlock {
         },
         { upsert => 0 }
     );
-    if ( $newstate->modified_count > 0 ) {
-        carp $$
-            . ' INOUT update_and_unlock - UNlockked '
-            . $lock->idkey->cubby
-            . ' from '
-            . $lock->locked;
-    }
-    else {
-        carp $$
-            . ' INOUT update_and_unlock - DID NOT UNLOCK '
-            . $lock->idkey->cubby;
-    }
     return $self->retrieve( $lock->idkey );
 }
 

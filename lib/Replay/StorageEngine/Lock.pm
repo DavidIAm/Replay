@@ -68,7 +68,6 @@ sub prospective {
             timeout => $timeout,
         }
     );
-    carp $$ . ' INOUT created lock object for '.$idkey->cubby.' with sig '.$sig;
     return $lock;
 }
 
