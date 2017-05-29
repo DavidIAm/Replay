@@ -107,11 +107,16 @@ sub checkout_record {
     catch {
         # Unhappy - didn't get it.  Let somebody else handle the situation
         if ( $_->isa('MongoDB::DuplicateKeyError') ) {
-            $self->relock_expired(
+            my $relock = $self->relock_expired(
                 Replay::StorageEngine::Lock->prospective(
                     $idkey, $lock->timeout
                 )
             );
+            my $current = $self->lockreport( $lock->idkey );
+            if ($relock->match($current) && !$relock->is_expired) {
+                return $relock;
+            }
+            return Replay::StorageEngine::Lock->empty($lock->idkey);
         }
         else {
             croak $_;
