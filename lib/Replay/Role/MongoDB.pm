@@ -113,7 +113,7 @@ sub checkout_record {
                 )
             );
             my $current = $self->lockreport( $lock->idkey );
-            if ($relock->match($current) && !$relock->is_expired) {
+            if ($relock->matches($current) && !$relock->is_expired) {
                 return $relock;
             }
             return Replay::StorageEngine::Lock->empty($lock->idkey);
