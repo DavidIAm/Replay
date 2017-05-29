@@ -141,7 +141,7 @@ sub window_all {
 sub ensure_locked {
     my ( $self, $lock ) = @_;
     my $document = $self->retrieve( $lock->idkey );
-    confess 'This document isn\'t locked with this signature ('
+    croak 'This document isn\'t locked with this signature ('
         . ( $document->{locked} || q^^ ) . q/,/
         . ( $lock->locked || q^^ ) . ')'
         if !$lock->is_mine( $document->{locked} );

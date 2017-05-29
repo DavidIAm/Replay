@@ -18,6 +18,7 @@ package Replay::Role::MongoDB;
 use Moose::Role;
 use Carp qw/croak confess carp cluck/;
 use Replay::StorageEngine::Lock;
+use Data::Dumper;
 use MongoDB;
 use MongoDB::OID;
 use JSON;
@@ -90,11 +91,18 @@ sub checkout_record {
             },
             { upsert => 1, returnNewDocument => 1, },
         );
-    if ($lockresult->modified_count > 0 ) {
-        carp $$ . ' checkout_record - locked '. $lock->idkey->cubby . ' with ' . $lock->locked;
-    } else {
-        carp $$ . ' checkout_record - DID NOT LOCK '. $lock->idkey->cubby;
-    }
+        if ( $lockresult->modified_count > 0 ) {
+            carp $$
+                . ' INOUT checkout_record - locked '
+                . $lock->idkey->cubby
+                . ' with '
+                . $lock->locked;
+        }
+        else {
+            carp $$
+                . ' INOUT checkout_record - DID NOT LOCK '
+                . $lock->idkey->cubby;
+        }
     }
     catch {
         # Unhappy - didn't get it.  Let somebody else handle the situation
@@ -134,7 +142,6 @@ sub checkout_record {
 
 sub collection {
     my ( $self, $idkey ) = @_;
-    use Carp qw/confess/;
     confess 'WHAT IS THIS ' . $idkey if !ref $idkey;
     my $name = $idkey->collection();
     return $self->db->get_collection($name);
@@ -188,10 +195,15 @@ sub relock_expired {
                 },
         }
     );
-    if ($r->modified_count > 0 ) {
-        carp $$ . ' relock_expired - locked '. $idkey->cubby . ' with ' . $relock->locked;
-    } else {
-        carp $$ . ' relock_expired - did not lock '. $idkey->cubby;
+    if ( $r->modified_count > 0 ) {
+        carp $$
+            . ' INOUT relock_expired - locked '
+            . $idkey->cubby
+            . ' with '
+            . $relock->locked;
+    }
+    else {
+        carp $$ . ' INOUT relock_expired - did not lock ' . $idkey->cubby;
     }
     return $self->lockreport($idkey);
 }
@@ -210,7 +222,6 @@ sub revert_this_record {
         . ( $lock->{lockExpireEpoch} - time )
         . ' seconds overdue.'
         if $lock->is_expired;
-    my $document = $self->retrieve( $lock->idkey );
 
     # reabsorb all of the desktop atoms into the document
     my $r = $self->reabsorb($lock);
@@ -220,10 +231,17 @@ sub revert_this_record {
         { q^$^ . 'unset' => { locked => 1, lockExpireEpoch => 1, } },
     );
 
-    if ($unlock->modified_count > 0 ) {
-        carp $$ . ' revert_this_record - UNlockked '. $lock->idkey->cubby . ' from ' . $lock->locked;
-    } else {
-        carp $$ . ' revert_this_record - DID NOT UNLOCK '. $lock->idkey->cubby;
+    if ( $unlock->modified_count > 0 ) {
+        carp $$
+            . ' INOUT revert_this_record - UNlockked '
+            . $lock->idkey->cubby
+            . ' from '
+            . $lock->locked;
+    }
+    else {
+        carp $$
+            . ' INOUT revert_this_record - DID NOT UNLOCK '
+            . $lock->idkey->cubby;
     }
 
     warn( "pid =$$ revert_this_record unlock=" . Dumper($unlock) );
@@ -245,13 +263,9 @@ sub update_and_unlock {
             delete $state->{canonical};
             @unsetcanon = ( canonical => 1 );
         }
-        my $document = $self->retrieve( $lock->idkey );
-        my $r        = $self->clear_desktop($lock);
+        $self->clear_desktop($lock);
     }
     my ( $package, $filename, $line ) = caller;
-    warn(
-        "pid =$$ update_and_unlock, package=$package, file=$filename, line=$line"
-    );
     my $newstate = $self->collection( $lock->idkey )->update_one(
         { idkey => $lock->idkey->cubby, locked => $lock->locked },
         {   ( $state ? ( q^$^ . 'set' => $state ) : () ),
@@ -261,10 +275,17 @@ sub update_and_unlock {
         },
         { upsert => 0 }
     );
-    if ($newstate->modified_count > 0 ) {
-        carp $$ . ' update_and_unlock - UNlockked '. $lock->idkey->cubby . ' from ' . $lock->locked;
-    } else {
-        carp $$ . ' update_and_unlock - DID NOT UNLOCK '. $lock->idkey->cubby;
+    if ( $newstate->modified_count > 0 ) {
+        carp $$
+            . ' INOUT update_and_unlock - UNlockked '
+            . $lock->idkey->cubby
+            . ' from '
+            . $lock->locked;
+    }
+    else {
+        carp $$
+            . ' INOUT update_and_unlock - DID NOT UNLOCK '
+            . $lock->idkey->cubby;
     }
     return $self->retrieve( $lock->idkey );
 }

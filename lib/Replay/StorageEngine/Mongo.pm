@@ -49,10 +49,8 @@ sub ensure_locked {
     my ( $self, $lock ) = @_;
 
     my ( $package, $filename, $line ) = caller;
-    warn("pid =$$ ensure_locked, package=$package, file=$filename, line=$line"
-    );
     my $curlock = $self->lockreport( $lock->idkey );
-    confess " $$ "
+    croak " $$ "
         . 'This document '
         . $lock->idkey->cubby
         . ' isn\'t locked with this signature ('

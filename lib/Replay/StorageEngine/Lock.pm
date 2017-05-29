@@ -61,15 +61,22 @@ sub matches {
 
 sub prospective {
     my ( $class, $idkey, $timeout ) = @_;
-    return $class->new(
+    my $lock = $class->new(
         {   idkey           => $idkey,
             lockExpireEpoch => time + $timeout,
-            locked  => state_signature( $idkey, [ $class->generate_uuid ] ),
+            locked  => my $sig = state_signature( $idkey, [ $class->generate_uuid ] ),
             timeout => $timeout,
         }
     );
+    carp $$ . ' INOUT created lock object for '.$idkey->cubby.' with sig '.$sig;
+    return $lock;
 }
 
+sub DESTROY {
+  my ($self) = @_;
+    carp $$ . ' INOUT dropped lock object for '.$self->idkey->cubby.' with sig '.$self->locked;
+
+}
 sub empty {
     my ( $class, $idkey ) = @_;
     confess 'idkey required for empty lock' if !$idkey;
