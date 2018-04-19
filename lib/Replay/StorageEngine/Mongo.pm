@@ -23,6 +23,13 @@ sub retrieve {
     return $self->document($idkey);
 }
 
+sub has_inbox_outstanding {
+    my ( $self, $idkey ) = @_;
+    my $c = $self->BOXES->count(
+        { idkey => $idkey->marshall, state => 'inbox' } );
+    return $c;
+}
+
 sub desktop_cursor {
     my ( $self, $lock ) = @_;
     $self->ensure_locked($lock);

@@ -299,7 +299,7 @@ sub store_new_canonical_state {
         Replay::Message::NewCanonical->new( $idkey->marshall ) );
     $self->eventSystem->control->emit(
         Replay::Message::NewCanonical->new( $idkey->marshall ) );
-    if ( scalar @{ $newstate->{inbox} || [] } )
+    if ( $self->has_inbox_outstanding( $idkey ))
     {    # renotify reducable if inbox currently has entries
         $self->eventSystem->control->emit(
             Replay::Message::Reducable->new( $idkey->marshall ) );
