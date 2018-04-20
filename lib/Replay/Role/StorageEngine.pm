@@ -203,6 +203,7 @@ sub revert {
     $self->revert_this_record($lock);
     return $self->eventSystem->control->emit(
         Replay::Message::Reverted->new( $lock->idkey->marshall ) );
+    $self->emit_reducable_if_needed($lock->idkey);
 }
 
 sub delay_to_do_once {
@@ -280,6 +281,15 @@ sub fetch_transitional_state {
     return $lock => $mergedmeta => @state;
 }
 
+sub emit_reducable_if_needed {
+    my ( $self, $idkey ) = @_;
+    if ( $self->has_inbox_outstanding( $idkey ))
+    {   # renotify reducer if inbox currently has entries
+        $self->eventSystem->control->emit(
+            Replay::Message::Reducable->new( $idkey->marshall ) );
+    }
+}
+
 sub store_new_canonical_state {
     my ( $self, $lock, $emitter, @atoms ) = @_;
     my $idkey = $lock->idkey;
@@ -299,11 +309,7 @@ sub store_new_canonical_state {
         Replay::Message::NewCanonical->new( $idkey->marshall ) );
     $self->eventSystem->control->emit(
         Replay::Message::NewCanonical->new( $idkey->marshall ) );
-    if ( $self->has_inbox_outstanding( $idkey ))
-    {    # renotify reducable if inbox currently has entries
-        $self->eventSystem->control->emit(
-            Replay::Message::Reducable->new( $idkey->marshall ) );
-    }
+    $self->emit_reducable_if_needed($idkey)
     return $newstate;    # release pending messages
 }
 
