@@ -309,7 +309,7 @@ sub store_new_canonical_state {
         Replay::Message::NewCanonical->new( $idkey->marshall ) );
     $self->eventSystem->control->emit(
         Replay::Message::NewCanonical->new( $idkey->marshall ) );
-    $self->emit_reducable_if_needed($idkey)
+    $self->emit_reducable_if_needed($idkey);
     return $newstate;    # release pending messages
 }
 
