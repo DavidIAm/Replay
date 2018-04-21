@@ -285,7 +285,7 @@ sub emit_reducable_if_needed {
     my ( $self, $idkey ) = @_;
     if ( $self->has_inbox_outstanding( $idkey ))
     {   # renotify reducer if inbox currently has entries
-        $self->eventSystem->control->emit(
+        $self->eventSystem->reduce->emit(
             Replay::Message::Reducable->new( $idkey->marshall ) );
     }
 }
