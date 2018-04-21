@@ -26,7 +26,7 @@ sub retrieve {
 sub has_inbox_outstanding {
     my ( $self, $idkey ) = @_;
     my $c = $self->BOXES->count(
-        { idkey => $idkey->marshall, state => 'inbox' } );
+        { idkey => $idkey->full_spec, state => 'inbox' } );
     return $c;
 }
 
