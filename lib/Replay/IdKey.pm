@@ -17,6 +17,7 @@ has domain => (
     predicate   => 'has_domain',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'message' },
+    weak_ref => 1 
 );
 
 has name => (
@@ -26,6 +27,7 @@ has name => (
     predicate   => 'has_name',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'message' },
+    weak_ref => 1 
 );
 has version => (
     is          => 'rw',
@@ -34,6 +36,7 @@ has version => (
     predicate   => 'has_version',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'message' },
+    weak_ref => 1 
 );
 has window => (
     is          => 'rw',
@@ -42,6 +45,7 @@ has window => (
     predicate   => 'has_window',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'message' },
+    weak_ref => 1 
 );
 has key => (
     is          => 'rw',
@@ -50,6 +54,7 @@ has key => (
     predicate   => 'has_key',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'message' },
+    weak_ref => 1 
 );
 has revision => (
     is          => 'rw',
@@ -57,6 +62,7 @@ has revision => (
     predicate   => 'has_revision',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'message' },
+    weak_ref => 1 
 );
 
 sub BUILD {

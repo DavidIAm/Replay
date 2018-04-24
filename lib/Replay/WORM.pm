@@ -13,9 +13,9 @@ use Readonly;
 
 Readonly my $UMASK => 6;
 
-has eventSystem => ( is => 'ro', required => 1, );
+has eventSystem => ( is => 'ro', required => 1, , weak_ref => 1 );
 has directory =>
-    ( is => 'ro', required => 0, lazy => 1, builder => '_build_log_dir' );
+    ( is => 'ro', required => 0, lazy => 1, builder => '_build_log_dir' , weak_ref => 1 );
 has filehandles => ( is => 'ro', isa => 'HashRef', default => sub { {} } );
 has UUID => ( is => 'ro', isa => 'Data::UUID', builder => '_build_uuid' );
 has config => ( is => 'ro', required => 1, );
@@ -98,12 +98,14 @@ sub timeblock {
 
 sub _build_uuid {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self;
-    return $self->{UUID} ||= Data::UUID->new;
+    my $uuid = $self->{UUID} ||= Data::UUID->new;
+    return $uuid;
 }
 
 sub _build_log_dir {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    return $self->config->{WORM}->{'Directory'} || '/var/log/replay';
+    my $dir = $self->config->{WORM}->{'Directory'} || '/var/log/replay';
+    return $dir;
 }
 
 1;

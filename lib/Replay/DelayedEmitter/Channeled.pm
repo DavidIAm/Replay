@@ -4,9 +4,9 @@ use Moose;
 our $VERSION = q(0.2);
 
 has 'delemitter' =>
-    ( is => 'ro', isa => 'Replay::DelayedEmitter', required => 1, );
+    ( is => 'ro', isa => 'Replay::DelayedEmitter', required => 1,  weak_ref => 1);
 
-has 'channel' => ( is => 'ro', isa => 'Str', required => 1, );
+has 'channel' => ( is => 'ro', isa => 'Str', required => 1,  weak_ref => 1);
 
 sub emit {
     my ( $self, $message ) = @_;

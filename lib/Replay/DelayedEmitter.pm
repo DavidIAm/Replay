@@ -29,10 +29,11 @@ has map => (
 
 sub _build_map {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return Replay::DelayedEmitter::Channeled->new(
+    my $map = Replay::DelayedEmitter::Channeled->new(
         channel => 'map',
         emitter => $self
     );
+    return $map;
 }
 
 has reduce => (
@@ -44,10 +45,11 @@ has reduce => (
 
 sub _build_reduce {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return Replay::DelayedEmitter::Channeled->new(
+    my $reduce = Replay::DelayedEmitter::Channeled->new(
         channel => 'reduce',
         emitter => $self
     );
+    return $reduce;
 }
 
 has report => (
@@ -59,10 +61,11 @@ has report => (
 
 sub _build_report {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return Replay::DelayedEmitter::Channeled->new(
+    my $report = Replay::DelayedEmitter::Channeled->new(
         channel => 'report',
         emitter => $self
     );
+    return $report;
 }
 
 has control => (
@@ -74,10 +77,11 @@ has control => (
 
 sub _build_control {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return Replay::DelayedEmitter::Channeled->new(
+    my $control = Replay::DelayedEmitter::Channeled->new(
         channel => 'control',
         emitter => $self
     );
+    return $control;
 }
 
 has origin => (
@@ -89,10 +93,11 @@ has origin => (
 
 sub _build_origin {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return Replay::DelayedEmitter::Channeled->new(
+    my $origin = Replay::DelayedEmitter::Channeled->new(
         channel => 'origin',
         emitter => $self
     );
+    return $origin;
 }
 
 sub emit {

@@ -135,7 +135,8 @@ sub engine {
 
 sub _build_selector_class {
   my ($self) = @_;
-  return $self->config->{Defaults}->{ReportEngineSelector} || 'Replay::ReportEngine::Selector';
+  my $class = $self->config->{Defaults}->{ReportEngineSelector} || 'Replay::ReportEngine::Selector';
+  return $class;
 }
 
 sub _build_report_selector {   ## no critic (ProhibitUnusedPrivateSubroutines)

@@ -15,6 +15,7 @@ has Replay => (
     default     => '20140727',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'envelope' },
+    weak_ref => 1 
 );
 
 has MessageType => (
@@ -23,12 +24,14 @@ has MessageType => (
     required    => 1,
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'envelope' },
+    weak_ref => 1 
 );
 has Message => (
     is          => 'ro',
     isa         => 'Str|HashRef',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'envelope' },
+    weak_ref => 1 
 );
 has Program => (
     is          => 'ro',
@@ -36,6 +39,7 @@ has Program => (
     predicate   => 'has_program',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'envelope' },
+    weak_ref => 1 
 );
 has Function => (
     is          => 'ro',
@@ -43,6 +47,7 @@ has Function => (
     predicate   => 'has_function',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'envelope' },
+    weak_ref => 1 
 );
 has Line => (
     is          => 'ro',
@@ -50,6 +55,7 @@ has Line => (
     predicate   => 'has_line',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'envelope' },
+    weak_ref => 1 
 );
 has EffectiveTime => (
     is          => 'ro',
@@ -58,6 +64,7 @@ has EffectiveTime => (
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'envelope' },
     builder     => 'assume_effective_time',
+    weak_ref => 1 
 );
 has CreatedTime => (
     is          => 'ro',
@@ -66,6 +73,7 @@ has CreatedTime => (
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'envelope' },
     builder     => '_now',
+    weak_ref => 1 
 );
 has ReceivedTime => (
     is          => 'ro',
@@ -74,6 +82,7 @@ has ReceivedTime => (
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'envelope' },
     builder     => '_now',
+    weak_ref => 1 
 );
 
 has UUID => (
@@ -82,6 +91,7 @@ has UUID => (
     builder     => '_build_uuid',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'envelope' },
+    weak_ref => 1 
 );
 
 around BUILDARGS => sub {
@@ -153,7 +163,8 @@ sub marshall {
 
 sub _now {
     my $self = shift;
-    return +gettimeofday;
+    my $time = +gettimeofday;
+    return $time;
 }
 
 sub _build_uuid {    ## no critic (ProhibitUnusedPrivateSubroutines)
@@ -168,6 +179,7 @@ has Timeblocks => (
     predicate   => 'has_timeblocks',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'envelope' },
+    weak_ref => 1 
 );
 has Ruleversions => (
     is          => 'rw',
@@ -175,6 +187,7 @@ has Ruleversions => (
     predicate   => 'has_ruleversions',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'envelope' },
+    weak_ref => 1 
 );
 has Windows => (
     is          => 'rw',
@@ -186,7 +199,8 @@ has Windows => (
 
 sub assume_effective_time {
     my $self = shift;
-    return $self->ReceivedTime || $self->_now;
+    my $time = $self->ReceivedTime || $self->_now;
+    return $time;
 }
 
 1;

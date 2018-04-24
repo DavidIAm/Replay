@@ -16,10 +16,11 @@ has mode => (
     required => 1,
     builder  => '_build_mode',
     lazy     => 1,
+    weak_ref => 1 
 );
-has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1, );
+has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1, weak_ref => 1 );
 has eventSystem =>
-    ( is => 'ro', isa => 'Replay::EventSystem', required => 1, );
+    ( is => 'ro', isa => 'Replay::EventSystem', required => 1, weak_ref => 1 );
 
 # Delegate the api points
 sub retrieve {

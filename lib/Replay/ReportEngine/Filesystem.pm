@@ -21,22 +21,23 @@ Readonly my $CURRENTFILE  => 'CURRENT';
 Readonly my $WRITABLEFILE => 'WRITABLE';
 
 has 'Root' =>
-    ( is => 'ro', isa => 'Str', builder => '_build_root', lazy => 1, );
+    ( is => 'ro', isa => 'Str', builder => '_build_root', lazy => 1, weak_ref => 1);
 
 has 'Name' =>
-    ( is => 'ro', isa => 'Str', builder => '_build_name', lazy => 1, );
+    ( is => 'ro', isa => 'Str', builder => '_build_name', lazy => 1, weak_ref => 1);
 
 has 'thisConfig' => ( is => 'ro', isa => 'HashRef', required => 1, );
 
 with 'Replay::Role::ReportEngine';
 
-has '+mode' => ( default => 'Filesystem' );
+has '+mode' => ( default => 'Filesystem',weak_ref => 1 );
 
 my $store = {};
 
 sub _build_name {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return $self->thisConfig->{Name};
+    my $name = $self->thisConfig->{Name};
+    return $name;
 }
 
 sub _build_root {    ## no critic (ProhibitUnusedPrivateSubroutines)

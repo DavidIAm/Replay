@@ -9,9 +9,9 @@ our $VERSION = '0.02';
 with Storage( format => 'JSON' );
 with(qw(Replay::Types::Messages Replay::Role::Envelope));
 
-has name => ( is => 'ro', isa => 'Str', );
+has name => ( is => 'ro', isa => 'Str', ,weak_ref => 1 );
 
-has version => ( is => 'ro', isa => 'Str', );
+has version => ( is => 'ro', isa => 'Str',weak_ref => 1  );
 
 1;
 

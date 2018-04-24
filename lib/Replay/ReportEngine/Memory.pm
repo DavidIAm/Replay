@@ -22,11 +22,12 @@ Readonly my $WRITABLEFILE => 'WRITABLE';
 has '+mode' => ( default => 'Memory' );
 
 has file_typer =>
-    ( is => 'ro', isa => 'File::Type', builder => '_build_file_typer' );
+    ( is => 'ro', isa => 'File::Type', builder => '_build_file_typer', weak_ref => 1 );
 
 sub _build_file_typer {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    return File::Type->new();
+    my $file_type = File::Type->new();
+    return  $file_type;
 }
 
 my $store = {};

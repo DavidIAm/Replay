@@ -41,26 +41,29 @@ sub deliver {
     my ($self, $idkey) = @_;
     my $state = $self->storageEngine->retrieve($idkey);
     my $rs = $self->ruleSource->by_idkey($idkey)->delivery($state->{canonical});
-    return $self->reportEngine->newReportVersion(
+    my $delivery = $self->reportEngine->newReportVersion(
         report => $rs,
         Ruleversions => $state->Ruleversions,
         Timeblocks   => $state->Timeblocks,
         Windows      => $state->Windows,
     );
+    return $delivery;
 }
 
 sub summarize {
     my ($self, $idkey) = @_;
     my $reports = $self->reportEngine->window_all($idkey);
-    return $self->reportEngine->newSummary(
-        $self->ruleSource->by_idkey($idkey)->summary(
+    my $rule_summary =  $self->ruleSource->by_idkey($idkey)->summary(
             reports => $reports,
             Ruleversions =>
                 Replay::Meta::union(map { $_->Ruleversions } values %{$reports}),
             Timeblocks => Replay::Meta::union(map { $_->Timeblocks } values %{$reports}),
             Windows    => Replay::Meta::union(map { $_->Windows } values %{$reports}),
-        )
+        );
+    my $summary = $self->reportEngine->newSummary(
+       $rule_summary
     );
+    return $summary;
 }
 
 1;

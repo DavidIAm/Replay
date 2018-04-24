@@ -257,8 +257,9 @@ sub _build_topic {         ## no critic (ProhibitUnusedPrivateSubroutines)
 sub _build_queue_name {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     my $ug   = Data::UUID->new;
-    return join q(_), $self->config->{stage}, 'replay', $self->purpose,
+    my $name = join q(_), $self->config->{stage}, 'replay', $self->purpose,
         ( $self->mode eq 'fanout' ? $ug->to_string( $ug->create ) : () );
+    return $name;
 }
 
 # this derives the arn from the topic name.
@@ -266,7 +267,8 @@ sub _build_queuearn {      ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     my ( $type, $domain, $service, $region, $id, $name ) = split /:/sxm,
         $self->topic->arn;
-    return join q(:), $type, $domain, 'sqs', $region, $id, $self->queueName;
+    my $arn= join q(:), $type, $domain, 'sqs', $region, $id, $self->queueName;   
+    return $arn;
 }
 
 1;

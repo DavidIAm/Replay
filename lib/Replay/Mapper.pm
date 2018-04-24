@@ -23,7 +23,8 @@ has storageEngine => (
 sub build_storage_sink {
     my $self = shift;
     croak q(no storage class?) if not $self->storageClass;
-    return $self->storageClass->new( ruleSource => $self->ruleSource );
+    my $storage = $self->storageClass->new( ruleSource => $self->ruleSource );
+    return $storage;
 }
 
 sub BUILD {

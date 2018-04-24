@@ -10,9 +10,9 @@ use MongoDB::OID;
 our $VERSION = q(0.03);
 
 has 'Name' =>
-    ( is => 'ro', isa => 'Str', builder => '_build_name', lazy => 1, );
+    ( is => 'ro', isa => 'Str', builder => '_build_name', lazy => 1, weak_ref => 1 );
 
-has 'thisConfig' => ( is => 'ro', isa => 'HashRef', required => 1, );
+has 'thisConfig' => ( is => 'ro', isa => 'HashRef', required => 1,  weak_ref => 1);
 
 my $store = {};
 with( 'Replay::Role::MongoDB', 'Replay::Role::ReportEngine' );
@@ -21,28 +21,33 @@ has '+mode' => ( default => 'Mongo' );
 
 sub _build_name {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    return $self->thisConfig->{Name};
+    my $name = $self->thisConfig->{Name};
+    return $name;
 }
 
 sub _build_dbpass {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return $self->thisConfig->{Pass};
+    my $pass =  $self->thisConfig->{Pass};
+    return $pass;
 }
 
 sub _build_dbuser {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return $self->thisConfig->{User};
+    my $user = $self->thisConfig->{User};
+    return $user;
 }
 
 sub _build_dbauthdb {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return $self->thisConfig->{AuthDB} || 'admin';
+    my $auth = $self->thisConfig->{AuthDB} || 'admin';
+    return $auth;
 }
 
 sub _build_dbname {      ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return $self->thisConfig->{Name}
+    my $name = $self->thisConfig->{Name}
         || $self->thisConfig->{stage} . '-report-' . '-replay';
+    return $name;
 }
 
 sub _build_db {          ## no critic (ProhibitUnusedPrivateSubroutines)

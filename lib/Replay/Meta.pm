@@ -13,10 +13,10 @@ use Digest::MD5 qw/md5_hex/;
 use Storable qw/freeze/;
 $Storable::canonical = 1;    ## no critic (ProhibitPackageVars)
 
-has Windows => ( is => 'ro', isa => 'ArrayRef', required => 1, );
+has Windows => ( is => 'ro', isa => 'ArrayRef', required => 1, weak_ref => 1 );
 has Ruleversions =>
-    ( is => 'ro', isa => 'ArrayRef[HashRef]', required => 1, );
-has Timeblocks => ( is => 'ro', isa => 'ArrayRef', required => 1, );
+    ( is => 'ro', isa => 'ArrayRef[HashRef]', required => 1,  weak_ref => 1);
+has Timeblocks => ( is => 'ro', isa => 'ArrayRef', required => 1,  weak_ref => 1);
 
 # static method
 sub union {
