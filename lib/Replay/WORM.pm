@@ -17,7 +17,7 @@ has eventSystem => ( is => 'ro', required => 1, , weak_ref => 1 );
 has directory =>
     ( is => 'ro', required => 0, lazy => 1, builder => '_build_log_dir' , weak_ref => 1 );
 has filehandles => ( is => 'ro', isa => 'HashRef', default => sub { {} } );
-has UUID => ( is => 'ro', isa => 'Data::UUID', builder => '_build_uuid' );
+has UUID => ( is => 'ro', isa => 'Data::UUID', builder => '_build_uuid', weak_ref => 1  );
 has config => ( is => 'ro', required => 1, );
 
 # dummy implimentation - Log them to a file

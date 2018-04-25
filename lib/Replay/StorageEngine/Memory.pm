@@ -82,6 +82,12 @@ sub purge {
     return $document;
 }
 
+
+sub has_inbox_outstanding {
+    my ( $self, $idkey ) = @_;
+    return 0; #stub in for now
+}
+
 sub document_exists {
     my ( $self, $idkey ) = @_;
     return exists $self->collection($idkey)->{ $idkey->cubby };

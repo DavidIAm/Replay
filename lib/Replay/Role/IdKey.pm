@@ -9,7 +9,6 @@ has domain => (
     isa         => 'Str',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'message' },
-     weak_ref => 1
 );
 has name => (
     is          => 'rw',
@@ -17,7 +16,7 @@ has name => (
     required    => 1,
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'message' },
-    weak_ref => 1
+
 );
 has version => (
     is          => 'rw',
@@ -25,21 +24,21 @@ has version => (
     required    => 1,
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'message' },
-    weak_ref => 1
+
 );
 has window => (
     is          => 'rw',
     isa         => 'Str',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'message' },
-    weak_ref => 1
+
 );
 has key => (
     is          => 'rw',
     isa         => 'Str',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'message' },
-    weak_ref => 1
+
 );
 has revision => (
     is          => 'rw',
@@ -47,7 +46,7 @@ has revision => (
     default     => 'latest',
     traits      => ['MooseX::MetaDescription::Meta::Trait'],
     description => { layer => 'message' },
-    weak_ref => 1
+
 );
 1;
 

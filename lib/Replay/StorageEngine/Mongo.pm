@@ -14,13 +14,14 @@ our $VERSION = 0.02;
 
 sub BOXES {
     my ($self) = @_;
-    return $self->{db}->get_collection('BOXES');
+    my $boxes = $self->{db}->get_collection('BOXES');
+    return $boxes;
 }
 
 sub retrieve {
     my ( $self, $idkey ) = @_;
-
-    return $self->document($idkey);
+    my $doc =  $self->document($idkey);
+    return $doc;
 }
 
 sub has_inbox_outstanding {
@@ -44,9 +45,11 @@ sub desktop_cursor {
 
 sub cursor_each {
     my ( $self, $cursor, $callback ) = @_;
-    while (1) {
+    my $break = 1;
+    while ($break) {
         my @list = $cursor->batch;
-        return if 0 == scalar @list;
+        $break = 1
+          if 0 == scalar @list;
         foreach (@list) { $callback->($_); }
     }
     return ();
@@ -234,22 +237,26 @@ sub find_keys_need_reduce {
 
 sub _build_dbpass {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return $self->config->{StorageEngine}{Pass};
+    my $dbpass = $self->config->{StorageEngine}{Pass};
+    return $dbpass;
 }
 
 sub _build_dbuser {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return $self->config->{StorageEngine}{User};
+    my $dbuser = $self->config->{StorageEngine}{User};
+    return $dbuser;
 }
 
 sub _build_dbauthdb {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return $self->config->{StorageEngine}{AuthDB} || 'admin';
+    my $auth = $self->config->{StorageEngine}{AuthDB} || 'admin';
+    return $auth;
 }
 
 sub _build_dbname {      ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    return $self->config->{stage} . '-replay';
+    my $dbname =  $self->config->{stage} . '-replay';
+    return $dbname;
 }
 
 sub _build_db {          ## no critic (ProhibitUnusedPrivateSubroutines)

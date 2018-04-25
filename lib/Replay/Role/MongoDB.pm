@@ -34,7 +34,7 @@ requires(
 
 our $VERSION = q(0.01);
 
-has db       => ( is => 'ro', builder => '_build_db',       lazy => 1, );
+has db       => ( is => 'ro', builder => '_build_db',       lazy => 1,);
 has dbname   => ( is => 'ro', builder => '_build_dbname',   lazy => 1, );
 has dbauthdb => ( is => 'ro', builder => '_build_dbauthdb', lazy => 1, );
 has dbuser   => ( is => 'ro', builder => '_build_dbuser',   lazy => 1, );
@@ -142,8 +142,9 @@ sub collection {
 
 sub document {
     my ( $self, $idkey ) = @_;
-    return $self->collection($idkey)->find( { idkey => $idkey->cubby } )
+    my $document = $self->collection($idkey)->find( { idkey => $idkey->cubby } )
         ->next || $self->new_document($idkey);
+    return $document;
 }
 
 sub lockreport {
@@ -156,7 +157,7 @@ sub lockreport {
         { locked => 1, lockExpireEpoch => 1, } )
         || {};
 
-    return Replay::StorageEngine::Lock->new(
+    my $new = Replay::StorageEngine::Lock->new(
         idkey => $idkey,
         (   $found->{locked}
             ? ( locked          => $found->{locked},
@@ -165,6 +166,7 @@ sub lockreport {
             : ()
         ),
     );
+    return $new;
 }
 
 sub relock_expired {
@@ -238,7 +240,8 @@ sub update_and_unlock {
         },
         { upsert => 0 }
     );
-    return $self->retrieve( $lock->idkey );
+    my $retrieve = $self->retrieve( $lock->idkey );
+    return $retrieve;
 }
 
 1;
