@@ -23,7 +23,8 @@ sub BUILD {
     if (not -d $self->directory) {
         mkdir $self->directory;
     }
-    return $self->eventSystem->report->subscribe(
+    
+    $self->eventSystem->report->subscribe(
         sub {
             my $message = shift;
 

@@ -50,7 +50,8 @@ sub BUILD {
 
 sub new_uuid {
     my $self = shift;
-    return $self->UUID->to_string( $self->UUID->create() );
+    my $uuid = $self->UUID->to_string( $self->UUID->create() );
+    return $uuid;
 }
 
 sub serialize {
@@ -69,6 +70,7 @@ sub serialize {
 sub log {    ## no critic (ProhibitBuiltinHomonyms)
     my $self    = shift;
     my $message = shift;
+    
     return $self->filehandle->print( $self->serialize($message) . qq(\n) );
 }
 

@@ -48,7 +48,7 @@ sub cursor_each {
     my $break = 1;
     while ($break) {
         my @list = $cursor->batch;
-        $break = 1
+        $break = 0
           if 0 == scalar @list;
         foreach (@list) { $callback->($_); }
     }

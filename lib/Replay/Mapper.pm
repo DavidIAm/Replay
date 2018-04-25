@@ -31,7 +31,7 @@ sub BUILD {
     my $self = shift;
     croak q(need either storageEngine or storageClass)
         if !$self->storageEngine && !$self->storageClass;
-    return $self->eventSystem->map->subscribe(
+    $self->eventSystem->map->subscribe(
         sub {
             $self->map(@_);
         }

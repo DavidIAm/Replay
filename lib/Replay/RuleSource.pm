@@ -10,7 +10,7 @@ our $VERSION = q(0.02);
 # this is the default implimentation that is simple.  This needs to be
 # different later.  The point of this layer is to instantiate and handle the
 # various execution environments for a particular rule version.
-has rules => ( is => 'ro', isa => 'ArrayRef[BusinessRule]', );
+has rules => ( is => 'ro', isa => 'ArrayRef[BusinessRule]',weak_ref => 1 );
 
 has index => ( is => 'rw', default => 0, );
 has eventSystem =>

@@ -28,13 +28,14 @@ sub BUILD {
             $self->report_wrapper(@_);
         }
     );
-    return;
+    
 }
 
 # accessor - how to get the rule for an idkey
 sub rule {
     my ( $self, $idkey ) = @_;
-    return $self->ruleSource->by_idkey($idkey);
+    my $rule =  $self->ruleSource->by_idkey($idkey);
+    return $rule;
 }
 
 sub extract_idkey {

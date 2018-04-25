@@ -68,7 +68,7 @@ has revision => (
 sub BUILD {
     my $self = shift;
     confess 'WTF' if $self->has_revision && !defined $self->revision;
-    return;
+   
 }
 
 around BUILDARGS => sub {
@@ -94,7 +94,8 @@ around BUILDARGS => sub {
 
 sub collection {
     my ($self) = @_;
-    return 'replay-' . $self->name . $self->version;
+    my $collection = 'replay-' . $self->name . $self->version;
+    return $collection;
 }
 
 sub parse_full_spec {
@@ -150,53 +151,59 @@ sub rule_spec {
 
 sub delivery {
     my ($self) = @_;
-    return ref($self)->new(
+    my $delivery =ref($self)->new(
         name    => $self->name,
         version => $self->version,
         ( $self->has_window   ? ( window   => $self->window )   : () ),
         ( $self->has_key      ? ( key      => $self->key )      : () ),
         ( $self->has_revision ? ( revision => $self->revision ) : () ),
     );
+    return $delivery;
 }
 
 sub summary {
     my ($self) = @_;
-    return ref($self)->new(
+    my $summary = ref($self)->new(
         name    => $self->name,
         version => $self->version,
         ( $self->has_window   ? ( window   => $self->window )   : () ),
         ( $self->has_revision ? ( revision => $self->revision ) : () ),
     );
+    return $summary;
 }
 
 sub globsummary {
     my ($self) = @_;
-    return ref($self)->new(
+    my $globsummary =ref($self)->new(
         name    => $self->name,
         version => $self->version,
         ( $self->has_revision ? ( revision => $self->revision ) : () ),
     );
+    return $globsummary;
 }
 
 sub marshall {
     my ($self) = @_;
-    return { $self->hash_list };
+    my $marshall = { $self->hash_list };
+    return $marshall;
 }
 
 sub hash {
     my ($self) = @_;
-    return md5_hex( join q{:}, $self->hash_list );
+    my $hash = md5_hex( join q{:}, $self->hash_list );
+    return $hash;
 }
 
 sub hash_list {
     my ($self) = @_;
-    return (
+    my @list = (
         name    => $self->name . q{},
         version => $self->version . q{},
         ( $self->has_window   ? ( window   => $self->window . q{} )   : () ),
         ( $self->has_key      ? ( key      => $self->key . q{} )      : () ),
         ( $self->has_revision ? ( revision => $self->revision . q{} ) : () ),
     );
+    return @list;
 }
 
 1;

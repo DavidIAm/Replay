@@ -23,7 +23,8 @@ sub union {
     my (@sets) = @_;
     my %hash
         = map { md5_hex( freeze( [$_] ) ) => $_ } map { @{$_} } @sets;    #}{
-    return values %hash;
+    my @values = values %hash;
+    return @values;
 }
 
 1;

@@ -25,12 +25,14 @@ has eventSystem =>
 # Delegate the api points
 sub retrieve {
     my ( $self, @args ) = @_;
-    return $self->engine->retrieve(@args);
+    my $retrieve = $self->engine->retrieve(@args);
+    return $retrieve;
 }
 
 sub absorb {
     my ( $self, @args ) = @_;
-    return $self->engine->absorb(@args);
+    my $absorb = $self->engine->absorb(@args);
+    return $absorb;
 }
 
 sub desktop_cursor {
@@ -41,32 +43,38 @@ sub desktop_cursor {
 
 sub fetch_canonical_state {
     my ( $self, @args ) = @_;
-    return $self->engine->fetch_canonical_state(@args);
+    my @state = $self->engine->fetch_canonical_state(@args);
+    return @state;
 }
 
 sub fetch_transitional_state {
     my ( $self, @args ) = @_;
-    return $self->engine->fetch_transitional_state(@args);
+    my @state = $self->engine->fetch_transitional_state(@args);
+    return @state;
 }
 
 sub revert {
     my ( $self, @args ) = @_;
-    return $self->engine->revert(@args);
+    my $revert = $self->engine->revert(@args);
+    return $revert;
 }
 
 sub store_new_canonical_state {
     my ( $self, @args ) = @_;
-    return $self->engine->store_new_canonical_state(@args);
+    my $state = $self->engine->store_new_canonical_state(@args);
+    return $state;
 }
 
 sub window_all {
     my ( $self, @args ) = @_;
-    return $self->engine->window_all(@args);
+    my @all =  $self->engine->window_all(@args);
+    return @all;
 }
 
 sub find_keys_need_reduce {
     my ( $self, @args ) = @_;
-    return $self->engine->find_keys_need_reduce(@args);
+    my @need = $self->engine->find_keys_need_reduce(@args);
+    return @need;
 }
 
 sub _build_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)

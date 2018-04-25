@@ -60,13 +60,13 @@ sub BUILD {
     my $self = shift;
     my $cb = sub { $self->reduce_wrapper(@_) };
     $self->eventSystem->reduce->subscribe($cb);
-    return;
 }
 
 # accessor - how to get the rule for an idkey
 sub rule {
     my ( $self, $idkey ) = @_;
-    return $self->ruleSource->by_idkey($idkey);
+    my $rule = $self->ruleSource->by_idkey($idkey);
+    return $rule;
 }
 
 sub normalize_envelope {
@@ -85,33 +85,38 @@ sub normalize_envelope {
 
 sub reducable_message {
     my ( $self, $envelope ) = @_;
-    return $envelope->MessageType eq 'Reducable';
+    my $type = $envelope->MessageType eq 'Reducable';
+    return $type;
 }
 
 sub identify {
     my ( $self, $message ) = @_;
-    return Replay::IdKey->new(
+    my $identify = Replay::IdKey->new(
         {   name    => $message->{Message}->{name},
             version => $message->{Message}->{version},
             window  => $message->{Message}->{window},
             key     => $message->{Message}->{key},
         }
     );
+    return $identify;
 }
 
 sub reduce_wrapper {
     my ( $self, @input ) = @_;
     my $envelope = $self->normalize_envelope(@input);
+    
     return if !$self->reducable_message($envelope);
-    return $self->execute_reduce( $self->identify($envelope) );
+    my $exe = $self->execute_reduce( $self->identify($envelope) );
+    return $exe;
 }
 
 sub make_delayed_emitter {
     my ( $self, $meta ) = @_;
-    return Replay::DelayedEmitter->new(
+    my $emitter = Replay::DelayedEmitter->new(
         eventSystem => $self->eventSystem,
         %{$meta}
     );
+    return $emitter;
 }
 
 sub make_reduced_message {
@@ -169,13 +174,15 @@ sub execute_reduce {
 sub arrayref_flatten {
     my ( $self, @args ) = @_;
     return @args if !$self->ARRAYREF_FLATTEN_ENABLED;
-    return map { 'ARRAY' eq ref $_ ? @{$_} : $_ } @args;
+    my @map = map { 'ARRAY' eq ref $_ ? @{$_} : $_ } @args;
+    return @map;
 }
 
 sub null_filter {
     my ( $self, @args ) = @_;
     return @args if !$self->NULL_FILTER_ENABLED;
-    return map { defined $_ ? $_ : () } @args;
+    my @null = map { defined $_ ? $_ : () } @args;
+    return @null;
 }
 
 1;
