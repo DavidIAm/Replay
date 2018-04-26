@@ -83,12 +83,14 @@ sub retrieve {
 
 sub writable_revision_path {
     my ( $self, $directory ) = @_;
-    return catfile( $directory, $WRITABLEFILE );
+    my $path = catfile( $directory, $WRITABLEFILE );
+    return $path;
 }
 
 sub current_revision_path {
     my ( $self, $directory ) = @_;
-    return catfile( $directory, $CURRENTFILE );
+    my $path = catfile( $directory, $CURRENTFILE );
+    return $path;
 }
 
 sub writable_revision {
@@ -96,7 +98,8 @@ sub writable_revision {
     return 0 if !-d $directory;
     my $wfile = $self->writable_revision_path($directory);
     return 0 if !-f $wfile;
-    return read_file($wfile) || 0;
+    my $file = read_file($wfile) || 0;
+    return $file;
 }
 
 sub current_revision {
@@ -109,12 +112,14 @@ sub current_revision {
     if ( !-f $vfile ) {
         return undef;    ## no critic (ProhibitExplicitReturnUndef)
     }
-    return map { chomp && $_ } read_file($vfile);
+    my @File =  map { chomp && $_ } read_file($vfile);
+    return @File;
 }
 
 sub current {
     my ( $self, $idkey ) = @_;
-    return $self->current_revision( $self->directory($idkey) );
+    my @current = $self->current_revision( $self->directory($idkey) );
+    return  @current;
 }
 
 # retrieves all the keys that point to valid deliveries in the current window
@@ -138,9 +143,10 @@ sub subdirs {
 # filters a list of directories by those which contain a CURRENT file
 sub current_subdirs {
     my ( $self, $parent_dir ) = @_;
-    return
-        grep { -f catfile $parent_dir, $_, $CURRENTFILE }
+    my @current_subdirs = grep { -f catfile $parent_dir, $_, $CURRENTFILE }
         $self->subdirs($parent_dir);
+    return @current_subdirs;
+        
 }
 
 # retrieves all the valid keys in the list for the next layer down in the reports
@@ -173,7 +179,7 @@ sub subkeys {
 sub delivery_keys {
     my ( $self, $sumkey ) = @_;
     my $parent_dir = $self->directory($sumkey);
-    return map {
+    my @delivery_keys = map {
         Replay::IdKey->new(
             name     => $sumkey->name,
             version  => $sumkey->version,
@@ -184,12 +190,13 @@ sub delivery_keys {
         } grep { defined $_->[1] }
         map { [ $_ => $self->current_revision( catdir $parent_dir, $_ ) ] }
         $self->current_subdirs($parent_dir);
+    return @delivery_keys;
 }
 
 sub summary_keys {
     my ( $self, $sumkey ) = @_;
     my $parent_dir = $self->directory($sumkey);
-    return map {
+    my @summary_keys = map {
         Replay::IdKey->new(
             name     => $sumkey->name,
             version  => $sumkey->version,
@@ -199,21 +206,24 @@ sub summary_keys {
         } grep { defined $_->[1] }
         map { [ $_ => $self->current_revision( catdir $parent_dir, $_ ) ] }
         $self->current_subdirs($parent_dir);
+    return @summary_keys;
 }
 
 sub filename_data {
     my ( $self, $directory, $revision ) = @_;
-    return catfile $directory, sprintf 'revision_%05d.data', $revision;
+    my $filename_data = catfile $directory, sprintf 'revision_%05d.data', $revision;
+    return $filename_data;
 }
 
 sub filename {
     my ( $self, $directory, $revision ) = @_;
-    return catfile $directory, sprintf 'revision_%05d', $revision;
+    my $filename = catfile $directory, sprintf 'revision_%05d', $revision;
+    return $filename;
 }
 
 sub directory {
     my ( $self, $idkey ) = @_;
-    return catdir(
+    my $dir = catdir(
         $self->Root,
         ( $idkey->has_domain  ? ( $idkey->domain )  : () ),
         ( $idkey->has_name    ? ( $idkey->name )    : () ),
@@ -221,6 +231,7 @@ sub directory {
         ( $idkey->has_window  ? ( $idkey->window )  : () ),
         ( $idkey->has_key     ? ( $idkey->key )     : () )
     );
+    return $dir;
 }
 
 sub delete_latest_revision {

@@ -35,8 +35,7 @@ sub batch {
 
 sub has_next {
     my ($self) = @_;
-    use Data::Dumper;
-    return $self->{index} <= $#{ $self->{list} };
+   return $self->{index} <= $#{ $self->{list} };
 }
 
 1;

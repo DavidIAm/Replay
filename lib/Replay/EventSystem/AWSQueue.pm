@@ -140,7 +140,6 @@ sub _build_sqs {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     my $config = $self->config;
     croak q(No sqs service?) if not $config->{EventSystem}{sqsService};
-    use Data::Dumper;
     croak q(No access key?) . Dumper $config
         if not $config->{EventSystem}{awsIdentity}{access};
     croak q(No secret key?)

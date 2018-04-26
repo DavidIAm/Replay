@@ -9,6 +9,8 @@ use Replay::Message::Cleared::State;
 use Replay::IdKey;
 use Set::Scalar;
 use Set::Object;
+use Data::Dumper;
+   
 use Carp qw/croak carp cluck/;
 
 has 'debug' => ( is => 'rw' );
@@ -60,7 +62,6 @@ sub checkout_record {
     my ( $self, $lock ) = @_;
 
     my $state = $self->retrieve( $lock->idkey );
-    use Data::Dumper;
     carp 'PRECHECKOUT STATE' . $state if $self->{debug};
     return Replay::StorageEngine::Lock->empty( $lock->idkey )
         if $state->{locked};
@@ -199,8 +200,7 @@ sub collections {
 sub collection {
     my ( $self, $idkey ) = @_;
     my $name = $idkey->collection();
-    use Data::Dumper;
-    carp 'POSTIION NAME' . $name . ' - ' . $idkey->cubby if $self->{debug};
+     carp 'POSTIION NAME' . $name . ' - ' . $idkey->cubby if $self->{debug};
     return $store->{$name} ||= {};
 }
 

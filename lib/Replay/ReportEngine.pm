@@ -35,56 +35,66 @@ has reportEngineSelector => (
 # Delegate the api points
 sub delivery {
     my ( $self, $idkey ) = @_;
-    return $self->engine($idkey)->delivery( $idkey->delivery );
+    my $delivery = $self->engine($idkey)->delivery( $idkey->delivery );
+    return $delivery;
 }
 
 sub summary {
     my ( $self, $idkey ) = @_;
-    return $self->engine($idkey)->summary( $idkey->summary );
+    my $summary = $self->engine($idkey)->summary( $idkey->summary );
+    return $summary;
 }
 
 sub globsummary {
     my ( $self, $idkey ) = @_;
-    return $self->engine($idkey)->globsummary( $idkey->globsummary );
+    my $summary = $self->engine($idkey)->globsummary( $idkey->globsummary );
+    return $summary;
 }
 
 sub delivery_data {
     my ( $self, $idkey ) = @_;
-    return $self->engine($idkey)->delivery_data( $idkey->delivery );
+    my $delivery = $self->engine($idkey)->delivery_data( $idkey->delivery );
+    return $delivery;
 }
 
 sub summary_data {
     my ( $self, $idkey ) = @_;
-    return $self->engine($idkey)->summary_data( $idkey->summary );
+    my $summary = $self->engine($idkey)->summary_data( $idkey->summary );
+    return $summary;
 }
 
 sub globsummary_data {
     my ( $self, $idkey ) = @_;
-    return $self->engine($idkey)->globsummary_data( $idkey->globsummary );
+    my $summary = $self->engine($idkey)->globsummary_data( $idkey->globsummary );
+    return $summary;
 }
 
 sub update_delivery {
     my ( $self, $idkey ) = @_;
-    return $self->engine($idkey)
+    my $update = $self->engine($idkey)
         ->update_delivery( $idkey,
         $self->storageEngine->fetch_canonical_state($idkey) );
+    return $update;
 }
 
 sub update_summary {
     my ( $self, $idkey ) = @_;
-    return $self->engine($idkey)
+    my $update =  $self->engine($idkey)
         ->update_summary( $idkey, $self->get_all_delivery_data($idkey) );
+    return $update;
 }
 
 sub update_globsummary {
     my ( $self, $idkey ) = @_;
-    return $self->engine($idkey)
+    my $update = $self->engine($idkey)
         ->update_globsummary( $idkey, $self->get_all_summary_data($idkey) );
+    return $update;
 }
 
 sub copydomain {
     my ( $self, $idkey ) = @_;
-    return $self->engine($idkey)->copydomain($idkey);
+    my $copy = $self->engine($idkey)->copydomain($idkey);
+    return $copy;
 }
 
 sub get_all_delivery_data {
@@ -130,7 +140,8 @@ sub checkpoint {
 
 sub engine {
     my ( $self, $idkey ) = @_;
-    return $self->reportEngineSelector->select_engine($idkey);
+    my $engine = $self->reportEngineSelector->select_engine($idkey);
+    return $engine;
 }
 
 sub _build_selector_class {

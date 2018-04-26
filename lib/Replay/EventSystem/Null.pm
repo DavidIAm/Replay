@@ -6,15 +6,17 @@ package Replay::EventSystem::Null;
 # a queing solution like RabbitMQ, ZeroMQ, AWS SNS/SQS, or anything like that
 
 use Scalar::Util qw/blessed/;
-use Moose;
+use Try::Tiny;
 use Carp qw/croak confess carp/;
+
+use Moose;
 with 'Replay::Role::EventSystem';
 
 our $VERSION = '0.02';
 
 has subscribers => ( is => 'ro', isa => 'ArrayRef', default => sub { [] }, );
 
-use Try::Tiny;
+
 
 sub poll {
     my $self = shift;

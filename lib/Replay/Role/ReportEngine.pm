@@ -17,7 +17,8 @@ use Try::Tiny;
 use Readonly;
 use Replay::IdKey;
 use Carp qw/croak carp/;
-
+use AnyEvent;
+   
 our $VERSION = '0.03';
 
 requires qw/retrieve store freeze delivery_keys summary_keys Name thisConfig/;
@@ -217,7 +218,6 @@ sub checkpoint {
 
 sub delay_to_do_once {
     my ( $self, $name, $code ) = @_;
-    use AnyEvent;
     return $self->{timers}{$name} = AnyEvent->timer(
         after => 1,
         cb    => sub {

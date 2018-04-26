@@ -127,11 +127,12 @@ sub initialize {
 
 sub heartbeat {
     my ($self) = @_;
-    return $self->{hbtimer} = AnyEvent->timer(
+    $self->{hbtimer} = AnyEvent->timer(
         after    => 1,
         interval => 1,
         cb       => sub { print q(<3) or croak q(cannot print heartbeat?) }
     );
+    return $self->{hbtimer};
 }
 
 sub run {

@@ -26,7 +26,8 @@ use Replay::IdKey;
 use Storable qw/freeze/;
 use Try::Tiny;
 use Readonly;
-
+use AnyEvent;
+    
 use Carp qw/croak carp/;
 
 our $VERSION = '0.02';
@@ -208,7 +209,6 @@ sub revert {
 
 sub delay_to_do_once {
     my ( $self, $name, $code ) = @_;
-    use AnyEvent;
     return $self->{timers}{$name} = AnyEvent->timer(
         after => 1,
         cb    => sub {

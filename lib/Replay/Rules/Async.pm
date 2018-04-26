@@ -44,6 +44,8 @@ use Replay::Message::Clock;
 use Replay::Message::Async;
 use Carp qw/croak carp confess/;
 use Readonly;
+use Data::Dumper;
+   
 with qw/Replay::Role::BusinessRule/;
 
 requires qw/initial_match attempt on_error on_exception on_success value_set/;
@@ -77,7 +79,6 @@ sub compare {
 
 sub match {
     my ( $self, $message ) = @_;
-    use Data::Dumper;
     carp 'The message type is ' . Dumper $message->{MessageType};
     return 1 if $message->{MessageType} eq 'Async';
     return 1 if $self->initial_match($message);
