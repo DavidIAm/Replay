@@ -14,7 +14,7 @@ has purpose => ( is => 'ro', isa => 'Str', required => 1 , weak_ref => 1);
 has mode => ( is => 'ro', isa => 'Str', required => 1 , weak_ref => 1);
 
 # Config contains information used to connect to the queuing solution
-has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1 );
+has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, weak_ref => 1 );
 
 1;
 

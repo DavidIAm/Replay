@@ -18,26 +18,22 @@ use Replay::Types::Types 0.02;
 use Replay::WORM 0.02;
 use Carp qw/croak/;
 
-has rules => ( is => 'ro', isa => 'ArrayRef[BusinessRule]', required => 1);
+has rules => ( is => 'ro', isa => 'ArrayRef[BusinessRule]', required => 1, );
 
 has ruleSource => (
     is      => 'ro',
     isa     => 'Replay::RuleSource',
     builder => '_build_rule_source',
     lazy    => 1,
-    
 );
 
 sub _build_rule_source {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    my $rules = $self->rules;
-    my $event_system = $self->eventSystem;
-    
-    my $rule_source = Replay::RuleSource->new(
-        rules       => $rules,
-        eventSystem => $event_system
+    my $rules = Replay::RuleSource->new(
+        rules       => $self->rules,
+        eventSystem => $self->eventSystem
     );
-    return $rule_source;
+    return $rules;
 }
 
 has eventSystem => (
@@ -49,8 +45,7 @@ has eventSystem => (
 
 sub _build_event_system {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    my $config = $self->config;
-    my $event = Replay::EventSystem->new( config =>$config );
+    my $event = Replay::EventSystem->new( config => $self->config );
     return $event;
 }
 
@@ -59,20 +54,15 @@ has reportEngine => (
     isa     => 'Replay::ReportEngine',
     builder => '_build_report_engine',
     lazy    => 1,
- 
 );
 
 sub _build_report_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    my $config = $self->config ;
-    my $event_system    = $self->eventSystem;
-    my $rule_source    = $self->ruleSource;
-    my $storage_engine = $self->storageEngine;
     my $report = Replay::ReportEngine->new(
-        config        => $config,
-        eventSystem   => $event_system,
-        ruleSource    => $rule_source,
-        storageEngine => $storage_engine,
+        config        => $self->config,
+        eventSystem   => $self->eventSystem,
+        ruleSource    => $self->ruleSource,
+        storageEngine => $self->storageEngine,
     );
     return $report;
 }
@@ -82,22 +72,16 @@ has storageEngine => (
     isa     => 'Replay::StorageEngine',
     builder => '_build_storage_engine',
     lazy    => 1,
-
 );
 
-has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1,     weak_ref => 1,
-);
+has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, weak_ref => 1 );
 
 sub _build_storage_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    my $config = $self->config ;
-    my $event_system = $self->eventSystem;
-    my $rule_source  = $self->ruleSource;
-    
     my $store = Replay::StorageEngine->new(
-        config      => $config,
-        ruleSource  => $rule_source,
-        eventSystem => $event_system
+        config      => $self->config,
+        ruleSource  => $self->ruleSource,
+        eventSystem => $self->eventSystem
     );
     return $store;
 }
@@ -112,14 +96,10 @@ has reducer => (
 
 sub _build_reducer {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    my $event_system   = $self->eventSystem;
-    my $rule_source    = $self->ruleSource;
-    my $storage_engine = $self->storageEngine;
-    
     my $reduce = Replay::Reducer->new(
-        eventSystem   => $event_system,
-        ruleSource    => $rule_source,
-        storageEngine => $storage_engine
+        eventSystem   => $self->eventSystem,
+        ruleSource    => $self->ruleSource,
+        storageEngine => $self->storageEngine
     );
     return $reduce;
 }
@@ -134,14 +114,10 @@ has mapper => (
 
 sub _build_mapper {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    my $event_system   = $self->eventSystem;
-    my $rule_source    = $self->ruleSource;
-    my $storage_engine = $self->storageEngine;
-
     my $mapper = Replay::Mapper->new(
-        eventSystem   => $event_system,
-        ruleSource    => $rule_source,
-        storageEngine => $storage_engine
+        eventSystem   => $self->eventSystem,
+        ruleSource    => $self->ruleSource,
+        storageEngine => $self->storageEngine
     );
     return $mapper;
 }
@@ -156,11 +132,9 @@ has worm => (
 
 sub _build_worm {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    my $config = $self->config ;
-    my $event_system = $self->eventSystem;
     my $worm = Replay::WORM->new(
-        eventSystem => $event_system,
-        config      => $config,
+        eventSystem => $self->eventSystem,
+        config      => $self->config,
     );
     return $worm;
 }
@@ -175,15 +149,11 @@ has reporter => (
 
 sub _build_reporter {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    my $event_system   = $self->eventSystem;
-    my $rule_source    = $self->ruleSource;
-    my $storage_engine = $self->storageEngine;
-    my $report_engine  = $self->reportEngine;
     my $report = Replay::Reporter->new(
-        eventSystem   => $event_system,
-        ruleSource    => $rule_source,
-        storageEngine => $storage_engine,
-        reportEngine  => $report_engine,
+        eventSystem   => $self->eventSystem,
+        ruleSource    => $self->ruleSource,
+        storageEngine => $self->storageEngine,
+        reportEngine  => $self->reportEngine,
     );
     return $report;
 }

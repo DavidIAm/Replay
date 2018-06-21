@@ -18,7 +18,7 @@ our $VERSION = '0.02';
 Readonly my $LTYEAR         => 1900;
 Readonly my $SECS_IN_MINUTE => 60;
 
-my $quitting = 0;
+#my $quitting = 0;
 
 has control => (
     is        => 'ro',
@@ -27,6 +27,7 @@ has control => (
     predicate => 'has_control',
     lazy      => 1,
     clearer   => 'clear_control',
+    
 );
 has map => (
     is        => 'rw',
@@ -99,7 +100,7 @@ has mode => (
     builder  => '_build_mode',
     lazy     => 1,
 );
-has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1 );
+has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1 ,   weak_ref => 1,);
 has domain => ( is => 'ro' );    # placeholder
 
 sub BUILD {
@@ -125,19 +126,19 @@ sub initialize {
     return;
 }
 
-sub heartbeat {
-    my ($self) = @_;
-    $self->{hbtimer} = AnyEvent->timer(
-        after    => 1,
-        interval => 1,
-        cb       => sub { print q(<3) or croak q(cannot print heartbeat?) }
-    );
-    return $self->{hbtimer};
-}
+# sub heartbeat {
+    # my ($self) = @_;
+    # $self->{hbtimer} = AnyEvent->timer(
+        # after    => 1,
+        # interval => 1,
+        # cb       => sub { print q(<3) or croak q(cannot print heartbeat?) }
+    # );
+    # return $self->{hbtimer};
+# }
 
 sub run {
     my ($self) = @_;
-    $quitting = 0;
+    my $quitting = 0;
 
     $self->clock;
     carp q(SIGQUIT will stop loop) if $ENV{DEBUG_REPLAY_TEST};
@@ -319,6 +320,7 @@ sub _build_mode {    ## no critic (ProhibitUnusedPrivateSubroutines)
 sub _build_queue {
     my ( $self, $purpose, $mode ) = @_;
     my $classname = $self->mode;
+    my $config = $self->config;
     try {
         try {
             my $path = $classname . '.pm';
@@ -338,7 +340,7 @@ sub _build_queue {
     };
     my $queue = $classname->new(
         purpose => $purpose,
-        config  => $self->config,
+        config  => $config,
         mode    => $mode
     );
     return $queue;

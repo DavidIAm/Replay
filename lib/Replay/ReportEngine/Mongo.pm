@@ -181,7 +181,7 @@ sub delivery_keys {
 #Api
 sub summary_keys {
     my ( $self, $idkey ) = @_;
-    return map {
+    my $summary = map {
         Replay::IdKey->new(
             name     => $_->{IdKey}->{name},
             version  => $_->{IdKey}->{version},
@@ -197,6 +197,7 @@ sub summary_keys {
         },
         { IdKey => 1, CURRENT_REVISION => 1 }
         )->all;
+    return $summary;
 }
 
 sub idkey_where_doc {

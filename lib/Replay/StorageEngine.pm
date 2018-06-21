@@ -7,7 +7,7 @@ use Carp qw/croak/;
 
 our $VERSION = '0.03';
 
-has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, );
+has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1,  weak_ref => 1);
 has engine =>
     ( is => 'ro', isa => 'Object', builder => '_build_engine', lazy => 1, );
 has mode => (

@@ -38,7 +38,7 @@ $Storable::canonical = 1;    ## no critic (ProhibitPackageVars)
 
 Readonly my $READONLY => 1;
 
-has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, );
+has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, weak_ref => 1 );
 
 has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1,weak_ref => 1  );
 

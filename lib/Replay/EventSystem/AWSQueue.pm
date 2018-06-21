@@ -22,6 +22,8 @@ use JSON;
 use Scalar::Util qw/blessed/;
 use Carp qw/confess/;
 
+
+has subscriptionARN  => ( is => 'rw', isa => 'Str' );
 has purpose => ( is => 'ro', isa => 'Str', required => 1, );
 has subscribers => ( is => 'ro', isa => 'ArrayRef', default => sub { [] }, );
 has sns =>
@@ -33,7 +35,7 @@ has sqs => (
     lazy    => 1
 );
 
-has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1 );
+has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1,   weak_ref => 1, );
 
 has queue => (
     is        => 'ro',
@@ -102,7 +104,7 @@ sub poll {
 sub subscribe {
     my ( $self, $callback ) = @_;
     croak 'callback must be code' if 'CODE' ne ref $callback;
-    push @{ $self->subscribers }, $callback;
+   push @{ $self->subscribers }, $callback;
     return;
 }
 
@@ -172,38 +174,42 @@ sub _build_queue {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     carp q(BUILDING QUEUE ) . $self->queueName if $ENV{DEBUG_REPLAY_TEST};
     my $sqs = $self->sqs();
-    my $queue = $sqs->CreateQueue( $self->queueName );
-    carp q(SETTING QUEUE POLICY ) . $self->queueName
+    my $name =  $self->queueName;
+    my $queue = $sqs->CreateQueue($name);
+    my $queuearn = $self->queuearn;
+    my $topic =  $self->topic->arn;
+    carp q(SETTING QUEUE POLICY ) .$name
         if $ENV{DEBUG_REPLAY_TEST};
     $queue->SetAttribute(
         'Policy',
         to_json(
             {   q(Version)   => q(2012-10-17),
                 q(Statement) => [
-                    {   q(Sid)       => q(PolicyForQueue) . $self->queueName,
+                    {   q(Sid)       => q(PolicyForQueue) . $name,
                         q(Effect)    => q(Allow),
                         q(Principal) => { q(AWS) => q(*) },
                         q(Action)    => q(sqs:SendMessage),
-                        q(Resource)  => $self->queuearn,
+                        q(Resource)  => $queuearn,
                         q(Condition) => {
                             q(ArnEquals) =>
-                                { q(aws:SourceArn) => $self->topic->arn }
+                                { q(aws:SourceArn) => $topic }
                         }
                     }
                 ]
             }
         )
     );
-    carp q(SUBSCRIBING TO QUEUE ) . $self->queueName
+    carp q(SUBSCRIBING TO QUEUE ) . $name
         if $ENV{DEBUG_REPLAY_TEST};
     my $sns = $self->sns();
-    $self->{subscriptionARN} = $sns->dispatch(
+    my $subscription_arn = $sns->dispatch(
         {   Action   => 'Subscribe',
-            Endpoint => $self->queuearn,
+            Endpoint => $queuearn,
             Protocol => 'sqs',
-            TopicArn => $self->topic->arn,
+            TopicArn => $topic,
         }
     )->{'SubscribeResult'}{'SubscriptionArn'};
+    $self->subscriptionARN($subscription_arn);
     return $queue;
 }
 
@@ -215,10 +221,10 @@ sub done {
 sub DEMOLISH {
     my ($self) = @_;
     if ( $self->has_queue && $self->queue && $self->mode eq 'fanout' ) {
-        if ( $self->{subscriptionARN} ) {
+        if ( $self->subscriptionARN() ) {
             $self->sns->dispatch(
                 {   Action          => 'Unsubscribe',
-                    SubscriptionArn => $self->{subscriptionARN}
+                    SubscriptionArn => $self->subscriptionARN()
                 }
             );
         }

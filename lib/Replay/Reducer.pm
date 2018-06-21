@@ -34,7 +34,7 @@ has config => (
     is       => 'ro',
     isa      => 'HashRef[Item]',
     required => 0,
-    default  => sub { {} },
+    default  => sub { {},  weak_ref => 1 },
 );
 
 sub ARRAYREF_FLATTEN_ENABLED_DEFAULT { return 1 }
