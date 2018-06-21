@@ -71,23 +71,26 @@ sub globsummary_data {
 
 sub update_delivery {
     my ( $self, $idkey ) = @_;
+    my @state = $self->storageEngine->fetch_canonical_state($idkey);
     my $update = $self->engine($idkey)
         ->update_delivery( $idkey,
-        $self->storageEngine->fetch_canonical_state($idkey) );
+       @state  );
     return $update;
 }
 
 sub update_summary {
     my ( $self, $idkey ) = @_;
+    my @data =  $self->get_all_delivery_data($idkey);
     my $update =  $self->engine($idkey)
-        ->update_summary( $idkey, $self->get_all_delivery_data($idkey) );
+        ->update_summary( $idkey, @data);
     return $update;
 }
 
 sub update_globsummary {
     my ( $self, $idkey ) = @_;
+    my @summay = $self->get_all_summary_data($idkey);
     my $update = $self->engine($idkey)
-        ->update_globsummary( $idkey, $self->get_all_summary_data($idkey) );
+        ->update_globsummary( $idkey, @summay );
     return $update;
 }
 

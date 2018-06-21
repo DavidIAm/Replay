@@ -85,8 +85,7 @@ has storageEngine => (
 
 );
 
-has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1,     weak_ref => 1,
-);
+has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, );
 
 sub _build_storage_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
@@ -107,7 +106,6 @@ has reducer => (
     isa     => 'Replay::Reducer',
     builder => '_build_reducer',
     lazy    => 1,
-    weak_ref => 1,
 );
 
 sub _build_reducer {    ## no critic (ProhibitUnusedPrivateSubroutines)
@@ -129,7 +127,6 @@ has mapper => (
     isa     => 'Replay::Mapper',
     builder => '_build_mapper',
     lazy    => 1,
-    weak_ref => 1,
 );
 
 sub _build_mapper {    ## no critic (ProhibitUnusedPrivateSubroutines)
@@ -151,7 +148,6 @@ has worm => (
     isa     => 'Replay::WORM',
     builder => '_build_worm',
     lazy    => 1,
-    weak_ref => 1,
 );
 
 sub _build_worm {    ## no critic (ProhibitUnusedPrivateSubroutines)
@@ -170,7 +166,6 @@ has reporter => (
     isa     => 'Replay::Reporter',
     builder => '_build_reporter',
     lazy    => 1,
-    weak_ref => 1,
 );
 
 sub _build_reporter {    ## no critic (ProhibitUnusedPrivateSubroutines)

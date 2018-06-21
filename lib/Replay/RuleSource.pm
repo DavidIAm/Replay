@@ -21,24 +21,26 @@ sub next {    ## no critic (ProhibitBuiltinHomonyms)
     my $i = $self->index;
     $self->index( $self->index + 1 );
     if ( $#{ $self->rules } < $i ) { $self->index(0) and return }
-    return $self->rules->[$i];
+    my $next =  $self->rules->[$i];
+    return $next;
 }
 
 sub first {
     my ($self) = @_;
     $self->index(0);
-    return $self->rules->[ $self->index ];
+    my $first = $self->rules->[ $self->index ];
+    return $first;
 }
 
 sub by_idkey {
     my ( $self, $idkey ) = @_;
     if ( $idkey && blessed $idkey && $idkey->can('name') ) {
-        return (
-            grep {
+        my @rules =  grep {
                        $_->name eq $idkey->name
                     && $_->version eq $idkey->version
-            } @{ $self->rules }
-        )[0];
+            } @{ $self->rules };
+            
+        return $rules[0];
     }
     confess("Called by_idkey without an idkey? ($idkey)");
 }

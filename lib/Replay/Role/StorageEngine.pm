@@ -170,15 +170,16 @@ sub checkout {
         . q(\) IDKEY \()
         . $lock->idkey->cubby . q(\));
 
-    return Replay::StorageEngine::Lock->empty( $lock->idkey );
+    my $empty_lock = Replay::StorageEngine::Lock->empty( $lock->idkey );
+    return $empty_lock;
 }
 
 before 'checkin' => sub {
     my ( $self, $lock, $cubby ) = @_;
 
     #     carp('Replay::BaseStorageEnginee  before checkin');
-    return $self->eventSystem->control->emit(
-        Replay::Message::Unlocked->new( $lock->idkey->marshall ) );
+    my $unlock_msg =  Replay::Message::Unlocked->new( $lock->idkey->marshall );
+    return $self->eventSystem->control->emit($unlock_msg );
 };
 
 before 'retrieve' => sub {
@@ -187,24 +188,25 @@ before 'retrieve' => sub {
     confess 'idkey cannot be null' if !defined $idkey;
 
     #    carp('Replay::BaseStorageEnginee  before retrieve');
-    return $self->eventSystem->control->emit(
-        Replay::Message::Fetched->new( $idkey->marshall ) );
+    my $fetch_msg = Replay::Message::Fetched->new( $idkey->marshall );
+    return $self->eventSystem->control->emit($fetch_msg);
 };
 
 after 'absorb' => sub {
     my ( $self, $idkey ) = @_;
 
   #       carp('Replay::BaseStorageEnginee  after absorb '.$self.', .'$idkey);
-    return $self->eventSystem->reduce->emit(
-        Replay::Message::Reducable->new( $idkey->marshall ) );
+    my $reduce_msg = Replay::Message::Reducable->new( $idkey->marshall );
+    return $self->eventSystem->reduce->emit($reduce_msg);
 };
 
 sub revert {
     my ( $self, $lock ) = @_;
     $self->revert_this_record($lock);
-    return $self->eventSystem->control->emit(
-        Replay::Message::Reverted->new( $lock->idkey->marshall ) );
+    my $revert_msg = Replay::Message::Reverted->new( $lock->idkey->marshall );
+    return $self->eventSystem->control->emit($revert_msg);
     $self->emit_reducable_if_needed($lock->idkey);
+    #hey Dave what is the line above for will never get to it???
 }
 
 sub delay_to_do_once {
@@ -285,8 +287,8 @@ sub emit_reducable_if_needed {
     my ( $self, $idkey ) = @_;
     if ( $self->has_inbox_outstanding( $idkey ))
     {   # renotify reducer if inbox currently has entries
-        $self->eventSystem->reduce->emit(
-            Replay::Message::Reducable->new( $idkey->marshall ) );
+        my $reduce_msg =  Replay::Message::Reducable->new( $idkey->marshall );
+        $self->eventSystem->reduce->emit($reduce_msg);
     }
 }
 
@@ -305,10 +307,9 @@ sub store_new_canonical_state {
         carp 'ABSORB DEFERRED ATOM';
         $self->absorb( $idkey, $atom, {} );
     }
-    $self->eventSystem->report->emit(
-        Replay::Message::NewCanonical->new( $idkey->marshall ) );
-    $self->eventSystem->control->emit(
-        Replay::Message::NewCanonical->new( $idkey->marshall ) );
+    my $new_conical_msg = Replay::Message::NewCanonical->new( $idkey->marshall );
+    $self->eventSystem->report->emit($new_conical_msg);
+    $self->eventSystem->control->emit($new_conical_msg);
     $self->emit_reducable_if_needed($idkey);
     return $newstate;    # release pending messages
 }
@@ -339,6 +340,7 @@ sub enumerate_keys {
 
 sub new_document {
     my ( $self, $idkey ) = @_;
+    
     return {
         idkey        => { $idkey->hash_list },
         Windows      => [],

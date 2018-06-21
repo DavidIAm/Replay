@@ -97,11 +97,12 @@ sub report_wrapper {
         if ( $type eq 'ReportNewSummary' ) {
             $meta = $self->reportEngine->update_globsummary($idkey);
         }
+        my @hash_list = $idkey->hash_list;
+        my $reaction_uuid = blessed $envelope ? $envelope->UUID : $envelope->{UUID};
         my $message =  Replay::Message::Reported->new(
-                $idkey->hash_list,
+                @hash_list,
                 inReactionToType => $type,
-                inReactionToUUID => (
-                    blessed $envelope ? $envelope->UUID : $envelope->{UUID}
+                inReactionToUUID => ($reaction_uuid
                 ),
             );
         $self->eventSystem->control->emit($message
@@ -110,6 +111,7 @@ sub report_wrapper {
     }
     catch {
         carp "REPORTING EXCEPTION: $_";
+        
         my $message = Replay::Message::Exception::Reporter->new(
                 ( $idkey ? $idkey->hash_list : () ),
                 exception => (

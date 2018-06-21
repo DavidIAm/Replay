@@ -14,27 +14,25 @@ use Try::Tiny;
 our $VERSION = '0.02';
 
 has ruleSource =>
-    ( is => 'ro', isa => 'Replay::RuleSource', required => 1, weak_ref => 1 );
+    ( is => 'ro', isa => 'Replay::RuleSource', required => 1, );
 
 has eventSystem => (
     is       => 'ro',
     isa      => 'Replay::EventSystem',
     required => 1,
-    weak_ref => 1
 );
 
 has storageEngine => (
     is       => 'ro',
     isa      => 'Replay::StorageEngine',
     required => 1,
-    weak_ref => 1
 );
 
 has config => (
     is       => 'ro',
     isa      => 'HashRef[Item]',
     required => 0,
-    default  => sub { {},  weak_ref => 1 },
+    default  => sub { {},  },
 );
 
 sub ARRAYREF_FLATTEN_ENABLED_DEFAULT { return 1 }
@@ -106,14 +104,16 @@ sub reduce_wrapper {
     my $envelope = $self->normalize_envelope(@input);
     
     return if !$self->reducable_message($envelope);
-    my $exe = $self->execute_reduce( $self->identify($envelope) );
+    my $identify = $self->identify($envelope); 
+    my $exe = $self->execute_reduce($identify);
     return $exe;
 }
 
 sub make_delayed_emitter {
     my ( $self, $meta ) = @_;
+    my $eventSystem = $self->eventSystem;
     my $emitter = Replay::DelayedEmitter->new(
-        eventSystem => $self->eventSystem,
+        eventSystem => $eventSystem,
         %{$meta}
     );
     return $emitter;
@@ -136,17 +136,16 @@ sub execute_reduce {
             return;
         }    # there was nothing to do, apparently
         my $emitter = $self->make_delayed_emitter($meta);
-
-        $self->storageEngine->store_new_canonical_state(
-            $lock, $emitter,
-            $self->arrayref_flatten(
+        my @flatten = $self->arrayref_flatten(
                 $self->null_filter(
                     $self->rule($idkey)->reduce( $emitter, @state )
                 )
-            )
+            );
+        $self->storageEngine->store_new_canonical_state(
+            $lock, $emitter,@flatten            
         );
-        $self->eventSystem->control->emit(
-            $self->make_reduced_message($idkey) );
+        my $message =  $self->make_reduced_message($idkey);
+        $self->eventSystem->control->emit($message );
     }
     catch {
         carp "REDUCING EXCEPTION: $_\n";
@@ -160,10 +159,12 @@ sub execute_reduce {
         else {
             carp "Locking error apparently?\n" unless $lock->locked;
         }
+        my @hash_list = $idkey->hash_list;
+        my $exception = blessed $_ && $_->can('trace') ? $_->trace->as_string : $_;
         my $message = Replay::Message::Exception::Reducer->new(
-            $idkey->hash_list,
-            exception => (
-                blessed $_ && $_->can('trace') ? $_->trace->as_string : $_
+           @hash_list,
+            exception => ($exception
+                
             ),
         );
         $self->eventSystem->control->emit($message);

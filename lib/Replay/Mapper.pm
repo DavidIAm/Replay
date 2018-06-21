@@ -65,18 +65,20 @@ sub map {    ## no critic (ProhibitBuiltinHomonyms)
                 . q( OUT OF MESSAGE )
                 . Dumper $message
                 if not defined $key;
-            croak q(unable to store)
-                if not $self->storageEngine->absorb(
-                Replay::IdKey->new(
+            my $new_key =   Replay::IdKey->new(
                     {   name    => $rule->name,
                         version => $rule->version,
                         window  => $window,
                         key     => $key
                     }
-                ),
+                );
+            my $domain = $self->eventSystem->domain;
+            croak q(unable to store)
+                if not $self->storageEngine->absorb(
+                $new_key,
                 $atom,
                 {   Timeblocks   => $message->{Timeblocks},
-                    Domain       => $self->eventSystem->domain,
+                    Domain       => $domain,
                     Ruleversions => [
                         { rule => $rule->name, version => $rule->version },
                         @{ $message->{Ruleversions} || [] }

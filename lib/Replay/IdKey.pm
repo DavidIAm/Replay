@@ -120,33 +120,39 @@ sub parse_full_spec {
 sub parse_cubby {
     my ( $class,  $cubby ) = @_;
     my ( $window, $key )   = $cubby =~ /^wind-(.+)-key-(.+)$/smix;
-    return window => $window, key => $key;
+    my %cubby = (window => $window, key => $key);
+    return  %cubby
 }
 
 sub domain_rule_prefix {
     my ($self) = @_;
-    return join q{-}, 'domain', ( $self->domain || 'null' ), $self->rule_spec;
+    my $prefix = join q{-}, 'domain', ( $self->domain || 'null' ), $self->rule_spec;
+    return $prefix;
 }
 
 sub window_prefix {
     my ($self) = @_;
-    return 'wind-' . ( $self->window || q{} ) . '-key-';
+    my $prefix = 'wind-' . ( $self->window || q{} ) . '-key-';
+    return $prefix;
 }
 
 sub cubby {
     my ($self) = @_;
-    return $self->window_prefix . ( $self->key || q{} );
+    my $cubby =  $self->window_prefix . ( $self->key || q{} );
+    return $cubby;
 }
 
 sub full_spec {
     my ($self) = @_;
-    return join q{-}, $self->domain_rule_prefix, $self->cubby, 'revision',
+    my $full_spec = join q{-}, $self->domain_rule_prefix, $self->cubby, 'revision',
         $self->revision || 'null';
+    return $full_spec;
 }
 
 sub rule_spec {
     my ($self) = @_;
-    return 'name-' . $self->name . '-version-' . $self->version;
+    my $rule_spec = 'name-' . $self->name . '-version-' . $self->version;
+    return $rule_spec;
 }
 
 sub delivery {
