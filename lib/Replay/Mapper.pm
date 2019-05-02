@@ -45,8 +45,9 @@ sub map {    ## no critic (ProhibitBuiltinHomonyms)
     carp q(Got a message that doesn't have type and a hashref for a message)
         if !$message->{MessageType} || 'HASH' ne ref $message->{Message};
     croak q(I CANNOT MAP UNDEF) if not defined $message;
+    my $domain = $self->eventSystem->domain();
     while ( my $rule = $self->ruleSource->next ) {
-        next if not $rule->match($message);
+        next if not $rule->match($message,$domain);
         my @all = $rule->key_value_set($message);
         croak q(key value list from key value set must be even)
             if scalar @all % 2;

@@ -50,7 +50,8 @@ has eventSystem => (
 sub _build_event_system {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     my $config = $self->config;
-    my $event = Replay::EventSystem->new( config =>$config );
+    my $event = Replay::EventSystem->new( config =>$config,
+                                          domain =>$config->{EventSystem}->{domain} );
     return $event;
 }
 

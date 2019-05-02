@@ -101,7 +101,7 @@ has mode => (
     lazy     => 1,
 );
 has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1 ,   weak_ref => 1,);
-has domain => ( is => 'ro' );    # placeholder
+has domain => ( is => 'ro', default=> 'Worker' );   
 
 sub BUILD {
     my ($self) = @_;
