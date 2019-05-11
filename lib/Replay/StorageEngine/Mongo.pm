@@ -117,7 +117,7 @@ sub inbox_to_desktop {
         {   idkey  => $lock->idkey->full_spec,
             state  => 'inbox',
             locked => { q^$^ . 'exists' => 0 }
-        }, { _id }).limit(20)->all();
+        }, { "_id": 1 }).limit(20)->all();
 
     my $r = $self->BOXES->update_many(
         {   idkey  => $lock->idkey->full_spec,
