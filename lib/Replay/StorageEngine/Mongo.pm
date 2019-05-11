@@ -113,9 +113,16 @@ sub absorb {
 sub inbox_to_desktop {
     my ( $self, $lock ) = @_;
     $self->ensure_locked($lock);
+    my @idsToProcess = map { $_->{"_id"} } $self->BOXES->find(
+        {   idkey  => $lock->idkey->full_spec,
+            state  => 'inbox',
+            locked => { q^$^ . 'exists' => 0 }
+        }, { _id }).limit(20)->all();
+
     my $r = $self->BOXES->update_many(
         {   idkey  => $lock->idkey->full_spec,
             state  => 'inbox',
+            _id => { q^$^ . 'in' => [ @idsToProcess ] },
             locked => { q^$^ . 'exists' => 0 }
         },
         { q^$^ . 'set' => { state => 'desktop', locked => $lock->locked, } }
