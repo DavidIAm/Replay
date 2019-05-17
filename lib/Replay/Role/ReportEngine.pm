@@ -18,7 +18,7 @@ use Readonly;
 use Replay::IdKey;
 use Carp qw/croak carp/;
 use AnyEvent;
-
+   
 our $VERSION = '0.03';
 
 requires qw/retrieve store freeze delivery_keys summary_keys Name thisConfig/;
@@ -28,18 +28,9 @@ $Storable::canonical = 1;    ## no critic (ProhibitPackageVars)
 Readonly my $REPORT_TIMEOUT => 60;
 Readonly my $READONLY       => 1;
 
-has config =>
-    ( is => 'ro', isa => 'HashRef[Item]', required => 1, );
 
-has ruleSource =>
-    ( is => 'ro', isa => 'Replay::RuleSource', required => 1, );
 
-has eventSystem => (
-    is       => 'ro',
-    isa      => 'Replay::EventSystem',
-    required => 1,
-    
-);
+has eventSystem =>
 has mode => ( is => 'ro', isa => 'Str', required => 1 );
 
 # accessor - how to get the rule for an idkey
@@ -194,8 +185,7 @@ sub do_retrieve {
 sub revision {
     my ( $self, $idkey ) = @_;
     confess 'This isn\'t an idkey' if !$idkey->isa('Replay::IdKey');
-    return $idkey->revision
-        if $idkey->has_revision && defined $idkey->revision;
+    return $idkey->revision if $idkey->has_revision;
     return $self->current($idkey);
 }
 

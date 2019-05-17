@@ -38,14 +38,14 @@ $Storable::canonical = 1;    ## no critic (ProhibitPackageVars)
 
 Readonly my $READONLY => 1;
 
-has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1,  );
+has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1  );
 
-has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1,  );
+has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1 );
 
 has eventSystem =>
-    ( is => 'ro', isa => 'Replay::EventSystem', required => 1,  );
+    ( is => 'ro', isa => 'Replay::EventSystem', required => 1  );
 
-has uuid => ( is => 'ro', builder => '_build_uuid', lazy => 1,);
+has uuid => ( is => 'ro', builder => '_build_uuid', lazy => 1);
 
 has timeout => ( is => 'ro', default => 20, );
 
@@ -144,17 +144,25 @@ sub checkout {
 
     my $lock = $self->checkout_record($prelock);
 
-    return $lock unless $lock->is_locked;
+    if ( !$lock->is_locked ) {
+        return $lock;
+    }
 
-    return $lock if $self->inbox_to_desktop($lock);
+    if ( $self->ensure_locked($lock) ) {
+        $self->inbox_to_desktop($lock);
+        return $lock;
+    }
 
     if ( $lock->is_expired ) {
         ($lock) = $self->expired_lock_recover( $lock, $timeout );
     }
 
-    return $self->checkout_record( $lock, $timeout ) if $lock->is_locked;
-
-    $self->emit_lock_error($lock);
+    if ( $lock->is_locked ) {
+        return $self->checkout_lock( $lock, $timeout );
+    }
+    else {
+        $self->emit_lock_error($lock);
+    }
 
     carp q(checkout after revert and relock failed. )
         . q(Mangled state in COLLECTION \()
