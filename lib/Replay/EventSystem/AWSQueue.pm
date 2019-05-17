@@ -35,7 +35,7 @@ has sqs => (
     lazy    => 1
 );
 
-has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1,   weak_ref => 1, );
+has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1 );
 
 has queue => (
     is        => 'ro',

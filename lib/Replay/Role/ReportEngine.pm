@@ -29,16 +29,16 @@ Readonly my $REPORT_TIMEOUT => 60;
 Readonly my $READONLY       => 1;
 
 has config =>
-    ( is => 'ro', isa => 'HashRef[Item]', required => 1, weak_ref => 1 );
+    ( is => 'ro', isa => 'HashRef[Item]', required => 1, );
 
 has ruleSource =>
-    ( is => 'ro', isa => 'Replay::RuleSource', required => 1, weak_ref => 1 );
+    ( is => 'ro', isa => 'Replay::RuleSource', required => 1, );
 
 has eventSystem => (
     is       => 'ro',
     isa      => 'Replay::EventSystem',
     required => 1,
-    weak_ref => 1
+    
 );
 has mode => ( is => 'ro', isa => 'Str', required => 1 );
 

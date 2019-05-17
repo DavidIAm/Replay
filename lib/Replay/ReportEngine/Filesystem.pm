@@ -25,7 +25,7 @@ has 'Root' => (
     isa      => 'Str',
     builder  => '_build_root',
     lazy     => 1,
-    weak_ref => 1
+    
 );
 
 has 'Name' => (
@@ -33,14 +33,14 @@ has 'Name' => (
     isa      => 'Str',
     builder  => '_build_name',
     lazy     => 1,
-    weak_ref => 1
+    
 );
 
 has 'thisConfig' => ( is => 'ro', isa => 'HashRef', required => 1, );
 
 with 'Replay::Role::ReportEngine';
 
-has '+mode' => ( default => 'Filesystem', weak_ref => 1 );
+has '+mode' => ( default => 'Filesystem',  );
 
 my $store = {};
 

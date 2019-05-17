@@ -9,12 +9,12 @@ our $VERSION = '0.02';
 
 # purpose is the channel name, such as 'control', 'origin', or 'derived' but
 # may be arbitrary
-has purpose => ( is => 'ro', isa => 'Str', required => 1 , weak_ref => 1);
+has purpose => ( is => 'ro', isa => 'Str', required => 1 , );
 
-has mode => ( is => 'ro', isa => 'Str', required => 1 , weak_ref => 1);
+has mode => ( is => 'ro', isa => 'Str', required => 1 , );
 
 # Config contains information used to connect to the queuing solution
-has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, weak_ref => 1 );
+has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, );
 
 1;
 

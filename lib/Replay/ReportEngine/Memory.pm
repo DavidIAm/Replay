@@ -22,7 +22,7 @@ Readonly my $WRITABLEFILE => 'WRITABLE';
 has '+mode' => ( default => 'Memory' );
 
 has file_typer =>
-    ( is => 'ro', isa => 'File::Type', builder => '_build_file_typer', weak_ref => 1 );
+    ( is => 'ro', isa => 'File::Type', builder => '_build_file_typer', );
 
 sub _build_file_typer {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;

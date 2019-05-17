@@ -7,17 +7,17 @@ use Data::Dumper;
 
 our $VERSION = '0.02';
 
-has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource',weak_ref => 1 );
+has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource' );
 
-has eventSystem => ( is => 'ro', required => 1,weak_ref => 1 );
+has eventSystem => ( is => 'ro', required => 1 );
 
-has storageClass => ( is => 'ro',weak_ref => 1 );
+has storageClass => ( is => 'ro' );
 
 has storageEngine => (
     is      => 'ro',
     isa     => 'Replay::StorageEngine',
     builder => 'build_storage_sink',
-    lazy    => 1,weak_ref => 1
+    lazy    => 1
 );
 
 sub build_storage_sink {

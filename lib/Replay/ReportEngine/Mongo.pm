@@ -10,9 +10,9 @@ use MongoDB::OID;
 our $VERSION = q(0.03);
 
 has 'Name' =>
-    ( is => 'ro', isa => 'Str', builder => '_build_name', lazy => 1, weak_ref => 1 );
+    ( is => 'ro', isa => 'Str', builder => '_build_name', lazy => 1 );
 
-has 'thisConfig' => ( is => 'ro', isa => 'HashRef', required => 1,  weak_ref => 1);
+has 'thisConfig' => ( is => 'ro', isa => 'HashRef', required => 1,  );
 
 my $store = {};
 with( 'Replay::Role::MongoDB', 'Replay::Role::ReportEngine' );

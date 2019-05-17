@@ -6,9 +6,9 @@ use Carp qw/confess/;
 our $VERSION = '0.02';
 
 has eventSystem =>
-    ( is => 'ro', isa => 'Replay::EventSystem', required => 1, weak_ref => 1 );
-has Timeblocks   => ( is => 'rw', isa => 'ArrayRef', required => 1, weak_ref => 1 );
-has Ruleversions => ( is => 'rw', isa => 'ArrayRef', required => 1, weak_ref => 1 );
+    ( is => 'ro', isa => 'Replay::EventSystem', required => 1,  );
+has Timeblocks   => ( is => 'rw', isa => 'ArrayRef', required => 1,  );
+has Ruleversions => ( is => 'rw', isa => 'ArrayRef', required => 1,  );
 has messagesToSend =>
     ( is => 'rw', isa => 'ArrayRef', default => sub { [] } );
 has atomsToDefer => ( is => 'rw', isa => 'ArrayRef', default => sub { [] } );
@@ -24,7 +24,6 @@ has map => (
     is         => 'ro',
     isa        => 'Replay::DelayedEmitter::Channeled',
     lazy_build => 1,
-    weak_ref   => 1,
 );
 
 sub _build_map {    ## no critic (ProhibitUnusedPrivateSubroutines)
@@ -40,7 +39,6 @@ has reduce => (
     is         => 'ro',
     isa        => 'Replay::DelayedEmitter::Channeled',
     lazy_build => 1,
-    weak_ref   => 1,
 );
 
 sub _build_reduce {    ## no critic (ProhibitUnusedPrivateSubroutines)
@@ -56,7 +54,6 @@ has report => (
     is         => 'ro',
     isa        => 'Replay::DelayedEmitter::Channeled',
     lazy_build => 1,
-    weak_ref   => 1,
 );
 
 sub _build_report {    ## no critic (ProhibitUnusedPrivateSubroutines)
@@ -72,7 +69,6 @@ has control => (
     is         => 'ro',
     isa        => 'Replay::DelayedEmitter::Channeled',
     lazy_build => 1,
-    weak_ref   => 1,
 );
 
 sub _build_control {    ## no critic (ProhibitUnusedPrivateSubroutines)
@@ -88,7 +84,6 @@ has origin => (
     is         => 'ro',
     isa        => 'Replay::DelayedEmitter::Channeled',
     lazy_build => 1,
-    weak_ref   => 1,
 );
 
 sub _build_origin {    ## no critic (ProhibitUnusedPrivateSubroutines)

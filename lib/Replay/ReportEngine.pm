@@ -8,20 +8,20 @@ use English qw/-no_match_vars/;
 
 our $VERSION = '0.03';
 
-has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1,   weak_ref => 1, );
+has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1,    );
 
-has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1,weak_ref => 1 );
+has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1,);
 has eventSystem =>
-    ( is => 'ro', isa => 'Replay::EventSystem', required => 1, weak_ref => 1);
+    ( is => 'ro', isa => 'Replay::EventSystem', required => 1, );
 has storageEngine =>
-    ( is => 'ro', isa => 'Replay::StorageEngine', required => 1,   weak_ref => 1,);
+    ( is => 'ro', isa => 'Replay::StorageEngine', required => 1,   );
 
 has selectorClass => (
     is      => 'ro',
     isa     => 'Str',
     lazy => 1,
     builder => '_build_selector_class',
-    weak_ref => 1
+    
 );
 
 has reportEngineSelector => (

@@ -12,10 +12,10 @@ use Scalar::Util qw/blessed/;
 use Try::Tiny;
 use Time::HiRes qw/gettimeofday/;
 
-has eventSystem   => (is => 'ro', required => 1,weak_ref => 1,);
-has storageEngine => (is => 'ro', required => 1,weak_ref => 1,);
-has reportEngine  => (is => 'ro', required => 1,weak_ref => 1,);
-has ruleSource    => (is => 'ro', required => 1,weak_ref => 1,);
+has eventSystem   => (is => 'ro', required => 1);
+has storageEngine => (is => 'ro', required => 1);
+has reportEngine  => (is => 'ro', required => 1);
+has ruleSource    => (is => 'ro', required => 1);
 
 # dummy implimentation - Log them to a file
 sub BUILD {

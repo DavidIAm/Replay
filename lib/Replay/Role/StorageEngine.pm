@@ -38,14 +38,14 @@ $Storable::canonical = 1;    ## no critic (ProhibitPackageVars)
 
 Readonly my $READONLY => 1;
 
-has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, weak_ref => 1 );
+has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1,  );
 
-has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1,weak_ref => 1  );
+has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1,  );
 
 has eventSystem =>
-    ( is => 'ro', isa => 'Replay::EventSystem', required => 1,weak_ref => 1  );
+    ( is => 'ro', isa => 'Replay::EventSystem', required => 1,  );
 
-has uuid => ( is => 'ro', builder => '_build_uuid', lazy => 1,weak_ref => 1 );
+has uuid => ( is => 'ro', builder => '_build_uuid', lazy => 1,);
 
 has timeout => ( is => 'ro', default => 20, );
 

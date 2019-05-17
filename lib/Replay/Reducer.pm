@@ -141,6 +141,8 @@ sub execute_reduce {
                     $self->rule($idkey)->reduce( $emitter, @state )
                 )
             );
+        use Data::Dumper;
+        # warn("execute_reduce ".Dumper($idkey)." flat-".Dumper(\@flatten));
         $self->storageEngine->store_new_canonical_state(
             $lock, $emitter,@flatten            
         );

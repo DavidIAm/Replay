@@ -13,13 +13,13 @@ use Try::Tiny;
 
 our $VERSION = '0.03';
 
-has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1,weak_ref => 1 );
+has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1 );
 
 has eventSystem =>
-    ( is => 'ro', isa => 'Replay::EventSystem', required => 1,weak_ref => 1 );
+    ( is => 'ro', isa => 'Replay::EventSystem', required => 1);
 
 has reportEngine =>
-    ( is => 'ro', isa => 'Replay::ReportEngine', required => 1, weak_ref => 1);
+    ( is => 'ro', isa => 'Replay::ReportEngine', required => 1);
 
 sub BUILD {
     my $self = shift;
