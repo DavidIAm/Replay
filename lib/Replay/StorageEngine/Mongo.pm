@@ -9,7 +9,7 @@ use Carp qw/confess croak carp/;
 use Replay::Message::Reducable;
 use Replay::Message::Cleared::State;
 use Replay::Message;
-use Data::Dumper;
+
 our $VERSION = 0.02;
 
 sub BOXES {
@@ -60,15 +60,14 @@ sub ensure_locked {
 
     my ( $package, $filename, $line ) = caller;
     my $curlock = $self->lockreport( $lock->idkey );
-    warn " $$ "
-	    . $curlock->matches($lock)
+    croak " $$ "
         . 'This document '
         . $lock->idkey->cubby
         . ' isn\'t locked with this signature ('
         . ( $lock->locked    || q^^ ) . q/!=/
         . ( $curlock->locked || q^^ ) . ")\n"
         if !$curlock->matches($lock);
-    return $curlock->matches($lock);
+    return 1;
 }
 
 sub clear_desktop {
@@ -113,72 +112,14 @@ sub absorb {
 
 sub inbox_to_desktop {
     my ( $self, $lock ) = @_;
-	warn("JPS inbox_to_desktop 1 lock=".Dumper($lock));
-
-my $count =  $self->BOXES->count(
-        {   idkey  => $lock->idkey->full_spec,
-            state  => 'inbox',
-            locked => { q^$^ . 'exists' => 0 }
-        });
-
-warn("JSP inbox_to_desktop 2 count=$count, locked=".$lock->locked()." idkey=".$lock->idkey->full_spec)
-  if ($lock->idkey->key eq 'preoened' and $lock->idkey->name eq 'VINSendDocumentEmail');
-
     $self->ensure_locked($lock);
-	my $r;
-
-	if ($self->ruleSource->by_idkey($lock->idkey)->capacity()){
-	   my $capacity =  $self->ruleSource->by_idkey($lock->idkey)->capacity();
-
-		my $idsToProcess = [];
- 	    my $atoms =  $self->BOXES->find(
+    my $r = $self->BOXES->update_many(
         {   idkey  => $lock->idkey->full_spec,
             state  => 'inbox',
             locked => { q^$^ . 'exists' => 0 }
-        })->fields({_id=>1})->limit($capacity);
-
-	    
-	    while (my $atom = $atoms->next()){
-           push(@{$idsToProcess},$atom->{'_id'});
-	    }
-		if (scalar(@{$idsToProcess})){
-            warn("JSP inbox_to_desktop other 2 locked=".$lock->locked()." ids=".Dumper($idsToProcess))
-			 if ($lock->idkey->key eq 'preoened' and $lock->idkey->name eq 'VINSendDocumentEmail');
-        
-            $r = $self->BOXES->update_many(
-            {   idkey  => $lock->idkey->full_spec,
-                state  => 'inbox',
-                locked => { q^$^ . 'exists' => 0 },
-                _id    => { q^$^ . 'in' => $idsToProcess }
-            },
-            { q^$^ . 'set' => { state => 'desktop', locked => $lock->locked, } });
-	    }
-		else {
-           $r = $self->BOXES->update_many(
-           {   idkey  => $lock->idkey->full_spec,
-               state  => 'inbox',
-               locked => { q^$^ . 'exists' => 0 },
-           },
-           { q^$^ . 'set' => { state => 'desktop', locked => $lock->locked, } }
-           );
-
-  	     }   
-   }
-   else {
-  	  $r = $self->BOXES->update_many(
-        {   idkey  => $lock->idkey->full_spec,
-            state  => 'inbox',
-            locked => { q^$^ . 'exists' => 0 },
         },
         { q^$^ . 'set' => { state => 'desktop', locked => $lock->locked, } }
-	  );
-	}
-
-	warn("JSP inbox_to_desktop out locked=".$lock->locked()." R=".Dumper($r))
-   	  if ($lock->idkey->key eq 'preoened' and $lock->idkey->name eq 'VINSendDocumentEmail');
-
-
-
+    );
     return $r;
 }
 
@@ -264,8 +205,7 @@ sub find_keys_need_reduce {
             name    => $rule->name,
             version => $rule->version,
             window  => q^-^,
-            key     => q^-^,
-			capacity=> $rule->capacity
+            key     => q^-^
         );
         foreach my $result (
             $self->collection($idkey)->find(
@@ -283,7 +223,6 @@ sub find_keys_need_reduce {
                 Replay::IdKey->new(
                 name    => $rule->name,
                 version => $rule->version,
-				capacity=> $rule->capacity,
                 Replay::IdKey->parse_cubby( $result->{idkey} )
                 );
         }

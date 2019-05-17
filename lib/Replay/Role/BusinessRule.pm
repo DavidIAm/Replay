@@ -15,8 +15,6 @@ has name => ( is => 'ro', required => 1, weak_ref => 1  );
 # [string]
 has version => ( is => 'ro', isa => 'Str', default => '1', weak_ref => 1  );
 
-has capacity =>  ( is => 'ro', isa => 'Int',  default=>0  );
-
 requires qw/match key_value_set window compare reduce/;
 
 has report_disposition => ( is => 'ro', default => 0 , weak_ref => 1 );
