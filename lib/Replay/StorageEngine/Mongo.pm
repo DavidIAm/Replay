@@ -9,7 +9,7 @@ use Carp qw/confess croak carp/;
 use Replay::Message::Reducable;
 use Replay::Message::Cleared::State;
 use Replay::Message;
-
+use Data::Dumper;
 our $VERSION = 0.02;
 
 sub BOXES {
@@ -59,14 +59,15 @@ sub ensure_locked {
 
     my ( $package, $filename, $line ) = caller;
     my $curlock = $self->lockreport( $lock->idkey );
-    croak " $$ "
+    warn " $$ "
+        . $curlock->matches($lock)
         . 'This document '
         . $lock->idkey->cubby
         . ' isn\'t locked with this signature ('
         . ( $lock->locked    || q^^ ) . q/!=/
         . ( $curlock->locked || q^^ ) . ")\n"
         if !$curlock->matches($lock);
-    return 1;
+    return $curlock->matches($lock);
 }
 
 sub clear_desktop {
@@ -111,24 +112,28 @@ sub absorb {
 
 sub inbox_to_desktop {
     my ( $self, $lock ) = @_;
-    $self->ensure_locked($lock);
-    my @idsToProcess = map { $_->{"_id"} } $self->BOXES->find(
-        {   idkey  => $lock->idkey->full_spec,
-            state  => 'inbox',
-            locked => { q^$^ . 'exists' => 0 }
-        },
-        { "_id" => 1 }
-    )->limit(20)->all();
+    warn( "JPS inbox_to_desktop 1 lock=" . Dumper($lock) );
 
-    my $r = $self->BOXES->update_many(
+    $self->ensure_locked($lock);
+
+    my $capacity = $self->ruleSource->by_idkey( $lock->idkey )->capacity();
+
+    my $idsToProcess = map { $_->{'_id'} } $self->BOXES->find(
         {   idkey  => $lock->idkey->full_spec,
             state  => 'inbox',
             _id    => { q^$^ . 'in' => [@idsToProcess] },
             locked => { q^$^ . 'exists' => 0 }
+        }
+    )->fields( { _id => 1 } )->limit($capacity)->all;
+
+    return $self->BOXES->update_many(
+        {   idkey  => $lock->idkey->full_spec,
+            state  => 'inbox',
+            locked => { q^$^ . 'exists' => 0 },
+            _id    => { q^$^ . 'in' => $idsToProcess }
         },
         { q^$^ . 'set' => { state => 'desktop', locked => $lock->locked, } }
     );
-    return $r;
 }
 
 # TODO: call this or something like it!
@@ -213,7 +218,8 @@ sub find_keys_need_reduce {
             name    => $rule->name,
             version => $rule->version,
             window  => q^-^,
-            key     => q^-^
+            key     => q^-^,
+            capacity=> $rule->capacity
         );
         foreach my $result (
             $self->collection($idkey)->find(
@@ -231,6 +237,7 @@ sub find_keys_need_reduce {
                 Replay::IdKey->new(
                 name    => $rule->name,
                 version => $rule->version,
+                capacity=> $rule->capacity,
                 Replay::IdKey->parse_cubby( $result->{idkey} )
                 );
         }
