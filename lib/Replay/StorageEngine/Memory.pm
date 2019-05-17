@@ -39,10 +39,9 @@ sub desktop_cursor {
 
 sub inbox_to_desktop {
     my ( $self, $lock ) = @_;
-    foreach ( @{ $self->BOXES( $lock->idkey ) } ) {
-        $_->{state} = 'desktop';
-    }
-    return;
+    return
+        scalar map { $_->{state} = 'desktop' }
+        @{ $self->BOXES( $lock->idkey ) };
 }
 
 # State transition = add new atom to inbox

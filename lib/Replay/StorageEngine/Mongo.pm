@@ -112,16 +112,14 @@ sub absorb {
 
 sub inbox_to_desktop {
     my ( $self, $lock ) = @_;
-    warn( "JPS inbox_to_desktop 1 lock=" . Dumper($lock) );
 
-    $self->ensure_locked($lock);
+    return 0 unless $self->ensure_locked($lock);
 
     my $capacity = $self->ruleSource->by_idkey( $lock->idkey )->capacity();
 
-    my $idsToProcess = map { $_->{'_id'} } $self->BOXES->find(
+    my @idsToProcess = map { $_->{'_id'} } $self->BOXES->find(
         {   idkey  => $lock->idkey->full_spec,
             state  => 'inbox',
-            _id    => { q^$^ . 'in' => [@idsToProcess] },
             locked => { q^$^ . 'exists' => 0 }
         }
     )->fields( { _id => 1 } )->limit($capacity)->all;
@@ -130,10 +128,10 @@ sub inbox_to_desktop {
         {   idkey  => $lock->idkey->full_spec,
             state  => 'inbox',
             locked => { q^$^ . 'exists' => 0 },
-            _id    => { q^$^ . 'in' => $idsToProcess }
+            _id    => { q^$^ . 'in' => [@idsToProcess] }
         },
         { q^$^ . 'set' => { state => 'desktop', locked => $lock->locked, } }
-    );
+    )->{modified_count};
 }
 
 # TODO: call this or something like it!

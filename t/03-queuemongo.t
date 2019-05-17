@@ -19,7 +19,7 @@ sub t_environment_reset : Test(startup => 2) {
     $replay->storageEngine->engine->db->drop;
 }
 
-sub a_replay_config : Test(startup => 2) {
+sub a_replay_config : Test(startup => 4) {
     my $self = shift;
     plan skip_all => 'REPLAY_TEST_CONFIG Env var not present ' 
      unless ($REPLAY_TEST_CONFIG );
@@ -35,8 +35,11 @@ sub a_replay_config : Test(startup => 2) {
         stage         => 'testscript-03-' . $ENV{USER},
         StorageEngine => {
             Mode => 'Mongo',
-            User => 'replayuser',
-            Pass => 'replaypass',
+            User => '',
+            Pass => '',
+        },
+        WORM => {
+            Directory => "./log",
         },
         EventSystem => {
             Mode        => 'AWSQueue',

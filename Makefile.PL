@@ -15,8 +15,8 @@ WriteMakefile(
     BUILD_REQUIRES =>
         { 'Test::More' => 0, 'Test::More' => 1.001003, 'Test::Most' => 0.33, },
     PREREQ_PM => {
-        'Amazon::SNS'                          => '1.2',
-        'Amazon::SQS::Simple'                  => '2.04',
+        'Amazon::SNS'                          => '1.3',
+        'Amazon::SQS::Simple'                  => '2.07',
         'AnyEvent'                             => '7.12',
         'Config::Locale'                       => '0.05',
         'Data::Dumper'                         => '2.121_08',

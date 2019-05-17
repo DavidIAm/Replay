@@ -144,25 +144,17 @@ sub checkout {
 
     my $lock = $self->checkout_record($prelock);
 
-    if ( !$lock->is_locked ) {
-        return $lock;
-    }
+    return $lock unless $lock->is_locked;
 
-    if ( $self->ensure_locked($lock) ) {
-        $self->inbox_to_desktop($lock);
-        return $lock;
-    }
+    return $lock if $self->inbox_to_desktop($lock);
 
     if ( $lock->is_expired ) {
         ($lock) = $self->expired_lock_recover( $lock, $timeout );
     }
 
-    if ( $lock->is_locked ) {
-        return $self->checkout_lock( $lock, $timeout );
-    }
-    else {
-        $self->emit_lock_error($lock);
-    }
+    return $self->checkout_record( $lock, $timeout ) if $lock->is_locked;
+
+    $self->emit_lock_error($lock);
 
     carp q(checkout after revert and relock failed. )
         . q(Mangled state in COLLECTION \()

@@ -20,17 +20,27 @@ our $VERSION = q(0.03);
 Readonly my $CURRENTFILE  => 'CURRENT';
 Readonly my $WRITABLEFILE => 'WRITABLE';
 
-has 'Root' =>
-    ( is => 'ro', isa => 'Str', builder => '_build_root', lazy => 1, weak_ref => 1);
+has 'Root' => (
+    is       => 'ro',
+    isa      => 'Str',
+    builder  => '_build_root',
+    lazy     => 1,
+    weak_ref => 1
+);
 
-has 'Name' =>
-    ( is => 'ro', isa => 'Str', builder => '_build_name', lazy => 1, weak_ref => 1);
+has 'Name' => (
+    is       => 'ro',
+    isa      => 'Str',
+    builder  => '_build_name',
+    lazy     => 1,
+    weak_ref => 1
+);
 
 has 'thisConfig' => ( is => 'ro', isa => 'HashRef', required => 1, );
 
 with 'Replay::Role::ReportEngine';
 
-has '+mode' => ( default => 'Filesystem',weak_ref => 1 );
+has '+mode' => ( default => 'Filesystem', weak_ref => 1 );
 
 my $store = {};
 
@@ -112,14 +122,14 @@ sub current_revision {
     if ( !-f $vfile ) {
         return undef;    ## no critic (ProhibitExplicitReturnUndef)
     }
-    my @File =  map { chomp && $_ } read_file($vfile);
+    my @File = map { chomp && $_ } read_file($vfile);
     return @File;
 }
 
 sub current {
     my ( $self, $idkey ) = @_;
     my @current = $self->current_revision( $self->directory($idkey) );
-    return  @current;
+    return @current;
 }
 
 # retrieves all the keys that point to valid deliveries in the current window
@@ -146,7 +156,7 @@ sub current_subdirs {
     my @current_subdirs = grep { -f catfile $parent_dir, $_, $CURRENTFILE }
         $self->subdirs($parent_dir);
     return @current_subdirs;
-        
+
 }
 
 # retrieves all the valid keys in the list for the next layer down in the reports
@@ -178,7 +188,7 @@ sub subkeys {
 # rule-version
 sub delivery_keys {
     my ( $self, $sumkey ) = @_;
-    my $parent_dir = $self->directory($sumkey);
+    my $parent_dir    = $self->directory($sumkey);
     my @delivery_keys = map {
         Replay::IdKey->new(
             name     => $sumkey->name,
@@ -195,7 +205,7 @@ sub delivery_keys {
 
 sub summary_keys {
     my ( $self, $sumkey ) = @_;
-    my $parent_dir = $self->directory($sumkey);
+    my $parent_dir   = $self->directory($sumkey);
     my @summary_keys = map {
         Replay::IdKey->new(
             name     => $sumkey->name,
@@ -211,13 +221,16 @@ sub summary_keys {
 
 sub filename_data {
     my ( $self, $directory, $revision ) = @_;
-    my $filename_data = catfile $directory, sprintf 'revision_%05d.data', $revision;
+    my $filename_data = catfile $directory, sprintf 'revision_%05d.data',
+        $revision;
     return $filename_data;
 }
 
 sub filename {
     my ( $self, $directory, $revision ) = @_;
-    my $filename = catfile $directory, sprintf 'revision_%05d', $revision;
+    my $revision_string = defined $revision ? $revision : 0;
+    my $filename = catfile $directory, sprintf 'revision_%05d',
+        $revision_string;
     return $filename;
 }
 

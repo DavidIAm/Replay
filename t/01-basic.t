@@ -19,6 +19,7 @@ sub a_replay_config : Test(startup) {
     $self->{storedir} = '/tmp/testscript-01-' . $ENV{USER};
     $self->{config}   = {
         stage         => 'testscript-01-' . $ENV{USER},
+        WORM => { Directory => './log' },
         EventSystem   => { Mode => 'Null' },
         StorageEngine => { Mode => 'Memory' },
         timeout       => 50,
