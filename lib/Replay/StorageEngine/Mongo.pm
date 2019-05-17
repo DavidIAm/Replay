@@ -20,13 +20,13 @@ sub BOXES {
 
 sub retrieve {
     my ( $self, $idkey ) = @_;
-    my $doc =  $self->document($idkey);
+    my $doc = $self->document($idkey);
     return $doc;
 }
 
 sub has_inbox_outstanding {
     my ( $self, $idkey ) = @_;
-    my $c = $self->BOXES->count(
+    my $c = $self->BOXES->count_documents(
         { idkey => $idkey->full_spec, state => 'inbox' } );
     return $c;
 }
@@ -48,8 +48,7 @@ sub cursor_each {
     my $break = 1;
     while ($break) {
         my @list = $cursor->batch;
-        $break = 0
-          if 0 == scalar @list;
+        $break = 0 if 0 == scalar @list;
         foreach (@list) { $callback->($_); }
     }
     return ();
@@ -117,12 +116,14 @@ sub inbox_to_desktop {
         {   idkey  => $lock->idkey->full_spec,
             state  => 'inbox',
             locked => { q^$^ . 'exists' => 0 }
-        }, { "_id": 1 }).limit(20)->all();
+        },
+        { "_id" => 1 }
+    )->limit(20)->all();
 
     my $r = $self->BOXES->update_many(
         {   idkey  => $lock->idkey->full_spec,
             state  => 'inbox',
-            _id => { q^$^ . 'in' => [ @idsToProcess ] },
+            _id    => { q^$^ . 'in' => [@idsToProcess] },
             locked => { q^$^ . 'exists' => 0 }
         },
         { q^$^ . 'set' => { state => 'desktop', locked => $lock->locked, } }
@@ -243,13 +244,13 @@ sub find_keys_need_reduce {
 }
 
 sub _build_dbpass {    ## no critic (ProhibitUnusedPrivateSubroutines)
-    my $self = shift;
+    my $self   = shift;
     my $dbpass = $self->config->{StorageEngine}{Pass};
     return $dbpass;
 }
 
 sub _build_dbuser {    ## no critic (ProhibitUnusedPrivateSubroutines)
-    my $self = shift;
+    my $self   = shift;
     my $dbuser = $self->config->{StorageEngine}{User};
     return $dbuser;
 }
@@ -261,8 +262,8 @@ sub _build_dbauthdb {    ## no critic (ProhibitUnusedPrivateSubroutines)
 }
 
 sub _build_dbname {      ## no critic (ProhibitUnusedPrivateSubroutines)
-    my $self = shift;
-    my $dbname =  $self->config->{stage} . '-replay';
+    my $self   = shift;
+    my $dbname = $self->config->{stage} . '-replay';
     return $dbname;
 }
 
