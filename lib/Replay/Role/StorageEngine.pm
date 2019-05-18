@@ -150,6 +150,7 @@ sub checkout {
 
     if ( $self->ensure_locked($lock) ) {
         $self->inbox_to_desktop($lock);
+        $self->emit_reducable_if_needed($lock->idkey);
         return $lock;
     }
 
