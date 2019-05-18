@@ -150,7 +150,7 @@ sub checkout {
 
     if ( $self->ensure_locked($lock) ) {
         $self->inbox_to_desktop($lock);
-        $self->emit_reducable_if_needed($lock->idkey);
+		$self->emit_reducable_if_needed($lock->idkey);
         return $lock;
     }
 
@@ -159,7 +159,7 @@ sub checkout {
     }
 
     if ( $lock->is_locked ) {
-        return $self->checkout_lock( $lock, $timeout );
+        return $self->checkout_record( $lock, $timeout );
     }
     else {
         $self->emit_lock_error($lock);
