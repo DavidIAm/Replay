@@ -4,8 +4,11 @@ use Moose;
 use Try::Tiny;
 use English '-no_match_vars';
 use Carp qw/croak/;
+use Readonly;
 
 our $VERSION = '0.01';
+
+Readonly my $DEFAULT_INTERVAL => 90;
 
 has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, );
 
@@ -15,19 +18,19 @@ has eventSystem =>
     ( is => 'ro', isa => 'Replay::EventSystem', required => 1, );
 
 has interval =>
-    ( is => 'ro', isa => 'Number', builder => '_build_interval', lazy => 1 );
+    ( is => 'ro', builder => '_build_interval', lazy => 1 );
 
 sub BUILD {
     my ($self) = @_;
     $self->eventSystem->register_cleanup_timer(
-        interval => 90,
+        interval => $self->interval,
         callback => sub { $self->storageEngine->revert_all_expired_locks() }
     );
 }
 
 sub _build_interval {
     my ($self) = @_;
-    return $self->config->{Janitor}->{interval};
+    return $self->config->{Janitor}->{interval} || $DEFAULT_INTERVAL;
 }
 
 1;
