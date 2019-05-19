@@ -14,12 +14,20 @@ has storageEngine =>
 has eventSystem =>
     ( is => 'ro', isa => 'Replay::EventSystem', required => 1, );
 
+has interval =>
+    ( is => 'ro', isa => 'Number', builder => '_build_interval', lazy => 1 );
+
 sub BUILD {
     my ($self) = @_;
     $self->eventSystem->register_cleanup_timer(
         interval => 90,
         callback => sub { $self->storageEngine->revert_all_expired_locks() }
     );
+}
+
+sub _build_interval {
+    my ($self) = @_;
+    return $self->config->{Janitor}->{interval};
 }
 
 1;

@@ -13,7 +13,7 @@ WriteMakefile(
     MIN_PERL_VERSION   => 5.8.8,
     CONFIGURE_REQUIRES => { 'ExtUtils::MakeMaker' => 0, },
     BUILD_REQUIRES =>
-        { 'Test::More' => 0, 'Test::More' => 1.001003, 'Test::Most' => 0.33, },
+        { 'Test::More' => 0, 'Test::More' => 1.001003, 'Test::Most' => 0.33, 'Test::MockModule' => 0.170000 },
     PREREQ_PM => {
         'Amazon::SNS'                          => '1.3',
         'Amazon::SQS::Simple'                  => '2.07',
