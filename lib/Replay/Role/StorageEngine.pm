@@ -1,7 +1,10 @@
 package Replay::Role::StorageEngine;
 
 use Moose::Role;
-requires qw(absorb retrieve find_keys_need_reduce ensure_locked checkin);
+requires qw(absorb retrieve find_keys_need_reduce find_keys_active_checkout
+    ensure_locked window_all checkin desktop_cursor clear_desktop
+    reabsorb inbox_to_desktop relock_expired list_expired_keys
+    just_unlock purge);
 use Digest::MD5 qw/md5_hex/;
 use feature 'current_sub';
 use Data::Dumper;
@@ -27,7 +30,7 @@ use Storable qw/freeze/;
 use Try::Tiny;
 use Readonly;
 use AnyEvent;
-    
+
 use Carp qw/croak carp/;
 
 our $VERSION = '0.02';
@@ -38,14 +41,14 @@ $Storable::canonical = 1;    ## no critic (ProhibitPackageVars)
 
 Readonly my $READONLY => 1;
 
-has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1  );
+has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1 );
 
 has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1 );
 
 has eventSystem =>
-    ( is => 'ro', isa => 'Replay::EventSystem', required => 1  );
+    ( is => 'ro', isa => 'Replay::EventSystem', required => 1 );
 
-has uuid => ( is => 'ro', builder => '_build_uuid', lazy => 1);
+has uuid => ( is => 'ro', builder => '_build_uuid', lazy => 1 );
 
 has timeout => ( is => 'ro', default => 20, );
 
@@ -90,24 +93,22 @@ sub merge {
 }
 
 sub expired_lock_recover {
-    my ( $self, $lock, $timeout ) = @_;
+    my ( $self, $idkey, $timeout ) = @_;
 
     my $relock
-        = Replay::StorageEngine::Lock->prospective( $lock->idkey, $timeout );
+        = Replay::StorageEngine::Lock->prospective( $idkey, $timeout );
     my $expire_relock = $self->relock_expired($relock);
 
     if ( $expire_relock->matches($relock) ) {
         $self->revert_this_record($expire_relock);
         $self->eventSystem->control->emit(
             Replay::Message::NoLock::PostRevert->new(
-                $lock->idkey->marshall
+                $idkey->marshall
             ),
         );
     }
     else {
-        carp 'Unable to relock expired! ('
-            . $lock->locked . ')? '
-            . $lock->idkey->cubby . qq(\n);
+        carp 'Unable to relock expired! ' . $idkey->cubby . qq(\n);
         return;
     }
     return ($expire_relock);
@@ -150,16 +151,16 @@ sub checkout {
 
     if ( $self->ensure_locked($lock) ) {
         $self->inbox_to_desktop($lock);
-		$self->emit_reducable_if_needed($lock->idkey);
+        $self->emit_reducable_if_needed( $lock->idkey );
         return $lock;
     }
 
     if ( $lock->is_expired ) {
-        ($lock) = $self->expired_lock_recover( $lock, $timeout );
+        ($lock) = $self->expired_lock_recover( $lock->idkey, $timeout );
     }
 
     if ( $lock->is_locked ) {
-        return $self->checkout_record( $lock, $timeout );
+        return $self->checkout_lock( $lock, $timeout );
     }
     else {
         $self->emit_lock_error($lock);
@@ -179,8 +180,8 @@ before 'checkin' => sub {
     my ( $self, $lock, $cubby ) = @_;
 
     #     carp('Replay::BaseStorageEnginee  before checkin');
-    my $unlock_msg =  Replay::Message::Unlocked->new( $lock->idkey->marshall );
-    return $self->eventSystem->control->emit($unlock_msg );
+    my $unlock_msg = Replay::Message::Unlocked->new( $lock->idkey->marshall );
+    return $self->eventSystem->control->emit($unlock_msg);
 };
 
 before 'retrieve' => sub {
@@ -206,7 +207,8 @@ sub revert {
     $self->revert_this_record($lock);
     my $revert_msg = Replay::Message::Reverted->new( $lock->idkey->marshall );
     return $self->eventSystem->control->emit($revert_msg);
-    $self->emit_reducable_if_needed($lock->idkey);
+    $self->emit_reducable_if_needed( $lock->idkey );
+
     #hey Dave what is the line above for will never get to it???
 }
 
@@ -286,9 +288,9 @@ sub fetch_transitional_state {
 
 sub emit_reducable_if_needed {
     my ( $self, $idkey ) = @_;
-    if ( $self->has_inbox_outstanding( $idkey ))
-    {   # renotify reducer if inbox currently has entries
-        my $reduce_msg =  Replay::Message::Reducable->new( $idkey->marshall );
+    if ( $self->has_inbox_outstanding($idkey) )
+    {    # renotify reducer if inbox currently has entries
+        my $reduce_msg = Replay::Message::Reducable->new( $idkey->marshall );
         $self->eventSystem->reduce->emit($reduce_msg);
     }
 }
@@ -308,7 +310,8 @@ sub store_new_canonical_state {
         carp 'ABSORB DEFERRED ATOM';
         $self->absorb( $idkey, $atom, {} );
     }
-    my $new_conical_msg = Replay::Message::NewCanonical->new( $idkey->marshall );
+    my $new_conical_msg
+        = Replay::Message::NewCanonical->new( $idkey->marshall );
     $self->eventSystem->report->emit($new_conical_msg);
     $self->eventSystem->control->emit($new_conical_msg);
     $self->emit_reducable_if_needed($idkey);
@@ -341,7 +344,7 @@ sub enumerate_keys {
 
 sub new_document {
     my ( $self, $idkey ) = @_;
-    
+
     return {
         idkey        => { $idkey->hash_list },
         Windows      => [],
@@ -350,9 +353,19 @@ sub new_document {
     };
 }
 
+sub revert_all_expired_locks {
+    my ($self) = @_;
+    foreach my $lock ( 
+      grep { $_->is_locked }
+      map { $self->expired_lock_recover($_) }
+      $self->list_expired_keys() ) {
+        $self->revert($lock);
+    }
+}
+
 sub _build_uuid {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    my $uuid =  Data::UUID->new;
+    my $uuid = Data::UUID->new;
     return $uuid;
 }
 
@@ -518,11 +531,15 @@ else
 select and return all of the documents representing states within the
 specified window, in a hash keyed by the key within the window
 
-=head2 objectlist = find_keys_need_reduce(idkey)
+=head2 objectlist = find_keys_need_reduce()
 
 returns a list of idkey objects which represent all of the keys in the replay
-system that appear to be locked, in progress, or have outstanding absorptions
-that need reduced.
+system that appear to have outstanding absorptions that need reduced.
+
+=head2 objectlist = find_keys_active_checkout()
+
+returns a list of idkey objects which represent all of the keys in the replay
+system that appear to be in progress.
 
 =head1 INTERNAL METHODS
 

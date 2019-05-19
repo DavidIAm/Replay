@@ -92,6 +92,11 @@ sub collection {
     return $collection;
 }
 
+sub from_full_spec {
+    my ( $class, $spec ) = @_;
+    return $class->new( $class->parse_full_spec($spec) );
+}
+
 sub parse_full_spec {
     my ( $class, $spec ) = @_;
     my $dom      = qr/domain-(.+)/smix;

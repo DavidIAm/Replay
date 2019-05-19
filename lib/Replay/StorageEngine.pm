@@ -8,21 +8,41 @@ use Carp qw/croak/;
 our $VERSION = '0.03';
 
 has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, );
+
 has engine =>
     ( is => 'ro', isa => 'Object', builder => '_build_engine', lazy => 1, );
+
 has mode => (
     is       => 'ro',
     isa      => 'Str',
     required => 1,
     builder  => '_build_mode',
     lazy     => 1,
-     
 );
-has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1,  );
+
+has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1, );
+
 has eventSystem =>
-    ( is => 'ro', isa => 'Replay::EventSystem', required => 1,  );
+    ( is => 'ro', isa => 'Replay::EventSystem', required => 1, );
+
+sub force_clean_initialize {
+    my ( $self, @args ) = @_;
+    $self->expire_all_locks(@args);
+    $self->revert_all_expired_locks(@args);
+    return $self->find_keys_need_reduce(@args);
+}
 
 # Delegate the api points
+sub expire_all_locks {
+    my ( $self, @args ) = @_;
+    my @expired = $self->engine->expire_all_locks(@args);
+}
+
+sub list_expired_locks {
+    my ( $self, @args ) = @_;
+    my @expired = $self->engine->list_expired_keys(@args);
+}
+
 sub retrieve {
     my ( $self, @args ) = @_;
     my $retrieve = $self->engine->retrieve(@args);
@@ -67,13 +87,19 @@ sub store_new_canonical_state {
 
 sub window_all {
     my ( $self, @args ) = @_;
-    my @all =  $self->engine->window_all(@args);
+    my @all = $self->engine->window_all(@args);
     return @all;
 }
 
 sub find_keys_need_reduce {
     my ( $self, @args ) = @_;
     my @need = $self->engine->find_keys_need_reduce(@args);
+    return @need;
+}
+
+sub find_keys_active_checkout {
+    my ( $self, @args ) = @_;
+    my @need = $self->engine->find_keys_active_checkout(@args);
     return @need;
 }
 
@@ -274,9 +300,13 @@ see BaseStorageEngine store_new_canonical_state
 
 see BaseStorageEngine window_all
 
+=head2 find_keys_active_checkout(idkey)
+
+see Replay::Role::StorageEngine::find_keys_active_checkout
+
 =head2 find_keys_need_reduce(idkey)
 
-see BaseStorageEngine find_keys_need_reduce
+see Replay::Role::StorageEngine::find_keys_need_reduce
 
 =head1 AUTHOR
 

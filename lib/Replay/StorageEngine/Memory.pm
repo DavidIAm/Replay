@@ -10,7 +10,7 @@ use Replay::IdKey;
 use Set::Scalar;
 use Set::Object;
 use Data::Dumper;
-   
+
 use Carp qw/croak carp cluck/;
 
 has 'debug' => ( is => 'rw' );
@@ -82,10 +82,9 @@ sub purge {
     return $document;
 }
 
-
 sub has_inbox_outstanding {
     my ( $self, $idkey ) = @_;
-    return 0; #stub in for now
+    return 0;    #stub in for now
 }
 
 sub document_exists {
@@ -154,13 +153,18 @@ sub ensure_locked {
     return 1;
 }
 
+sub reabsorb {
+    my ( $self, $lock ) = @_;
+    foreach ( @{ $self->BOXES( $lock->idkey ) } ) { $_->{state} = 'inbox'; }
+}
+
 sub revert_this_record {
     my ( $self, $lock ) = @_;
 
     $self->ensure_locked($lock);
 
     # reabsorb all of the desktop atoms into the document
-    foreach ( @{ $self->BOXES( $lock->idkey ) } ) { $_->{state} = 'inbox'; }
+    $self->reabsorb($lock);
 
     $self->just_unlock($lock);
     return;
@@ -199,42 +203,68 @@ sub collections {
 sub collection {
     my ( $self, $idkey ) = @_;
     my $name = $idkey->collection();
-     carp 'POSTIION NAME' . $name . ' - ' . $idkey->cubby if $self->{debug};
+    carp 'POSTIION NAME' . $name . ' - ' . $idkey->cubby if $self->{debug};
     return $store->{$name} ||= {};
 }
 
-sub find_keys_need_reduce {
+sub list_expired_keys {
+    my ($self) = @_;
+    return
+        map  { Replay::IdKey->from_full_spec( $_->spec ) }
+        grep { $self->is_expired($_) } values %{$store};
+}
 
+sub expire_all_locks {
+    my ($self) = @_;
+    foreach my $state ( grep { $self->is_locked($_) } values %{$store} ) {
+        $_->{lockExpireEpoch} = 1;
+    }
+}
+
+sub is_expired {
+    my ( $self, $state ) = @_;
+    return $state->{lockExpireEpoch} < time;
+}
+
+sub is_locked {
+    my ( $self, $state ) = @_;
+    return $state->{locked} || exists $_->{lockExpireEpoch};
+}
+
+sub find_keys_need_reduce {
     my ($self) = @_;
 
-    #    carp('Replay::StorageEngine::Memory  find_keys_need_reduce'. $self );
-    my @idkeys = ();
-    my $rule;
-    while ( $rule
-        = $rule ? $self->ruleSource->next : $self->ruleSource->first )
-    {
-        my $idkey = Replay::IdKey->new(
-            name    => $rule->name,
-            version => $rule->version,
-            window  => q^-^,
-            key     => q^-^
-        );
-        push @idkeys, map {
-            Replay::IdKey->new(
-                name    => $rule->name,
-                version => $rule->version,
-                Replay::IdKey->parse_cubby( $_->{idkey} )
-            );
-            } grep { exists $_->{locked} || exists $_->{lockExpireEpoch} }
-            values %{$store};
-    }
-
     # Tightly coupled to BOXES and how it stores information
-    push @idkeys,
-        map { Replay::IdKey->new( Replay::IdKey->parse_spec( $_->spec ) ) }
+    my @idkeys
+        = map { Replay::IdKey->new( Replay::IdKey->parse_spec( $_->spec ) ) }
         grep { 0 < scalar @{ $self->{BOXES}{$_} || [] } }
         keys %{ $self->{BOXES} };
     return @idkeys;
+}
+
+sub find_keys_active_checkout {
+    my ($self) = @_;
+
+    my @idkeys
+        = map { Replay::IdKey->new( Replay::IdKey->parse_spec( $_->spec ) ) }
+        grep {
+        grep { $_->{state} eq 'desktop' }
+            @{ $self->{BOXES}{$_} || [] }
+        } keys %{ $self->{BOXES} };
+    return @idkeys;
+}
+
+sub is_valid_lock {
+    my ( $self, $lock ) = @_;
+    return $self->retrieve( $lock->idkey )->{locked} eq $lock->locked;
+}
+
+sub clear_desktop {
+    my ( $self, $lock ) = @_;
+    if ( $self->is_valid_lock($lock) ) {
+        my $new_set = [ grep { $_->{state} ne 'desktop' }
+                @{ $self->BOXES( $lock->idkey ) } ];
+    }
 }
 
 1;

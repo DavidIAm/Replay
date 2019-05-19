@@ -22,12 +22,11 @@ use JSON;
 use Scalar::Util qw/blessed/;
 use Carp qw/confess/;
 
-
-has subscriptionARN  => ( is => 'rw', isa => 'Str' );
+has subscriptionARN => ( is => 'rw', isa => 'Str' );
 has purpose => ( is => 'ro', isa => 'Str', required => 1, );
 has subscribers => ( is => 'ro', isa => 'ArrayRef', default => sub { [] }, );
 has sns =>
-    ( is => 'ro', isa => 'Amazon::SNS', builder => '_build_sns', lazy => 1);
+    ( is => 'ro', isa => 'Amazon::SNS', builder => '_build_sns', lazy => 1 );
 has sqs => (
     is      => 'ro',
     isa     => 'Amazon::SQS::Simple',
@@ -71,7 +70,7 @@ sub emit {
     if ( !$message->does('Replay::Role::Envelope') ) {
         confess 'Can only emit Replay::Role::Envelope consumer';
     }
-    my $uuid = $message->UUID;
+    my $uuid  = $message->UUID;
     my $topic = $self->topic;
     $topic->Publish( to_json $message->marshall ) or return;
 
@@ -104,7 +103,7 @@ sub poll {
 sub subscribe {
     my ( $self, $callback ) = @_;
     croak 'callback must be code' if 'CODE' ne ref $callback;
-   push @{ $self->subscribers }, $callback;
+    push @{ $self->subscribers }, $callback;
     return;
 }
 
@@ -173,13 +172,12 @@ sub _build_sns {    ## no critic (ProhibitUnusedPrivateSubroutines)
 sub _build_queue {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     carp q(BUILDING QUEUE ) . $self->queueName if $ENV{DEBUG_REPLAY_TEST};
-    my $sqs = $self->sqs();
-    my $name =  $self->queueName;
-    my $queue = $sqs->CreateQueue($name);
+    my $sqs      = $self->sqs();
+    my $name     = $self->queueName;
+    my $queue    = $sqs->CreateQueue($name);
     my $queuearn = $self->queuearn;
-    my $topic =  $self->topic->arn;
-    carp q(SETTING QUEUE POLICY ) .$name
-        if $ENV{DEBUG_REPLAY_TEST};
+    my $topic    = $self->topic->arn;
+    carp q(SETTING QUEUE POLICY ) . $name if $ENV{DEBUG_REPLAY_TEST};
     $queue->SetAttribute(
         'Policy',
         to_json(
@@ -191,17 +189,15 @@ sub _build_queue {    ## no critic (ProhibitUnusedPrivateSubroutines)
                         q(Action)    => q(sqs:SendMessage),
                         q(Resource)  => $queuearn,
                         q(Condition) => {
-                            q(ArnEquals) =>
-                                { q(aws:SourceArn) => $topic }
+                            q(ArnEquals) => { q(aws:SourceArn) => $topic }
                         }
                     }
                 ]
             }
         )
     );
-    carp q(SUBSCRIBING TO QUEUE ) . $name
-        if $ENV{DEBUG_REPLAY_TEST};
-    my $sns = $self->sns();
+    carp q(SUBSCRIBING TO QUEUE ) . $name if $ENV{DEBUG_REPLAY_TEST};
+    my $sns              = $self->sns();
     my $subscription_arn = $sns->dispatch(
         {   Action   => 'Subscribe',
             Endpoint => $queuearn,
@@ -251,10 +247,7 @@ sub _build_topic {         ## no critic (ProhibitUnusedPrivateSubroutines)
     else {
         $topic = $sns->CreateTopic( $self->topicName );
     }
-    croak 'SNS error cannot create topic='
-        . $topic
-        . ' Error:'
-        . $sns->error
+    croak 'SNS error cannot create topic=' . $topic . ' Error:' . $sns->error
         if ( $sns->error );
     return $topic;
 }
@@ -272,7 +265,8 @@ sub _build_queuearn {      ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
     my ( $type, $domain, $service, $region, $id, $name ) = split /:/sxm,
         $self->topic->arn;
-    my $arn= join q(:), $type, $domain, 'sqs', $region, $id, $self->queueName;   
+    my $arn = join q(:), $type, $domain, 'sqs', $region, $id,
+        $self->queueName;
     return $arn;
 }
 

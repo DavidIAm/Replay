@@ -64,7 +64,7 @@ sub prospective {
     my $lock = $class->new(
         {   idkey           => $idkey,
             lockExpireEpoch => time + $timeout,
-            locked  => my $sig = state_signature( $idkey, [ $class->generate_uuid ] ),
+            locked  => state_signature( $idkey, [ $class->generate_uuid ] ),
             timeout => $timeout,
         }
     );

@@ -189,30 +189,39 @@ sub relock_expired {
     return $relock;
 }
 
-sub revert_this_record {
+sub count_inbox_outstanding {
+    my ($self, $idkey)  = @_;
+    $self->BOXES->count_documents(
+        {   idkey  => $idkey->full_spec,
+            state  => 'inbox'
+        }
+    );
+}
+
+sub just_unlock {
     my ( $self, $lock ) = @_;
-
-    my $current = $self->lockreport( $lock->idkey );
-    croak " $$ cannot revert record is not locked" if !$lock->locked;
-    croak " $$  cannot revert because this is not my lock - sig "
-        . $current->locked
-        . ' lock '
-        . $lock->locked . ' or '
-        if !$lock->matches($current);
-    croak " $$ cannot revert because this lock is expired "
-        . ( $lock->{lockExpireEpoch} - time )
-        . ' seconds overdue.'
-        if $lock->is_expired;
-
-    # reabsorb all of the desktop atoms into the document
-    my $r = $self->reabsorb($lock);
 
     my $unlock = $self->collection( $lock->idkey )->update_one(
         { idkey => $lock->idkey->cubby, locked => $lock->locked },
         { q^$^ . 'unset' => { locked => 1, lockExpireEpoch => 1, } },
     );
 
-    return $lock;
+    return $unlock;
+}
+
+sub purge {
+    my ( $self, $lock ) = @_;
+    if ($self->collection( $lock->idkey )->delete_one(
+            {   idkey     => $lock->idkey->cubby,
+                canonical => { q^$^ . 'exists' => 0 }
+            }
+        )
+        )
+    {
+        $self->eventSystem->control->emit(
+            Replay::Message::Cleared::State->new( $lock->idkey->marshall ),
+        );
+    }
 }
 
 sub update_and_unlock {
@@ -242,6 +251,132 @@ sub update_and_unlock {
     );
     my $retrieve = $self->retrieve( $lock->idkey );
     return $retrieve;
+}
+
+sub window_all {
+    my ( $self, $idkey ) = @_;
+
+    return {
+        map { $_->{IdKey}->{key} => $_->{canonical} || [] }
+            grep { defined $_->{IdKey}->{key} }
+            $self->collection($idkey)->find(
+            { idkey => { q^$^ . 'regex' => q(^) . $idkey->window_prefix } }
+            )->all
+    };
+}
+
+sub list_expired_keys {
+    my ($self) = @_;
+    my @idkeys = map {
+      Replay::IdKey->from_full_spec( $_->{idkey} )
+    } $self->BOXES->find(
+        { locked => { q^$^ . 'exists' => 1 },
+            lockExpireEpoch => { q^$^ . 'lt' => time } },
+        { idkey => 1 }
+    )->all;
+    return @idkeys;
+}
+
+sub find_keys_need_reduce {
+    my ($self) = @_;
+
+    my @idkeys = map {
+      Replay::IdKey->from_full_spec( $_->{idkey} )
+    } $self->BOXES->find(
+        { state => 'inbox' }, { idkey => 1 } )->all;
+    return @idkeys;
+}
+
+sub find_keys_active_checkout {
+    my ($self) = @_;
+
+    my @idkeys = map {
+      Replay::IdKey->new( Replay::IdKey->parse_spec( $_->{idkey} ) )
+    } $self->BOXES->find(
+        { state => 'desktop' }, { idkey => 1 } )->all;
+    return @idkeys;
+}
+
+sub desktop_cursor {
+    my ( $self, $lock ) = @_;
+    $self->ensure_locked($lock);
+    my $c = $self->BOXES->find(
+        {   idkey  => $lock->idkey->full_spec,
+            state  => 'desktop',
+            locked => $lock->locked,
+        }
+    );
+    return $c;
+}
+
+sub clear_desktop {
+    my ( $self, $lock ) = @_;
+    $self->ensure_locked($lock);
+    my $r = $self->BOXES->delete_many(
+        {   idkey  => $lock->idkey->full_spec,
+            state  => 'desktop',
+            locked => $lock->locked,
+        }
+    );
+    return $r;
+}
+
+sub reabsorb {
+    my ( $self, $lock ) = @_;
+    $self->ensure_locked($lock);
+    my $r = $self->BOXES->update_many(
+        {   idkey  => $lock->idkey->full_spec,
+            state  => 'desktop',
+            locked => $lock->locked
+        },
+        {   q^$^ . 'set'   => { state  => 'inbox' },
+            q^$^ . 'unset' => { locked => 1 }
+        }
+    );
+    return $r;
+}
+
+sub absorb {
+    my ( $self, $idkey, $atom, $meta ) = @_;
+
+    my $r = $self->BOXES->insert_one(
+        {   idkey => $idkey->full_spec,
+            meta  => $meta,
+            atom  => $atom,
+            state => 'inbox',
+        }
+    );
+    return $r;
+}
+
+sub inbox_to_desktop {
+    my ( $self, $lock ) = @_;
+
+    return 0 unless $self->ensure_locked($lock);
+
+    my $capacity = $self->ruleSource->by_idkey( $lock->idkey )->capacity();
+
+    my @idsToProcess = map { $_->{'_id'} } $self->BOXES->find(
+        {   idkey  => $lock->idkey->full_spec,
+            state  => 'inbox',
+            locked => { q^$^ . 'exists' => 0 }
+        }
+    )->fields( { _id => 1 } )->limit($capacity)->all;
+
+    return $self->BOXES->update_many(
+        {   idkey  => $lock->idkey->full_spec,
+            state  => 'inbox',
+            locked => { q^$^ . 'exists' => 0 },
+            _id    => { q^$^ . 'in' => [@idsToProcess] }
+        },
+        { q^$^ . 'set' => { state => 'desktop', locked => $lock->locked, } }
+    )->{modified_count};
+}
+
+sub BOXES {
+    my ($self) = @_;
+    my $boxes = $self->{db}->get_collection('BOXES');
+    return $boxes;
 }
 
 1;

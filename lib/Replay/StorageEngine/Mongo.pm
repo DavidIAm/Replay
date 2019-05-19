@@ -12,12 +12,6 @@ use Replay::Message;
 use Data::Dumper;
 our $VERSION = 0.02;
 
-sub BOXES {
-    my ($self) = @_;
-    my $boxes = $self->{db}->get_collection('BOXES');
-    return $boxes;
-}
-
 sub retrieve {
     my ( $self, $idkey ) = @_;
     my $doc = $self->document($idkey);
@@ -26,21 +20,7 @@ sub retrieve {
 
 sub has_inbox_outstanding {
     my ( $self, $idkey ) = @_;
-    my $c = $self->BOXES->count(
-        { idkey => $idkey->full_spec, state => 'inbox' } );
-    return $c;
-}
-
-sub desktop_cursor {
-    my ( $self, $lock ) = @_;
-    $self->ensure_locked($lock);
-    my $c = $self->BOXES->find(
-        {   idkey  => $lock->idkey->full_spec,
-            state  => 'desktop',
-            locked => $lock->locked,
-        }
-    );
-    return $c;
+    return $self->count_inbox_outstanding($idkey);
 }
 
 sub cursor_each {
@@ -70,95 +50,7 @@ sub ensure_locked {
     return $curlock->matches($lock);
 }
 
-sub clear_desktop {
-    my ( $self, $lock ) = @_;
-    $self->ensure_locked($lock);
-    my $r = $self->BOXES->delete_many(
-        {   idkey  => $lock->idkey->full_spec,
-            state  => 'desktop',
-            locked => $lock->locked,
-        }
-    );
-    return $r;
-}
-
-sub reabsorb {
-    my ( $self, $lock ) = @_;
-    $self->ensure_locked($lock);
-    my $r = $self->BOXES->update_many(
-        {   idkey  => $lock->idkey->full_spec,
-            state  => 'desktop',
-            locked => $lock->locked
-        },
-        {   q^$^ . 'set'   => { state  => 'inbox' },
-            q^$^ . 'unset' => { locked => 1 }
-        }
-    );
-    return $r;
-}
-
-sub absorb {
-    my ( $self, $idkey, $atom, $meta ) = @_;
-
-    my $r = $self->BOXES->insert_one(
-        {   idkey => $idkey->full_spec,
-            meta  => $meta,
-            atom  => $atom,
-            state => 'inbox',
-        }
-    );
-    return $r;
-}
-
-sub inbox_to_desktop {
-    my ( $self, $lock ) = @_;
-
-    return 0 unless $self->ensure_locked($lock);
-
-    my $capacity = $self->ruleSource->by_idkey( $lock->idkey )->capacity();
-
-    my @idsToProcess = map { $_->{'_id'} } $self->BOXES->find(
-        {   idkey  => $lock->idkey->full_spec,
-            state  => 'inbox',
-            locked => { q^$^ . 'exists' => 0 }
-        }
-    )->fields( { _id => 1 } )->limit($capacity)->all;
-
-    return $self->BOXES->update_many(
-        {   idkey  => $lock->idkey->full_spec,
-            state  => 'inbox',
-            locked => { q^$^ . 'exists' => 0 },
-            _id    => { q^$^ . 'in' => [@idsToProcess] }
-        },
-        { q^$^ . 'set' => { state => 'desktop', locked => $lock->locked, } }
-    )->{modified_count};
-}
-
 # TODO: call this or something like it!
-sub update_meta {
-    my ( $self, $idkey, $meta ) = @_;
-    return $self->collection($idkey)->update(
-        { idkey => $idkey->cubby },
-        {   q^$^
-                . 'addToSet' => {
-                Windows    => $idkey->window,
-                Timeblocks => { q^$^ . 'each' => $meta->{Timeblocks} || [] },
-                Ruleversions =>
-                    { q^$^ . 'each' => $meta->{Ruleversions} || [] },
-                },
-            q^$^
-                . 'setOnInsert' =>
-                { idkey => $idkey->cubby, IdKey => $idkey->marshall },
-            q^$^ . 'set' => { reducable_emitted => 1 },
-        },
-        {   fields            => { reducable_emitted => 1 },
-            upsert            => 1,
-            multiple          => 0,
-            returnNewDocument => 0,
-        }
-    );
-}
-
 # Locking states
 # 1. unlocked ( lock does not exist )
 # 2. locked unexpired ( lock set to a signature, lockExpired epoch in future )
@@ -174,78 +66,34 @@ sub update_meta {
 sub checkin {
     my ( $self, $lock, $state ) = @_;
 
-    # warn('Replay::StorageEngine::Mongo  checkin' );
+    # warn('Replay::StorageEngine::Mongo checkin' );
     my $result = $self->update_and_unlock( $lock, $state );
-    if ($self->collection( $lock->idkey )->delete_one(
-            {   idkey     => $lock->idkey->cubby,
-                canonical => { q^$^ . 'exists' => 0 }
-            }
-        )
-        )
-    {
-        $self->eventSystem->control->emit(
-            Replay::Message::Cleared::State->new( $lock->idkey->marshall ),
-        );
-    }
+    $self->purge($lock);
+
     return if not defined $result;
     return $result;
 }
 
-sub window_all {
-    my ( $self, $idkey ) = @_;
+sub revert_this_record {
+    my ( $self, $lock ) = @_;
 
-    return {
-        map { $_->{IdKey}->{key} => $_->{canonical} || [] }
-            grep { defined $_->{IdKey}->{key} }
-            $self->collection($idkey)->find(
-            { idkey => { q^$^ . 'regex' => q(^) . $idkey->window_prefix } }
-            )->all
-    };
-}
+    my $current = $self->lockreport( $lock->idkey );
+    croak " $$ cannot revert record is not locked" if !$lock->locked;
+    croak " $$  cannot revert because this is not my lock - sig "
+        . $current->locked
+        . ' lock '
+        . $lock->locked . ' or '
+        if !$lock->matches($current);
+    croak " $$ cannot revert because this lock is expired "
+        . ( $lock->{lockExpireEpoch} - time )
+        . ' seconds overdue.'
+        if $lock->is_expired;
 
-sub find_keys_need_reduce {
-    my ($self) = @_;
+    # reabsorb all of the desktop atoms into the document
+    my $r = $self->reabsorb($lock);
 
-    #    warn('Replay::StorageEngine::Mongo  find_keys_need_reduce $self' );
-    my @idkeys = ();
-    my $rule;
-    while ( $rule
-        = $rule ? $self->ruleSource->next : $self->ruleSource->first )
-    {
-        my $idkey = Replay::IdKey->new(
-            name    => $rule->name,
-            version => $rule->version,
-            window  => q^-^,
-            key     => q^-^,
-            capacity=> $rule->capacity
-        );
-        foreach my $result (
-            $self->collection($idkey)->find(
-                {   q^$^
-                        . 'or' => [
-                        { locked          => { q^$^ . 'exists' => 1 } },
-                        { lockExpireEpoch => { q^$^ . 'exists' => 1 } }
-                        ]
-                },
-                { idkey => 1 }
-            )->all
-            )
-        {
-            push @idkeys,
-                Replay::IdKey->new(
-                name    => $rule->name,
-                version => $rule->version,
-                capacity=> $rule->capacity,
-                Replay::IdKey->parse_cubby( $result->{idkey} )
-                );
-        }
-    }
-
-    #    push @idkeys,
-    #        map { Replay::IdKey->new( Replay::IdKey->parse_full_spec($_) ) }
-    #        Set::Scalar->new( map { $_->{idkey} }
-    #            $self->BOXES->find( {}, { idkey => 1 } )->all )->members;
-    return @idkeys;
+    my $unlock = $self->just_unlock($lock);
+    return $lock;
 }
 
 sub _build_dbpass {    ## no critic (ProhibitUnusedPrivateSubroutines)
@@ -278,23 +126,6 @@ sub _build_db {          ## no critic (ProhibitUnusedPrivateSubroutines)
     my $db     = $self->mongo->get_database( $self->dbname );
     return $db;
 }
-
-# sub collection {
-# my ( $self, $idkey ) = @_;
-# my $name = $idkey->collection();
-# return $self->db->get_collection($name);
-# }
-
-# sub document {
-# my ( $self, $idkey ) = @_;
-# return $self->collection($idkey)->find( { idkey => $idkey->cubby } )->next
-# || $self->new_document($idkey);
-# }
-
-# sub generate_uuid {
-# my ($self) = @_;
-# return $self->uuid->to_string( $self->uuid->create );
-# }
 
 1;
 

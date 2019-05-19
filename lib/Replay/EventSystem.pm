@@ -17,6 +17,7 @@ our $VERSION = '0.02';
 
 Readonly my $LTYEAR         => 1900;
 Readonly my $SECS_IN_MINUTE => 60;
+Readonly my $DEFAULT_CLEANUP_INTERVAL_SECONDS => 90;
 
 #my $quitting = 0;
 
@@ -27,7 +28,6 @@ has control => (
     predicate => 'has_control',
     lazy      => 1,
     clearer   => 'clear_control',
-    
 );
 has map => (
     is        => 'rw',
@@ -100,8 +100,8 @@ has mode => (
     builder  => '_build_mode',
     lazy     => 1,
 );
-has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1 ,   );
-has domain => ( is => 'ro', default=> 'Worker' );   
+has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, );
+has domain => ( is => 'ro', default => 'Worker' );
 
 sub BUILD {
     my ($self) = @_;
@@ -127,13 +127,13 @@ sub initialize {
 }
 
 # sub heartbeat {
-    # my ($self) = @_;
-    # $self->{hbtimer} = AnyEvent->timer(
-        # after    => 1,
-        # interval => 1,
-        # cb       => sub { print q(<3) or croak q(cannot print heartbeat?) }
-    # );
-    # return $self->{hbtimer};
+# my ($self) = @_;
+# $self->{hbtimer} = AnyEvent->timer(
+# after    => 1,
+# interval => 1,
+# cb       => sub { print q(<3) or croak q(cannot print heartbeat?) }
+# );
+# return $self->{hbtimer};
 # }
 
 sub run {
@@ -176,8 +176,19 @@ sub run {
         }
     );
     carp q(Event loop startup now) if $ENV{DEBUG_REPLAY_TEST};
+
     EV::loop;
     return;
+}
+
+sub register_cleanup_timer {
+    my ($self, %options) = @_;
+    push @{$self->{cleanuptimer}}, AnyEvent->timer(
+      after => 0,
+      interval => $DEFAULT_CLEANUP_INTERVAL_SECONDS,
+      cb => sub {},
+      %options
+    );
 }
 
 sub stop {
@@ -273,24 +284,21 @@ sub clock {
             my ($sec,  $min,  $hour, $mday, $mon,
                 $year, $wday, $yday, $isdst
             ) = localtime time;
-            my $time =  Replay::Message::Timing->new(
-                    epoch    => time,
-                    minute   => $min,
-                    hour     => $hour,
-                    date     => $mday,
-                    month    => $mon,
-                    year     => $year + $LTYEAR,
-                    weekday  => $wday,
-                    yearday  => $yday,
-                    isdst    => $isdst,
-                    program  => __FILE__,
-                    function => 'clock',
-                    line     => __LINE__,
-                );
-            $self->emit(
-                'origin',
-                $time
+            my $time = Replay::Message::Timing->new(
+                epoch    => time,
+                minute   => $min,
+                hour     => $hour,
+                date     => $mday,
+                month    => $mon,
+                year     => $year + $LTYEAR,
+                weekday  => $wday,
+                yearday  => $yday,
+                isdst    => $isdst,
+                program  => __FILE__,
+                function => 'clock',
+                line     => __LINE__,
             );
+            $self->emit( 'origin', $time );
         }
     );
     return;
@@ -320,7 +328,7 @@ sub _build_mode {    ## no critic (ProhibitUnusedPrivateSubroutines)
 sub _build_queue {
     my ( $self, $purpose, $mode ) = @_;
     my $classname = $self->mode;
-    my $config = $self->config;
+    my $config    = $self->config;
     try {
         try {
             my $path = $classname . '.pm';
@@ -348,7 +356,7 @@ sub _build_queue {
 
 sub _build_control {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    my $control =  $self->_build_queue( 'control', 'fanout' );
+    my $control = $self->_build_queue( 'control', 'fanout' );
     return $control;
 }
 
@@ -366,13 +374,13 @@ sub _build_report_sniffer {    ## no critic (ProhibitUnusedPrivateSubroutines)
 
 sub _build_map_sniffer {       ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    my $map =  $self->_build_queue( 'map', 'fanout' );
+    my $map = $self->_build_queue( 'map', 'fanout' );
     return $map;
 }
 
 sub _build_map {               ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
-    my $map =  $self->_build_queue( 'map', 'topic' );
+    my $map = $self->_build_queue( 'map', 'topic' );
     return $map;
 }
 

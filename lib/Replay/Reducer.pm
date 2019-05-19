@@ -13,26 +13,19 @@ use Try::Tiny;
 
 our $VERSION = '0.02';
 
-has ruleSource =>
-    ( is => 'ro', isa => 'Replay::RuleSource', required => 1, );
+has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1, );
 
-has eventSystem => (
-    is       => 'ro',
-    isa      => 'Replay::EventSystem',
-    required => 1,
-);
+has eventSystem =>
+    ( is => 'ro', isa => 'Replay::EventSystem', required => 1, );
 
-has storageEngine => (
-    is       => 'ro',
-    isa      => 'Replay::StorageEngine',
-    required => 1,
-);
+has storageEngine =>
+    ( is => 'ro', isa => 'Replay::StorageEngine', required => 1, );
 
 has config => (
     is       => 'ro',
     isa      => 'HashRef[Item]',
     required => 0,
-    default  => sub { {},  },
+    default  => sub { {}, },
 );
 
 sub ARRAYREF_FLATTEN_ENABLED_DEFAULT { return 1 }
@@ -102,20 +95,18 @@ sub identify {
 sub reduce_wrapper {
     my ( $self, @input ) = @_;
     my $envelope = $self->normalize_envelope(@input);
-    
+
     return if !$self->reducable_message($envelope);
-    my $identify = $self->identify($envelope); 
-    my $exe = $self->execute_reduce($identify);
+    my $identify = $self->identify($envelope);
+    my $exe      = $self->execute_reduce($identify);
     return $exe;
 }
 
 sub make_delayed_emitter {
     my ( $self, $meta ) = @_;
     my $eventSystem = $self->eventSystem;
-    my $emitter = Replay::DelayedEmitter->new(
-        eventSystem => $eventSystem,
-        %{$meta}
-    );
+    my $emitter = Replay::DelayedEmitter->new( eventSystem => $eventSystem,
+        %{$meta} );
     return $emitter;
 }
 
@@ -137,36 +128,38 @@ sub execute_reduce {
         }    # there was nothing to do, apparently
         my $emitter = $self->make_delayed_emitter($meta);
         my @flatten = $self->arrayref_flatten(
-                $self->null_filter(
-                    $self->rule($idkey)->reduce( $emitter, @state )
-                )
-            );
-        use Data::Dumper;
-        # warn("execute_reduce ".Dumper($idkey)." flat-".Dumper(\@flatten));
-        $self->storageEngine->store_new_canonical_state(
-            $lock, $emitter,@flatten            
+            $self->null_filter(
+                $self->rule($idkey)->reduce( $emitter, @state )
+            )
         );
-        my $message =  $self->make_reduced_message($idkey);
-        $self->eventSystem->control->emit($message );
+        use Data::Dumper;
+
+        # warn("execute_reduce ".Dumper($idkey)." flat-".Dumper(\@flatten));
+        $self->storageEngine->store_new_canonical_state( $lock, $emitter,
+            @flatten );
+        my $message = $self->make_reduced_message($idkey);
+        $self->eventSystem->control->emit($message);
     }
     catch {
         carp "REDUCING EXCEPTION: $_\n";
-        if (!$lock) {
+        if ( !$lock ) {
             carp "failed to get record lock in reducer.";
         }
-        elsif ($lock->locked) {
+        elsif ( $lock->locked ) {
             carp "Reverting state because there was a reduce exception\n";
-            $self->storageEngine->revert( $lock );
+            $self->storageEngine->revert($lock);
         }
         else {
             carp "Locking error apparently?\n" unless $lock->locked;
         }
         my @hash_list = $idkey->hash_list;
-        my $exception = blessed $_ && $_->can('trace') ? $_->trace->as_string : $_;
+        my $exception
+            = blessed $_ && $_->can('trace') ? $_->trace->as_string : $_;
         my $message = Replay::Message::Exception::Reducer->new(
-           @hash_list,
-            exception => ($exception
-                
+            @hash_list,
+            exception => (
+                $exception
+
             ),
         );
         $self->eventSystem->control->emit($message);
@@ -208,12 +201,13 @@ Version 0.01
 
 =head1 SYNOPSIS
 
-my $reducer = Replay::Reducer->new(
+ my $reducer = Replay::Reducer->new(
    ruleSource => $ruleSource,
    eventSystem => $eventSystem,
    storageEngine => $storageEngine,
  );
-$eventSystem->run;
+
+ $eventSystem->run;
 
 =head1 CONFIGURATION AND ENVIRONMENT
 
