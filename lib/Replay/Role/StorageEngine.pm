@@ -160,7 +160,7 @@ sub checkout {
     }
 
     if ( $lock->is_locked ) {
-        return $self->checkout_lock( $lock, $timeout );
+        return $self->checkout_record( $lock, $timeout );
     }
     else {
         $self->emit_lock_error($lock);

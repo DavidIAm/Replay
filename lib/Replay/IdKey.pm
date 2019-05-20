@@ -62,7 +62,6 @@ has revision => (
 sub BUILD {
     my $self = shift;
     confess 'WTF' if $self->has_revision && !defined $self->revision;
-   
 }
 
 around BUILDARGS => sub {
@@ -113,19 +112,20 @@ sub parse_full_spec {
         version => $version,
         window  => $window,
         key     => $key,
-        ( $revision eq 'null' ? ( revision => $revision ) : () );
+        ( $revision eq 'null' ? () : ( revision => $revision ) );
 }
 
 sub parse_cubby {
     my ( $class,  $cubby ) = @_;
     my ( $window, $key )   = $cubby =~ /^wind-(.+)-key-(.+)$/smix;
-    my %cubby = (window => $window, key => $key);
-    return  %cubby
+    my %cubby = ( window => $window, key => $key );
+    return %cubby;
 }
 
 sub domain_rule_prefix {
     my ($self) = @_;
-    my $prefix = join q{-}, 'domain', ( $self->domain || 'null' ), $self->rule_spec;
+    my $prefix = join q{-}, 'domain', ( $self->domain || 'null' ),
+        $self->rule_spec;
     return $prefix;
 }
 
@@ -137,14 +137,14 @@ sub window_prefix {
 
 sub cubby {
     my ($self) = @_;
-    my $cubby =  $self->window_prefix . ( $self->key || q{} );
+    my $cubby = $self->window_prefix . ( $self->key || q{} );
     return $cubby;
 }
 
 sub full_spec {
     my ($self) = @_;
-    my $full_spec = join q{-}, $self->domain_rule_prefix, $self->cubby, 'revision',
-        $self->revision || 'null';
+    my $full_spec = join q{-}, $self->domain_rule_prefix, $self->cubby,
+        'revision', $self->revision || 'null';
     return $full_spec;
 }
 
@@ -156,7 +156,7 @@ sub rule_spec {
 
 sub delivery {
     my ($self) = @_;
-    my $delivery =ref($self)->new(
+    my $delivery = ref($self)->new(
         name    => $self->name,
         version => $self->version,
         ( $self->has_window   ? ( window   => $self->window )   : () ),
@@ -179,7 +179,7 @@ sub summary {
 
 sub globsummary {
     my ($self) = @_;
-    my $globsummary =ref($self)->new(
+    my $globsummary = ref($self)->new(
         name    => $self->name,
         version => $self->version,
         ( $self->has_revision ? ( revision => $self->revision ) : () ),
