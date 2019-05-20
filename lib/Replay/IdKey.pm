@@ -107,11 +107,11 @@ sub parse_full_spec {
     my $parse_re = qr/${dom}-${nam}-${ver}-${win}-${kay}-${rev}/smix;
     my ( $domain, $name, $version, $window, $key, $revision )
         = $spec =~ /${parse_re}$/smix;
-    return ( $domain eq 'null' ? ( domain => $domain ) : () ),
+    return ( $domain eq 'null' ? () : ( domain => $domain ) ),
         name    => $name,
         version => $version,
-        window  => $window,
-        key     => $key,
+        ( $window eq 'null'   ? () : ( window   => $window ) ),
+        ( $key eq 'null'      ? () : ( key      => $key ) ),
         ( $revision eq 'null' ? () : ( revision => $revision ) );
 }
 
@@ -131,13 +131,13 @@ sub domain_rule_prefix {
 
 sub window_prefix {
     my ($self) = @_;
-    my $prefix = 'wind-' . ( $self->window || q{} ) . '-key-';
+    my $prefix = 'wind-' . ( $self->window || 'null' ) . '-key-';
     return $prefix;
 }
 
 sub cubby {
     my ($self) = @_;
-    my $cubby = $self->window_prefix . ( $self->key || q{} );
+    my $cubby = $self->window_prefix . ( $self->key || 'null' );
     return $cubby;
 }
 
@@ -202,6 +202,7 @@ sub hash {
 sub hash_list {
     my ($self) = @_;
     my @list = (
+        ( $self->has_domain   ? ( window   => $self->domain . q{} )   : () ),
         name    => $self->name . q{},
         version => $self->version . q{},
         ( $self->has_window   ? ( window   => $self->window . q{} )   : () ),

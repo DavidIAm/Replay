@@ -12,6 +12,7 @@ use Data::UUID;
 use Replay::Message::Fetched;
 use Replay::StorageEngine::Lock;
 use Replay::Message::FoundKeysForReduce;
+use Replay::Signature;
 use Replay::Message::Locked;
 use Set::Scalar;
 use Set::Object;
@@ -52,17 +53,61 @@ has uuid => ( is => 'ro', builder => '_build_uuid', lazy => 1 );
 
 has timeout => ( is => 'ro', default => 20, );
 
-# accessor - how to get the rule for an idkey
-sub rule {
+sub fetch_transitional_state {
     my ( $self, $idkey ) = @_;
-    my $rule = $self->ruleSource->by_idkey($idkey);
-    if ( not defined $rule ) {
-        croak 'No such rule ' . $idkey->rule_spec;
+
+    my ($lock) = $self->checkout( $idkey, $REDUCE_TIMEOUT );
+
+    if ( !$lock->is_locked ) {
+        return;
     }
-    return $rule;
+
+    my $cursor = $self->desktop_cursor($lock);
+    if ( !$cursor->has_next ) {
+        $self->revert($lock);
+        return;
+    }
+
+    my $cubby = $self->retrieve($idkey);
+
+    # merge in canonical, moving atoms from desktop
+    my ( $mergedmeta, @state );
+    try {
+        ( $mergedmeta, @state ) = $self->merge(
+            $idkey,
+            $cursor->all,
+            map {
+                {   idkey => ( $idkey->cubby || q^^ ),
+                    meta => {
+                        Domain       => ( $cubby->{Domain}       || [] ),
+                        Timeblocks   => ( $cubby->{Timeblocks}   || [] ),
+                        Ruleversions => ( $cubby->{Ruleversions} || [] ),
+                    },
+                    atom => $_,
+                }
+            } @{ $cubby->{canonical} || [] }
+        );
+    }
+    catch {
+        carp 'Reverting because doing the merge caused an exception ' . $_
+            . "\n";
+        $self->revert($lock);
+        return;
+    };
+
+    # New document special case.  Awkward!
+    $mergedmeta->{Timeblocks}   ||= [];
+    $mergedmeta->{Domain}       ||= [];
+    $mergedmeta->{Ruleversions} ||= [];
+
+    # notify interested parties
+    $self->eventSystem->control->emit(
+        Replay::Message::Reducing->new( $idkey->marshall ) );
+
+    # return uuid and list
+    return $lock => $mergedmeta => @state;
 }
 
-# merge a list of atoms with the existing list in that slot
 sub merge {
     my ( $self, $idkey, @list ) = @_;
     my $meta = {};
@@ -92,19 +137,64 @@ sub merge {
         map { $_->{atom} } @list;
 }
 
+sub fetch_canonical_state {
+    my ( $self, $idkey ) = @_;
+
+    my $cubby = $self->retrieve($idkey);
+
+    my $e
+        = $self->state_signature( $idkey, $cubby->{canonical} || [] ) || q();
+    if ( ( $cubby->{canonSignature} || q() ) ne ( $e || q() ) ) {
+        carp q^canon signature didn't match. Don't worry about it.^;
+    }
+
+    return @{ $cubby->{canonical} || [] };
+}
+
+sub store_new_canonical_state {
+    my ( $self, $lock, $emitter, @atoms ) = @_;
+    my $idkey = $lock->idkey;
+    my $cubby = $self->retrieve($idkey);
+    $cubby->{canonVersion}++;
+    $cubby->{canonical} = [@atoms];
+    $cubby->{canonSignature}
+        = $self->state_signature( $idkey, $cubby->{canonical} );
+    my $newstate = $self->checkin( $lock, $cubby );
+    $emitter->release;
+
+    foreach my $atom ( @{ $emitter->atomsToDefer } ) {
+        carp 'ABSORB DEFERRED ATOM';
+        $self->absorb( $idkey, $atom, {} );
+    }
+    my $new_conical_msg
+        = Replay::Message::NewCanonical->new( $idkey->marshall );
+    $self->eventSystem->report->emit($new_conical_msg);
+    $self->eventSystem->control->emit($new_conical_msg);
+    $self->emit_reducable_if_needed($idkey);
+    return $newstate;    # release pending messages
+}
+
+# accessor - how to get the rule for an idkey
+sub rule {
+    my ( $self, $idkey ) = @_;
+    my $rule = $self->ruleSource->by_idkey($idkey);
+    if ( not defined $rule ) {
+        croak 'No such rule ' . $idkey->rule_spec;
+    }
+    return $rule;
+}
+
+# merge a list of atoms with the existing list in that slot
 sub expired_lock_recover {
     my ( $self, $idkey, $timeout ) = @_;
 
-    my $relock
-        = Replay::StorageEngine::Lock->prospective( $idkey, $timeout );
+    my $relock = Replay::StorageEngine::Lock->prospective( $idkey, $timeout );
     my $expire_relock = $self->relock_expired($relock);
 
-    if ( $expire_relock->matches($relock) ) {
+    if ( $expire_relock->matches($relock) && $expire_relock->is_locked() ) {
         $self->revert_this_record($expire_relock);
         $self->eventSystem->control->emit(
-            Replay::Message::NoLock::PostRevert->new(
-                $idkey->marshall
-            ),
+            Replay::Message::NoLock::PostRevert->new( $idkey->marshall ),
         );
     }
     else {
@@ -212,78 +302,10 @@ sub revert {
     #hey Dave what is the line above for will never get to it???
 }
 
-sub delay_to_do_once {
-    my ( $self, $name, $code ) = @_;
-    return $self->{timers}{$name} = AnyEvent->timer(
-        after => 1,
-        cb    => sub {
-            delete $self->{timers}{$name};
-            $code->();
-        }
-    );
-}
-
 # accessor - given a state, generate a signature
 sub state_signature {
     my ( $self, $idkey, $list ) = @_;
-    if ( !defined $list ) {return}
-    my $sig = md5_hex( $idkey->hash . freeze($list) );
-    return $sig;
-}
-
-sub fetch_transitional_state {
-    my ( $self, $idkey ) = @_;
-
-    my ($lock) = $self->checkout( $idkey, $REDUCE_TIMEOUT );
-
-    if ( !$lock->is_locked ) {
-        return;
-    }
-
-    my $cursor = $self->desktop_cursor($lock);
-    if ( !$cursor->has_next ) {
-        $self->revert($lock);
-        return;
-    }
-
-    my $cubby = $self->retrieve($idkey);
-
-    # merge in canonical, moving atoms from desktop
-    my ( $mergedmeta, @state );
-    try {
-        ( $mergedmeta, @state ) = $self->merge(
-            $idkey,
-            $cursor->all,
-            map {
-                {   idkey => ( $idkey->cubby || q^^ ),
-                    meta => {
-                        Domain       => ( $cubby->{Domain}       || [] ),
-                        Timeblocks   => ( $cubby->{Timeblocks}   || [] ),
-                        Ruleversions => ( $cubby->{Ruleversions} || [] ),
-                    },
-                    atom => $_,
-                }
-            } @{ $cubby->{canonical} || [] }
-        );
-    }
-    catch {
-        carp 'Reverting because doing the merge caused an exception ' . $_
-            . "\n";
-        $self->revert($lock);
-        return;
-    };
-
-    # New document special case.  Awkward!
-    $mergedmeta->{Timeblocks}   ||= [];
-    $mergedmeta->{Domain}       ||= [];
-    $mergedmeta->{Ruleversions} ||= [];
-
-    # notify interested parties
-    $self->eventSystem->control->emit(
-        Replay::Message::Reducing->new( $idkey->marshall ) );
-
-    # return uuid and list
-    return $lock => $mergedmeta => @state;
+    return Replay::Signature::signature( $idkey, $list );
 }
 
 sub emit_reducable_if_needed {
@@ -293,53 +315,6 @@ sub emit_reducable_if_needed {
         my $reduce_msg = Replay::Message::Reducable->new( $idkey->marshall );
         $self->eventSystem->reduce->emit($reduce_msg);
     }
-}
-
-sub store_new_canonical_state {
-    my ( $self, $lock, $emitter, @atoms ) = @_;
-    my $idkey = $lock->idkey;
-    my $cubby = $self->retrieve($idkey);
-    $cubby->{canonVersion}++;
-    $cubby->{canonical} = [@atoms];
-    $cubby->{canonSignature}
-        = $self->state_signature( $idkey, $cubby->{canonical} );
-    my $newstate = $self->checkin( $lock, $cubby );
-    $emitter->release;
-
-    foreach my $atom ( @{ $emitter->atomsToDefer } ) {
-        carp 'ABSORB DEFERRED ATOM';
-        $self->absorb( $idkey, $atom, {} );
-    }
-    my $new_conical_msg
-        = Replay::Message::NewCanonical->new( $idkey->marshall );
-    $self->eventSystem->report->emit($new_conical_msg);
-    $self->eventSystem->control->emit($new_conical_msg);
-    $self->emit_reducable_if_needed($idkey);
-    return $newstate;    # release pending messages
-}
-
-sub fetch_canonical_state {
-    my ( $self, $idkey ) = @_;
-
-    my $cubby = $self->retrieve($idkey);
-
-    my $e
-        = $self->state_signature( $idkey, $cubby->{canonical} || [] ) || q();
-    if ( ( $cubby->{canonSignature} || q() ) ne ( $e || q() ) ) {
-        carp q^canon signature didn't match. Don't worry about it.^;
-    }
-
-    return @{ $cubby->{canonical} || [] };
-}
-
-sub enumerate_windows {
-    my ( $self, $idkey ) = @_;
-    croak q(unimplemented);
-}
-
-sub enumerate_keys {
-    my ( $self, $idkey ) = @_;
-    croak q(unimplemented);
 }
 
 sub new_document {
@@ -355,10 +330,9 @@ sub new_document {
 
 sub revert_all_expired_locks {
     my ($self) = @_;
-    foreach my $lock ( 
-      grep { $_->is_locked }
-      map { $self->expired_lock_recover($_) }
-      $self->list_expired_keys() ) {
+    foreach my $lock ( grep { $_->is_locked }
+        map { $self->expired_lock_recover($_) } $self->list_expired_keys() )
+    {
         $self->revert($lock);
     }
 }
@@ -398,40 +372,44 @@ specific parts of the Replay system.
 
 =head1 SUBROUTINES/METHODS
 
-These methods are used by consumers of the storage class
+These methods are called by the StorageEngine interface that this Role
+helps engines to fulfill
 
 =head2 success = absorb(idkey, atom, meta)
 
-accept a new atom at a location idkey with metadata attached.  no locking
+accept a new atom at a location idkey with metadata attached.  no locking.
+used by Mapper code
 
 =head2 statelist = fetch_canonical_state(idkey)
 
-get the canonical state.  no locking
+access to the current canonical state.  no locking. used by reporting code.
 
-=head2 uuid, statelist = fetch_transitional_state(idkey)
+=head2 lock, metadata, statelist = fetch_transitional_state(idkey)
 
-check out a state for transition.  locks record
+check out a state for transition.  retain the lock value to use later.
 
 automatically reverts previous checkout if lock is expired
 
-=head2 success = store_new_canonical_state(idkey, uuid, emitter, @atoms)
+Used by Reducer code
+
+=head2 success = store_new_canonical_state(lock, emitter, @atoms)
+
+lock is the lock returned from the fetch_transitional_state function
+
+emitter is a Replay::DelayedEmitter object. It categorizes the complex 
+types of output that a reducer may have produced 
+
+atoms are what the new canonical state consists of.
 
 check in a state for transition if uuid matches.  unlocks record if success.
 
+Used by Reducer code
+
 =head1 DATA TYPES
 
- types:
- - idkey:
-  { name: string
-  , version: string
-  , window: string
-  , key: string
-  }
+ types: Replay::IdKey
  - atom
-  { a hashref which is an atom of the state for this compartment }
- - state:
-  idkey: the particular state compartment
-  list: the list of atoms within that compartment
+  { a hashref which is an element of the state for this rule }
  - signature: md5 sum 
 
  interface:
@@ -449,6 +427,23 @@ check in a state for transition if uuid matches.  unlocks record if success.
  events consumed:
   - None
 
+
+#sub revert_all_expired_locks { # maintenance utility
+#sub fetch_transitional_state { # external
+#sub fetch_canonical_state { # external
+#sub store_new_canonical_state { # external
+#
+#sub state_signature { # signature for state
+#
+#sub rule { # rule accessor
+#sub merge { # Create the desktop by adding canonical
+#sub revert { # used by main logic
+#sub checkout { #  used by fetch_transitional
+#sub emit_lock_error { # utility
+#sub expired_lock_recover { # logic to recover from an expired lock
+#sub emit_reducable_if_needed { utility
+#
+#sub new_document { # called by engine implimentations
 
 =head1 STORAGE ENGINE IMPLEMENTATION METHODS 
 
@@ -543,18 +538,6 @@ system that appear to be in progress.
 
 =head1 INTERNAL METHODS
 
-=head2 enumerate_keys
-
-not yet implemented
-
-A possible interface that lets a consumer get a list of keys within a window
-
-=head2 enumerate_windows
-
-not yet implemented
-
-A possible interface that lets a consumer get a list of Windows within a domain rule version
-
 =head2 merge($idkey, $alpha, $beta)
 
 Takes two lists and merges them together using the compare ordering from the rule
@@ -570,13 +553,6 @@ accessor to grab the rule object for a particular idkey
 =head2 state_signature
 
 logic that creates a signature from a state - probably used for canonicalSignature field
-
-=head2 delay_to_do_once(name, code)
-
-sometimes redundant events are fired in rapid sequence.  This ensures that 
-within a short period of time, only one piece of code (distinguished by name)
-is executed.  It just uses the AnyEvent timer delaying for a second at this 
-point
 
 =head1 AUTHOR
 
