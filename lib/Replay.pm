@@ -98,6 +98,7 @@ sub _build_janitor {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $janitor = Replay::Janitor->new(
       eventSystem => $event_system,
       storageEngine => $storage_engine,
+      config      => $self->config
     );
     return $janitor;
 }

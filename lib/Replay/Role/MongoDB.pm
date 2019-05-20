@@ -191,7 +191,7 @@ sub relock_expired {
 
 sub count_inbox_outstanding {
     my ($self, $idkey)  = @_;
-    $self->BOXES->count_documents(
+    $self->BOXES->count(
         {   idkey  => $idkey->full_spec,
             state  => 'inbox'
         }
@@ -375,7 +375,7 @@ sub inbox_to_desktop {
 
 sub BOXES {
     my ($self) = @_;
-    my $boxes = $self->{db}->get_collection('BOXES');
+    my $boxes = $self->db->get_collection('BOXES');
     return $boxes;
 }
 
