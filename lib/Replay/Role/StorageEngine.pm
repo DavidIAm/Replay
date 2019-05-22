@@ -4,7 +4,8 @@ use Moose::Role;
 requires qw(absorb retrieve find_keys_need_reduce find_keys_active_checkout
     ensure_locked window_all checkin desktop_cursor clear_desktop
     reabsorb inbox_to_desktop relock_expired list_expired_keys
-    just_unlock purge);
+    just_unlock purge
+    expire_all_locks );
 use Digest::MD5 qw/md5_hex/;
 use feature 'current_sub';
 use Data::Dumper;
