@@ -1,8 +1,15 @@
 package Test::Replay::RabbitMemory;
 
-use base qw/Test::Replay/;
+use lib 't/lib';
 
-use lib 'lib';
+use base qw/Replay::Test Test::Class/;
+use Test::Most;
+our $REPLAY_TEST_CONFIG =  $ENV{REPLAY_TEST_CONFIG};
+
+
+eval 'use Net::RabbitMQ';
+plan skip_all => 'Net::RabbitMQ Not present ' if $@;
+
 
 =pod
 sub t_environment_reset : Test(startup) {
@@ -36,8 +43,8 @@ sub t_environment_reset : Test(startup=>2) {
 sub a_replay_config : Test(startup=>2) {
     my $self = shift;
     
-    eval {'use Net::RabbitMQ'};
-    plan skip_all => 'Net::RabbitMQ Not present ' if $@;
+	#eval {'use Net::RabbitMQ'};
+	#plan skip_all => 'Net::RabbitMQ Not present ' if $@;
     $self->{storedir} = '/tmp/testscript-07-' . $ENV{USER};
     $self->{config} = {
         stage       => 'tests',

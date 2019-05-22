@@ -1,6 +1,13 @@
 package Test::Replay::ReportMongo;
 
 use lib 't/lib';
+use YAML;
+
+use base qw/Replay::Test Test::Class/;
+use Test::Most;
+our $REPLAY_TEST_CONFIG =  $ENV{REPLAY_TEST_CONFIG};
+
+use lib 't/lib';
 
 use base qw/Replay::Test/;
 
@@ -12,7 +19,13 @@ sub t_environment_reset : Test(startup) {
 
 sub a_replay_config : Test(startup) {
     my $self = shift;
-    $self->{config} = {
+    plan skip_all => 'REPLAY_TEST_CONFIG Env var not present '
+     unless ($REPLAY_TEST_CONFIG );
+    $self->{config} = YAML::LoadFile($REPLAY_TEST_CONFIG);
+
+    plan skip_all => 'No mongo_report in REPLAY_TEST_CONFIG'
+      unless (exists($self->{config}->{mongo_report}));	
+	$self->{config} = {
         Defaults=>{
           ReportEngine=> 'MongoTest'},
         stage         => 'testscript-08-' . $ENV{USER},

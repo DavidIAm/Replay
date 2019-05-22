@@ -3,7 +3,7 @@ package SURELY;
 
 use Moose;
 use MooseX::MetaDescription::Meta::Trait;
-with qw/Replay::Envelope/;
+with qw/Replay::Role::Envelope/;
 
 has '+MessageType' => (default => 'SURELY');
 has 'surely' => (

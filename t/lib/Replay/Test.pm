@@ -50,14 +50,14 @@ has '+name' => ( default => __PACKAGE__, );
 
 sub match {
     my ( $self, $message ) = @_;
-    warn "Matching against " . $message->{MessageType};
+#    warn "Matching against " . $message->{MessageType};
     return $message->{MessageType} eq 'interesting';
 }
 
 sub window {
     my ( $self, $message ) = @_;
-    warn "Window against "
-        . substr( ( keys %{ $message->{Message} } )[0], 0, 1 );
+#    note "Window against "
+#        . substr( ( keys %{ $message->{Message} } )[0], 0, 1 );
     return 'early'
         if substr( ( keys %{ $message->{Message} } )[0], 0, 1 )
         =~ /[abcdefghijklm]/i;
@@ -88,8 +88,8 @@ sub reduce {
     my ( $self, $emitter, @state ) = @_;
 
     #    warn __FILE__ . ": REDUCE HIT";
-    warn __FILE__ . ": PURGE FOUND"
-        if grep { ( $_ || '' ) eq 'purge' } @state;
+#    note __FILE__ . ": PURGE FOUND"
+#        if grep { ( $_ || '' ) eq 'purge' } @state;
     return if grep { ( $_ || '' ) eq 'purge' } @state;
     my @list = List::Util::reduce { $a + $b } @state;
     use Carp qw/cluck/;
@@ -100,7 +100,7 @@ sub reduce {
 sub delivery {
     my ( $self, @state ) = @_;
     use Data::Dumper;
-    warn __FILE__ . ": DELIVERY HIT";
+#    note __FILE__ . ": DELIVERY HIT";
     my @list = List::Util::reduce { $a + $b } @state;
     use Carp qw/cluck/;
     cluck unless defined $state[0];
@@ -109,7 +109,7 @@ sub delivery {
 
 sub summary {
     my ( $self, %deliverydatas ) = @_;
-    warn __FILE__ . ": SUMMARY HIT";
+#	note __FILE__ . ": SUMMARY HIT";
     use Data::Dumper;
     my @state
         = keys %deliverydatas
@@ -232,7 +232,7 @@ sub a_testruleoperation : Test(no_plan) {
 }
 
 sub m_replay_construct : Test(startup => 1) {
-    warn "REPLAY CONSTRUCT";
+	#warn "REPLAY CONSTRUCT";
     my $self = shift;
     return "out of replay context" unless $self->{config};
 
@@ -389,19 +389,19 @@ sub testloop : Test(no_plan) {
             is_deeply [ $replay->reportEngine->summary($keyA) ],
                 [ { FORMATTED => '[55]', TYPE => 'text/plain', EMPTY => 0 } ];
 
-            warn __FILE__ . ": Starting subscribe to report for finishup";
+            note __FILE__ . ": Starting subscribe to report for finishup";
 
             $replay->eventSystem->report->subscribe(
                 sub {
                     my ($message) = @_;
 
-                    warn "Final subscribe message type "
+                    note "Final subscribe message type "
                         . $message->{MessageType};
                     $secglobsumcount++
                         if $message->{MessageType} eq 'ReportNewGlobSummary';
                     return if $secglobsumcount;
 
-                    warn __FILE__ . ": PROPER STOP";
+                    note __FILE__ . ": PROPER STOP";
                     $replay->eventSystem->stop;
                 }
             );
@@ -416,7 +416,7 @@ sub testloop : Test(no_plan) {
     my $e = AnyEvent->timer(
         after => 1,
         cb    => sub {
-            warn "EMITTING MESSAGES NOW";
+            note "EMITTING MESSAGES NOW";
 
             $replay->eventSystem->map->emit( $self->{funMessage} );
             $replay->eventSystem->map->emit( $self->{secondMessage} );

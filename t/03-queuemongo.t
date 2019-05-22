@@ -9,6 +9,9 @@ use File::Slurp;
 use Test::Most;
 our $REPLAY_TEST_CONFIG =  $ENV{REPLAY_TEST_CONFIG};
 
+plan skip_all => 'REPLAY_TEST_CONFIG Env var not present '
+     unless ($REPLAY_TEST_CONFIG );
+
 sub t_environment_reset : Test(startup => 2) {
     my $self   = shift;
   
@@ -21,8 +24,6 @@ sub t_environment_reset : Test(startup => 2) {
 
 sub a_replay_config : Test(startup => 4) {
     my $self = shift;
-    plan skip_all => 'REPLAY_TEST_CONFIG Env var not present ' 
-     unless ($REPLAY_TEST_CONFIG );
     $self->{awsconfig} = YAML::LoadFile($REPLAY_TEST_CONFIG);
     ok exists $self->{awsconfig}->{Replay}->{awsIdentity}->{access};
     ok exists $self->{awsconfig}->{Replay}->{awsIdentity}->{secret};
@@ -35,8 +36,8 @@ sub a_replay_config : Test(startup => 4) {
         stage         => 'testscript-03-' . $ENV{USER},
         StorageEngine => {
             Mode => 'Mongo',
-            User => '',
-            Pass => '',
+            User =>  $self->{awsconfig}->{Mongo}->{user}, 
+            Pass => $self->{awsconfig}->{Mongo}->{pass},
         },
         WORM => {
             Directory => "./log",
