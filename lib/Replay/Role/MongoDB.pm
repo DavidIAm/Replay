@@ -69,8 +69,12 @@ sub checkout_record {
     # # #         - lock expire epoch is gt current time
     # # #        OR lockExpireEpoch does not exist
     # make sure we have an index for this collection
+
     $self->collection($idkey)
         ->indexes->create_one( [ idkey => 1 ], { unique => 1 } );
+
+# not sure about the above Dave can you check??
+
 
     # Happy path - cleanly grab the lock
     try {
@@ -100,11 +104,16 @@ sub checkout_record {
                     $idkey, $lock->timeout
                 )
             );
+
             my $current = $self->lockreport( $lock->idkey );
+#Dave it appears that when in a try catch a return gets out out of the
+#catch and retruns to the end of the try.  In this case it returns to line 123 returns $lock
             if ($relock->matches($current) && !$relock->is_expired) {
-                return $relock;
+                $lock = $relock;
             }
-            return Replay::StorageEngine::Lock->empty($lock->idkey);
+            else { 
+                $lock = Replay::StorageEngine::Lock->empty($lock->idkey);
+            }
         }
         else {
             croak $_;
