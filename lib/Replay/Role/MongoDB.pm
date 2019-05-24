@@ -309,12 +309,12 @@ sub window_all {
 
 sub list_locked_keys {
     my ($self) = @_;
+    my %keys
+        = map { $_->{idkey} => $_ }
+        ($self->BOXES->find( { locked => { q^$^ . 'exists' => 1 } },
+        { idkey => 1 } )->all);
     my @idkeys
-        = map { Replay::IdKey->from_full_spec( $_->{idkey} ) }
-        values %{ map { $_->{idkey} => $_ } $self->BOXES->find(
-        {   locked          => { q^$^ . 'exists' => 1 } },
-        { idkey => 1 }
-        )->all };
+        = map { Replay::IdKey->from_full_spec( $_->{idkey} ) } values %keys;
     return @idkeys;
 }
 
