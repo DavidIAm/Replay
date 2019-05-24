@@ -189,7 +189,7 @@ sub relock_expired {
         ->find(
         { idkey => $idkey->cubby, locked => { q^$^ . 'exists' => 1 }, },
         { locked => 1, lockExpireEpoch => 1 } )->all;
-    if ( $record->{lockExpireEpoch} && $record->{lockExpireEpoch} < time ) {
+    if ( $record->{lockExpireEpoch} && $record->{lockExpireEpoch} > time ) {
         warn "Attempted to relock_expired an unexpired lock (".$record->{lockExpireEpoch}.")";
         return Replay::StorageEngine::Lock->notlocked($idkey);
     }
