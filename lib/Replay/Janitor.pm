@@ -22,9 +22,13 @@ has interval =>
 
 sub BUILD {
     my ($self) = @_;
+    warn "Janitor is initializing";
     $self->eventSystem->register_cleanup_timer(
         interval => $self->interval,
-        callback => sub { $self->storageEngine->revert_all_expired_locks() }
+        callback => sub {
+          warn "Janitor is reverting all expired locks";
+          $self->storageEngine->revert_all_expired_locks() 
+        },
     );
 }
 
