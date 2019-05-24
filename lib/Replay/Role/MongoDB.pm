@@ -327,7 +327,7 @@ sub find_keys_active_checkout {
     my ($self) = @_;
 
     my @idkeys
-        = map { Replay::IdKey->new( Replay::IdKey->parse_spec( $_->{idkey} ) ) }
+        = map { Replay::IdKey->from_full_spec( $_->{idkey} ) }
         $self->BOXES->find( { state => 'desktop' }, { idkey => 1 } )->all;
     return @idkeys;
 }

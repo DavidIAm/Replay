@@ -236,7 +236,7 @@ sub find_keys_need_reduce {
 
     # Tightly coupled to BOXES and how it stores information
     my @idkeys
-        = map { Replay::IdKey->new( Replay::IdKey->parse_spec( $_->spec ) ) }
+        = map { Replay::IdKey->from_full_spec( $_->spec ) }
         grep { 0 < scalar @{ $self->{BOXES}{$_} || [] } }
         keys %{ $self->{BOXES} };
     return @idkeys;
@@ -246,7 +246,7 @@ sub find_keys_active_checkout {
     my ($self) = @_;
 
     my @idkeys
-        = map { Replay::IdKey->new( Replay::IdKey->parse_spec( $_->spec ) ) }
+        = map { Replay::IdKey->from_full_spec( $_->spec ) }
         grep {
         grep { $_->{state} eq 'desktop' }
             @{ $self->{BOXES}{$_} || [] }
