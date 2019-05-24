@@ -302,14 +302,12 @@ sub window_all {
     };
 }
 
-sub list_expired_keys {
+sub list_locked_keys {
     my ($self) = @_;
     my @idkeys
         = map { Replay::IdKey->from_full_spec( $_->{idkey} ) }
         $self->BOXES->find(
-        {   locked          => { q^$^ . 'exists' => 1 },
-            lockExpireEpoch => { q^$^ . 'lt'     => time }
-        },
+        {   locked          => { q^$^ . 'exists' => 1 } },
         { idkey => 1 }
         )->all;
     return @idkeys;

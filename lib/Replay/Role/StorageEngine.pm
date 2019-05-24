@@ -3,8 +3,8 @@ package Replay::Role::StorageEngine;
 use Moose::Role;
 requires qw(absorb retrieve find_keys_need_reduce find_keys_active_checkout
     ensure_locked window_all checkin desktop_cursor clear_desktop
-    reabsorb inbox_to_desktop relock_expired list_expired_keys
-    just_unlock purge expire_all_locks list_expired_keys );
+    reabsorb inbox_to_desktop relock_expired list_locked_keys
+    just_unlock purge expire_all_locks );
 use Digest::MD5 qw/md5_hex/;
 use feature 'current_sub';
 use Data::Dumper;
@@ -331,7 +331,7 @@ sub new_document {
 sub revert_all_expired_locks {
     my ($self) = @_;
     foreach my $lock ( grep { $_->is_locked }
-        map { $self->expired_lock_recover($_) } $self->list_expired_keys() )
+        map { $self->expired_lock_recover($_) } $self->list_locked_keys() )
     {
         $self->revert($lock);
     }

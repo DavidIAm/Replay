@@ -38,9 +38,9 @@ sub expire_all_locks {
     my @expired = $self->engine->expire_all_locks(@args);
 }
 
-sub list_expired_locks {
+sub list_locked_keys {
     my ( $self, @args ) = @_;
-    my @expired = $self->engine->list_expired_keys(@args);
+    my @expired = $self->engine->list_locked_keys(@args);
 }
 
 sub revert_all_expired_locks {

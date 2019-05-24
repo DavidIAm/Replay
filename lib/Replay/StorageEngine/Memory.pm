@@ -207,7 +207,7 @@ sub collection {
     return $store->{$name} ||= {};
 }
 
-sub list_expired_keys {
+sub list_locked_keys {
     my ($self) = @_;
     return
         map  { Replay::IdKey->from_full_spec( $_->spec ) }
