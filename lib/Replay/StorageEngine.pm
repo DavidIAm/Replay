@@ -43,6 +43,12 @@ sub list_expired_locks {
     my @expired = $self->engine->list_expired_keys(@args);
 }
 
+sub revert_all_expired_locks {
+    my ( $self, @args ) = @_;
+    my $revert = $self->engine->revert_all_expired_locks(@args);
+    return $revert;
+}
+
 sub retrieve {
     my ( $self, @args ) = @_;
     my $retrieve = $self->engine->retrieve(@args);

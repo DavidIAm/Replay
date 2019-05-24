@@ -183,10 +183,11 @@ sub run {
 
 sub register_cleanup_timer {
     my ($self, %options) = @_;
+    warn "Registering cleanup timer (EventSystem) %options";
     push @{$self->{cleanuptimer}}, AnyEvent->timer(
       after => 0,
       interval => $DEFAULT_CLEANUP_INTERVAL_SECONDS,
-      cb => sub {},
+      cb => sub { warn "Default cleanup noop" },
       %options
     );
 }

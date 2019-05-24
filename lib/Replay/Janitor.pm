@@ -25,7 +25,7 @@ sub BUILD {
     warn "Janitor is initializing";
     $self->eventSystem->register_cleanup_timer(
         interval => $self->interval,
-        callback => sub {
+        cb => sub {
           warn "Janitor is reverting all expired locks";
           $self->storageEngine->revert_all_expired_locks() 
         },
