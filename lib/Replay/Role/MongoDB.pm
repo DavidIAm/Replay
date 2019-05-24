@@ -193,9 +193,9 @@ sub relock_expired {
         warn "Attempted to relock_expired an unexpired lock (".$record->{lockExpireEpoch}.")";
         return Replay::StorageEngine::Lock->notlocked($idkey);
     }
-    if ( $record->locked ) {
+    if ( $record->{locked} ) {
         warn "Attempt to relock_expired an expired locked key ("
-            . ( $record->locked )
+            . ( $record->{locked} )
             . "), lock pending.";
     }
     else {
