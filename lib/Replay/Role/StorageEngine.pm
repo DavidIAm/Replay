@@ -295,6 +295,8 @@ after 'absorb' => sub {
 
 sub revert {
     my ( $self, $lock ) = @_;
+     my ($package, $filename, $line) = caller;
+    warn("Looping on this revert from $package, $filename, $line lock=".Dumper($lock));
     $self->revert_this_record($lock);
     my $revert_msg = Replay::Message::Reverted->new( $lock->idkey->marshall );
     $self->eventSystem->control->emit($revert_msg);
@@ -326,12 +328,13 @@ sub new_document {
         Ruleversions => [],
     };
 }
-
+  
 sub revert_all_expired_locks {
     my ($self) = @_;
     foreach my $lock ( grep { $_->is_locked }
-        map { $self->expired_lock_recover($_, $DEFAULT_RELOCK_TIMEOUT) } $self->list_locked_keys() )
+        map { $self->expired_lock_recover($_, $DEFAULT_RELOCK_TIMEOUT) } $self->list_expired_locked_keys(time) )
     {
+        warn("revert_all_expired_locks is fliping out");
         $self->revert($lock);
     }
 }
