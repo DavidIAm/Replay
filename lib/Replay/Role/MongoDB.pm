@@ -185,8 +185,8 @@ sub relock_expired {
 
     # Lets try to get an expire lock, if it has timed out
     my ($lockKey) = map { $_->{locked} } $self->collection($idkey)->find(
-        {   idkey  => $idkey->cubby,
-            locked => { q^$^ . 'exists' => 1 },
+        {   idkey           => $idkey->cubby,
+            locked          => { q^$^ . 'exists' => 1 },
             lockExpireEpoch => { q^$^ . 'lt' => time },
         },
         { locked => 1 }
@@ -211,9 +211,11 @@ sub relock_expired {
         warn "Successfully relocked document.  Updating boxes.";
         my $ur = $self->BOXES->update_many(
             { idkey => $idkey, locked => $lockKey },
-            {   locked => { q^$^ . 'set' => $relock->locked },
-                lockExpireEpoch =>
-                    { q^$^ . 'set' => $relock->lockExpireEpoch },
+            {   q^$^
+                    . 'set' => {
+                    locked          => $relock->locked,
+                    lockExpireEpoch => $relock->lockExpireEpoch
+                    },
             }
         );
         if ( $ur->modified_count && $r->acknowledged ) {
