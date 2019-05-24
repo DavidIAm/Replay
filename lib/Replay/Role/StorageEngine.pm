@@ -331,7 +331,7 @@ sub new_document {
 sub revert_all_expired_locks {
     my ($self) = @_;
     foreach my $lock ( grep { $_->is_locked }
-        map { $self->expired_lock_recover($_) } $self->list_locked_keys() )
+        map { $self->expired_lock_recover($_, 20) } $self->list_locked_keys() )
     {
         $self->revert($lock);
     }
