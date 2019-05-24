@@ -211,18 +211,18 @@ sub relock_expired {
         }
     );
     if ( $r->modified_count && $r->acknowledged ) {
-        warn "Successfully relocked document.  Updating boxes.";
+        warn "Successfully relocked document (".($r->modified_count).").  Updating boxes.";
         my $ur = $self->BOXES->update_many(
             { idkey => $idkey->full_spec },
             {   q^$^
                     . 'set' => {
-                    locked          => $relock->locked,
-                    lockExpireEpoch => $relock->lockExpireEpoch
+                    state           => 'desktop', # reenforce state
+                    locked          => $relock->locked, # new lock
                     },
             }
         );
         if ( $ur->modified_count && $r->acknowledged ) {
-            warn "Successfully relocked " . $ur->modified_count . " keys.";
+            warn "Successfully relocked " . $ur->modified_count . " records.";
         }
         else {
             warn "zero desktop moved back to inbox!";
