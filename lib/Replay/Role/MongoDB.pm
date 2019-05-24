@@ -184,22 +184,25 @@ sub relock_expired {
     my $idkey = $relock->idkey;
 
     # Lets try to get an expire lock, if it has timed out
-    my ($lockKey) = map { $_->{locked} } $self->collection($idkey)->find(
-        {   idkey           => $idkey->cubby,
-            locked          => { q^$^ . 'exists' => 1 },
-            lockExpireEpoch => { q^$^ . 'lt' => time },
-        },
-        { locked => 1 }
-    )->all;
-    if ( !$lockKey ) {
+    my ($record)
+        = $self->collection($idkey)
+        ->find(
+        { idkey => $idkey->cubby, locked => { q^$^ . 'exists' => 1 }, },
+        { locked => 1, lockExpireEpoch => 1 } )->all;
+    if ( $record->{lockExpireEpoch} < time ) {
+        warn "Attempted to relock_expired an unexpired lock";
         return Replay::StorageEngine::Lock->notlocked($idkey);
     }
-    warn "Found expired lock key " . $lockKey;
+    if ( !$record->locked ) {
+        warn "Attempt to relock_expired an locked key ("
+            . ( $record->locked )
+            . "), lock pending.";
+    }
+    else {
+        warn "Attempt to relock_expired an unlocked key, lock pending.";
+    }
     my $r = $self->collection($idkey)->update_one(
-        {   idkey           => $idkey->cubby,
-            locked          => { q^$^ . 'exists' => 1 },
-            lockExpireEpoch => { q^$^ . 'lt' => time },
-        },
+        { idkey => $idkey->cubby },
         {   q^$^
                 . 'set' => {
                 locked          => $relock->locked,
@@ -210,7 +213,7 @@ sub relock_expired {
     if ( $r->modified_count && $r->acknowledged ) {
         warn "Successfully relocked document.  Updating boxes.";
         my $ur = $self->BOXES->update_many(
-            { idkey => $idkey->full_spec, locked => $lockKey },
+            { idkey => $idkey->full_spec },
             {   q^$^
                     . 'set' => {
                     locked          => $relock->locked,
