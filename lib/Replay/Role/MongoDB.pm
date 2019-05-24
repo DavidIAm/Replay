@@ -34,7 +34,7 @@ requires(
 
 our $VERSION = q(0.01);
 
-has db       => ( is => 'ro', builder => '_build_db',       lazy => 1,);
+has db       => ( is => 'ro', builder => '_build_db',       lazy => 1, );
 has dbname   => ( is => 'ro', builder => '_build_dbname',   lazy => 1, );
 has dbauthdb => ( is => 'ro', builder => '_build_dbauthdb', lazy => 1, );
 has dbuser   => ( is => 'ro', builder => '_build_dbuser',   lazy => 1, );
@@ -73,8 +73,7 @@ sub checkout_record {
     $self->collection($idkey)
         ->indexes->create_one( [ idkey => 1 ], { unique => 1 } );
 
-# not sure about the above Dave can you check??
-
+    # not sure about the above Dave can you check??
 
     # Happy path - cleanly grab the lock
     try {
@@ -106,13 +105,14 @@ sub checkout_record {
             );
 
             my $current = $self->lockreport( $lock->idkey );
+
 #Dave it appears that when in a try catch a return gets out out of the
 #catch and retruns to the end of the try.  In this case it returns to line 123 returns $lock
-            if ($relock->matches($current) && !$relock->is_expired) {
+            if ( $relock->matches($current) && !$relock->is_expired ) {
                 $lock = $relock;
             }
-            else { 
-                $lock = Replay::StorageEngine::Lock->empty($lock->idkey);
+            else {
+                $lock = Replay::StorageEngine::Lock->empty( $lock->idkey );
             }
         }
         else {
@@ -151,8 +151,9 @@ sub collection {
 
 sub document {
     my ( $self, $idkey ) = @_;
-    my $document = $self->collection($idkey)->find( { idkey => $idkey->cubby } )
-        ->next || $self->new_document($idkey);
+    my $document
+        = $self->collection($idkey)->find( { idkey => $idkey->cubby } )->next
+        || $self->new_document($idkey);
     return $document;
 }
 
@@ -183,10 +184,21 @@ sub relock_expired {
     my $idkey = $relock->idkey;
 
     # Lets try to get an expire lock, if it has timed out
-    my $r = $self->collection($idkey)->update_one(
+    my ($lockKey) = map { $_->{locked} } $self->collection($idkey)->find(
         {   idkey  => $idkey->cubby,
             locked => { q^$^ . 'exists' => 1 },
-            lockExpireEpoch => { q^$^ . 'lt'     => time },
+            lockExpireEpoch => { q^$^ . 'lt' => time },
+        },
+        { locked => 1 }
+    )->all;
+    if ( !$lockKey ) {
+        return Replay::StorageEngine::Lock->notlocked($idkey);
+    }
+    warn "Found expired lock key " . $lockKey;
+    my $r = $self->collection($idkey)->update_one(
+        {   idkey           => $idkey->cubby,
+            locked          => { q^$^ . 'exists' => 1 },
+            lockExpireEpoch => { q^$^ . 'lt' => time },
         },
         {   q^$^
                 . 'set' => {
@@ -195,16 +207,32 @@ sub relock_expired {
                 },
         }
     );
+    if ( $r->modified_count && $r->acknowledged ) {
+        warn "Successfully relocked document.  Updating boxes.";
+        my $ur = $self->BOXES->update_many(
+            { idkey => $idkey, locked => $lockKey },
+            {   locked => { q^$^ . 'set' => $relock->locked },
+                lockExpireEpoch =>
+                    { q^$^ . 'set' => $relock->lockExpireEpoc },
+            }
+        );
+        if ( $ur->modified_count && $r->acknowledged ) {
+            warn "Successfully relocked " . $ur->modified_count . " keys.";
+        }
+        else {
+            warn "zero desktop moved back to inbox!";
+        }
+    }
+    else {
+        warn "Failed to relock document!";
+        return Replay::StorageEngine::Lock->notlocked($idkey);
+    }
     return $relock;
 }
 
 sub count_inbox_outstanding {
-    my ($self, $idkey)  = @_;
-    $self->BOXES->count(
-        {   idkey  => $idkey->full_spec,
-            state  => 'inbox'
-        }
-    );
+    my ( $self, $idkey ) = @_;
+    $self->BOXES->count( { idkey => $idkey->full_spec, state => 'inbox' } );
 }
 
 sub just_unlock {
@@ -276,33 +304,31 @@ sub window_all {
 
 sub list_expired_keys {
     my ($self) = @_;
-    my @idkeys = map {
-      Replay::IdKey->from_full_spec( $_->{idkey} )
-    } $self->BOXES->find(
-        { locked => { q^$^ . 'exists' => 1 },
-            lockExpireEpoch => { q^$^ . 'lt' => time } },
+    my @idkeys
+        = map { Replay::IdKey->from_full_spec( $_->{idkey} ) }
+        $self->BOXES->find(
+        {   locked          => { q^$^ . 'exists' => 1 },
+            lockExpireEpoch => { q^$^ . 'lt'     => time }
+        },
         { idkey => 1 }
-    )->all;
+        )->all;
     return @idkeys;
 }
 
 sub find_keys_need_reduce {
     my ($self) = @_;
 
-    my @idkeys = map {
-      Replay::IdKey->from_full_spec( $_->{idkey} )
-    } $self->BOXES->find(
-        { state => 'inbox' }, { idkey => 1 } )->all;
+    my @idkeys = map { Replay::IdKey->from_full_spec( $_->{idkey} ) }
+        $self->BOXES->find( { state => 'inbox' }, { idkey => 1 } )->all;
     return @idkeys;
 }
 
 sub find_keys_active_checkout {
     my ($self) = @_;
 
-    my @idkeys = map {
-      Replay::IdKey->new( Replay::IdKey->parse_spec( $_->{idkey} ) )
-    } $self->BOXES->find(
-        { state => 'desktop' }, { idkey => 1 } )->all;
+    my @idkeys
+        = map { Replay::IdKey->new( Replay::IdKey->parse_spec( $_->{idkey} ) ) }
+        $self->BOXES->find( { state => 'desktop' }, { idkey => 1 } )->all;
     return @idkeys;
 }
 

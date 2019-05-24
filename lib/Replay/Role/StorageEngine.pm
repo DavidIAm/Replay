@@ -298,7 +298,7 @@ sub revert {
     my ( $self, $lock ) = @_;
     $self->revert_this_record($lock);
     my $revert_msg = Replay::Message::Reverted->new( $lock->idkey->marshall );
-    return $self->eventSystem->control->emit($revert_msg);
+    $self->eventSystem->control->emit($revert_msg);
     $self->emit_reducable_if_needed( $lock->idkey );
 
     #hey Dave what is the line above for will never get to it???

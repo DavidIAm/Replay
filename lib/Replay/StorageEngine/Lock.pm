@@ -59,6 +59,11 @@ sub matches {
         && $self->idkey->full_spec eq $otherlock->idkey->full_spec;
 }
 
+sub notlocked {
+  my ($class, $idkey)  = @_;
+  my $lock = $class->new( {   idkey           => $idkey, })
+}
+
 sub prospective {
     my ( $class, $idkey, $timeout ) = @_;
     my $lock = $class->new(

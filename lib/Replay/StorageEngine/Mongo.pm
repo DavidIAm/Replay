@@ -34,6 +34,21 @@ sub cursor_each {
     return ();
 }
 
+sub expire_all_locks {
+    my ($self) = @_;
+    my %locks =
+        map { ( $_->{idkey}, $_ ) }
+            $self->BOXES->find( { locked => { q^$^ . 'exists' => 1 } },
+            { idkey => 1, locked => 1 } )->all;
+    foreach ( values %locks ) {
+        my $key = Replay::IdKey->from_full_spec( $_->{idkey} );
+        my ($lock) = $self->expired_lock_recover($key);
+        if ( $lock->is_locked ) {
+            $self->revert($lock);
+        }
+    }
+}
+
 sub ensure_locked {
     my ( $self, $lock ) = @_;
 
