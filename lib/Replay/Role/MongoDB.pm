@@ -210,7 +210,7 @@ sub relock_expired {
     if ( $r->modified_count && $r->acknowledged ) {
         warn "Successfully relocked document.  Updating boxes.";
         my $ur = $self->BOXES->update_many(
-            { idkey => $idkey, locked => $lockKey },
+            { idkey => $idkey->full_spec, locked => $lockKey },
             {   q^$^
                     . 'set' => {
                     locked          => $relock->locked,
