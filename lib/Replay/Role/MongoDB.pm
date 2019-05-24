@@ -213,7 +213,7 @@ sub relock_expired {
             { idkey => $idkey, locked => $lockKey },
             {   locked => { q^$^ . 'set' => $relock->locked },
                 lockExpireEpoch =>
-                    { q^$^ . 'set' => $relock->lockExpireEpoc },
+                    { q^$^ . 'set' => $relock->lockExpireEpoch },
             }
         );
         if ( $ur->modified_count && $r->acknowledged ) {

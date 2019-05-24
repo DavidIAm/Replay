@@ -41,6 +41,7 @@ Readonly my $REDUCE_TIMEOUT => 60;
 $Storable::canonical = 1;    ## no critic (ProhibitPackageVars)
 
 Readonly my $READONLY => 1;
+Readonly my $DEFAULT_RELOCK_TIMEOUT => 20;
 
 has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1 );
 
@@ -331,7 +332,7 @@ sub new_document {
 sub revert_all_expired_locks {
     my ($self) = @_;
     foreach my $lock ( grep { $_->is_locked }
-        map { $self->expired_lock_recover($_, 20) } $self->list_locked_keys() )
+        map { $self->expired_lock_recover($_, $DEFAULT_RELOCK_TIMEOUT) } $self->list_locked_keys() )
     {
         $self->revert($lock);
     }
