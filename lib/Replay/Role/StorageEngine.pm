@@ -74,7 +74,6 @@ sub fetch_transitional_state {
 
     # merge in canonical, moving atoms from desktop
     my ( $mergedmeta, @state );
-    my $error = 0;
     try {
         ( $mergedmeta, @state ) = $self->merge(
             $idkey,
@@ -95,23 +94,20 @@ sub fetch_transitional_state {
         carp 'Reverting because doing the merge caused an exception ' . $_
             . "\n";
         $self->revert($lock);
-        $error = 1;
+        return;
     };
 
-    if (!$error) {
-        # New document special case.  Awkward!
-        $mergedmeta->{Timeblocks}   ||= [];
-        $mergedmeta->{Domain}       ||= [];
-        $mergedmeta->{Ruleversions} ||= [];
+    # New document special case.  Awkward!
+    $mergedmeta->{Timeblocks}   ||= [];
+    $mergedmeta->{Domain}       ||= [];
+    $mergedmeta->{Ruleversions} ||= [];
 
-        # notify interested parties
-        $self->eventSystem->control->emit(
-           Replay::Message::Reducing->new( $idkey->marshall ) );
+    # notify interested parties
+    $self->eventSystem->control->emit(
+        Replay::Message::Reducing->new( $idkey->marshall ) );
 
-        # return uuid and list
-        return $lock => $mergedmeta => @state;
-   }
-   warn("JSP got to end of  fetch_transitional_state $error");
+    # return uuid and list
+    return $lock => $mergedmeta => @state;
 }
 
 sub merge {
