@@ -65,7 +65,7 @@ sub fetch_transitional_state {
 
     my $cursor = $self->desktop_cursor($lock);
     if ( !$cursor->has_next ) {
-        $self->revert($lock);
+        $self->revert($lock, 1);
         return;
     }
 
@@ -294,10 +294,10 @@ after 'absorb' => sub {
 };
 
 sub revert {
-    my ( $self, $lock ) = @_;
-     my ($package, $filename, $line) = caller;
-    warn("Looping on this revert from $package, $filename, $line lock=".Dumper($lock));
-    $self->revert_this_record($lock);
+    my ( $self, $lock, $empty ) = @_;
+    my ($package, $filename, $line) = caller;
+    warn("Looping on this revert from $package, $filename, $line lock=".$lock->locked . " = " . $lock->idkey->full_spec) unless $empty;
+    $self->revert_this_record($lock, $empty);
     my $revert_msg = Replay::Message::Reverted->new( $lock->idkey->marshall );
     $self->eventSystem->control->emit($revert_msg);
     $self->emit_reducable_if_needed( $lock->idkey );

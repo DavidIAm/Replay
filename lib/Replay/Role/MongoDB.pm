@@ -191,7 +191,7 @@ sub relock_expired {
         { locked => 1, lockExpireEpoch => 1 } )->all;
     if ( $record->{lockExpireEpoch} && $record->{lockExpireEpoch} > time ) {
         warn "Attempted to relock_expired an unexpired lock ("
-            . $record->{lockExpireEpoch} . ")";
+            . ( time - $record->{lockExpireEpoch} ) . ")";
         return Replay::StorageEngine::Lock->notlocked($idkey);
     }
     if ( $record->{locked} ) {
@@ -239,7 +239,11 @@ sub relock_expired {
 
 sub count_inbox_outstanding {
     my ( $self, $idkey ) = @_;
-    $self->BOXES->count( { idkey => $idkey->full_spec, state => 'inbox' } );
+    if (defined &{ref($self->BOXES).'::count_documents'}) {
+      $self->BOXES->count_documents( { idkey => $idkey->full_spec, state => 'inbox' } );
+    } else {
+      $self->BOXES->count( { idkey => $idkey->full_spec, state => 'inbox' } );
+    }
 }
 
 sub just_unlock {
@@ -374,7 +378,7 @@ sub clear_desktop {
 }
 
 sub reabsorb {
-    my ( $self, $lock ) = @_;
+    my ( $self, $lock, $empty ) = @_;
     $self->ensure_locked($lock);
     my $r = $self->BOXES->update_many(
         {   idkey  => $lock->idkey->full_spec,
@@ -385,7 +389,7 @@ sub reabsorb {
             q^$^ . 'unset' => { locked => 1 }
         }
     );
-    warn "Reabsorb executed, count modified: " . $r->modified_count;
+    warn "Reabsorb executed, count modified: " . $r->modified_count unless $empty;
     return $r;
 }
 

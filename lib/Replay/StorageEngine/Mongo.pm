@@ -90,7 +90,7 @@ sub checkin {
 }
 
 sub revert_this_record {
-    my ( $self, $lock ) = @_;
+    my ( $self, $lock, $empty ) = @_;
 
     my $current = $self->lockreport( $lock->idkey );
     croak " $$ cannot revert record is not locked" if !$lock->locked;
@@ -105,8 +105,7 @@ sub revert_this_record {
         if $lock->is_expired;
 
     # reabsorb all of the desktop atoms into the document
-    warn "revert with locked $lock->locked key $lock->idkey->full_spec";
-    my $r = $self->reabsorb($lock);
+    my $r = $self->reabsorb($lock, $empty);
 
     my $unlock = $self->just_unlock($lock);
     return $lock;
