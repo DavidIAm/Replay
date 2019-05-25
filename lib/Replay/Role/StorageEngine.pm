@@ -40,7 +40,7 @@ Readonly my $REDUCE_TIMEOUT => 60;
 
 $Storable::canonical = 1;    ## no critic (ProhibitPackageVars)
 
-Readonly my $READONLY => 1;
+Readonly my $READONLY               => 1;
 Readonly my $DEFAULT_RELOCK_TIMEOUT => 20;
 
 has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1 );
@@ -65,7 +65,7 @@ sub fetch_transitional_state {
 
     my $cursor = $self->desktop_cursor($lock);
     if ( !$cursor->has_next ) {
-        $self->revert($lock, 1);
+        $self->revert( $lock, 1 );
         return;
     }
 
@@ -294,10 +294,13 @@ after 'absorb' => sub {
 };
 
 sub revert {
-    my ( $self, $lock, $empty ) = @_;
-    my ($package, $filename, $line) = caller;
-    warn("Looping on this revert from $package, $filename, $line lock=".$lock->locked . " = " . $lock->idkey->full_spec) unless $empty;
-    $self->revert_this_record($lock, $empty);
+    my ( $self,    $lock,     $empty ) = @_;
+    my ( $package, $filename, $line )  = caller;
+    warn(     "Looping on this revert from $package, $filename, $line lock="
+            . $lock->locked . " = "
+            . $lock->idkey->full_spec )
+        unless $empty;
+    $self->revert_this_record( $lock, $empty );
     my $revert_msg = Replay::Message::Reverted->new( $lock->idkey->marshall );
     $self->eventSystem->control->emit($revert_msg);
     $self->emit_reducable_if_needed( $lock->idkey );
@@ -328,14 +331,20 @@ sub new_document {
         Ruleversions => [],
     };
 }
-  
+
 sub revert_all_expired_locks {
     my ($self) = @_;
-    foreach my $lock ( grep { $_->is_locked }
-        map { $self->expired_lock_recover($_, $DEFAULT_RELOCK_TIMEOUT) } $self->list_expired_locked_keys(time) )
-    {
-        warn("revert_all_expired_locks is fliping out");
-        $self->revert($lock);
+    warn "Scannign for locked keys...";
+    foreach my $key ( $self->list_locked_keys(time) ) {
+        warn "found locked key " . $key->full_spec . ' recover pending';
+        my $expireLock
+            = $self->expired_lock_recover( $_, $DEFAULT_RELOCK_TIMEOUT );
+        warn "expire lock is " . $expireLock->is_locked
+            ? "Locked, continuing revert"
+            : "Unlocked, skipping";
+        next unless $expireLock->is_locked;
+        $self->revert( $expireLock, 0 );
+        warn "Done revert.";
     }
 }
 

@@ -239,10 +239,13 @@ sub relock_expired {
 
 sub count_inbox_outstanding {
     my ( $self, $idkey ) = @_;
-    if (defined &{ref($self->BOXES).'::count_documents'}) {
-      $self->BOXES->count_documents( { idkey => $idkey->full_spec, state => 'inbox' } );
-    } else {
-      $self->BOXES->count( { idkey => $idkey->full_spec, state => 'inbox' } );
+    if ( defined &{ ref( $self->BOXES ) . '::count_documents' } ) {
+        $self->BOXES->count_documents(
+            { idkey => $idkey->full_spec, state => 'inbox' } );
+    }
+    else {
+        $self->BOXES->count(
+            { idkey => $idkey->full_spec, state => 'inbox' } );
     }
 }
 
@@ -312,25 +315,13 @@ sub window_all {
             )->all
     };
 }
-   
+
 sub list_locked_keys {
     my ($self) = @_;
-    my %keys
-        = map { $_->{idkey} => $_ }
-        ($self->BOXES->find( { locked => { q^$^ . 'exists' => 1 } },
-        { idkey => 1 } )->all);
-    my @idkeys
-        = map { Replay::IdKey->from_full_spec( $_->{idkey} ) } values %keys;
-    return @idkeys;
-}
-
-
-sub list_expired_locked_keys {
-    my ($self,$now) = @_;
-    my %keys 
-        = map { $_->{idkey} => $_ }
-        ($self->BOXES->find( { locked => { q^$^ . 'exists' => 1 }, lockExpireEpoch=>$now},
-        { idkey => 1 } )->all);
+    my %keys = map { $_->{idkey} => $_ } (
+        $self->BOXES->find( { locked => { q^$^ . 'exists' => 1 } },
+            { idkey => 1 } )->all
+    );
     my @idkeys
         = map { Replay::IdKey->from_full_spec( $_->{idkey} ) } values %keys;
     return @idkeys;
@@ -347,8 +338,7 @@ sub find_keys_need_reduce {
 sub find_keys_active_checkout {
     my ($self) = @_;
 
-    my @idkeys
-        = map { Replay::IdKey->from_full_spec( $_->{idkey} ) }
+    my @idkeys = map { Replay::IdKey->from_full_spec( $_->{idkey} ) }
         $self->BOXES->find( { state => 'desktop' }, { idkey => 1 } )->all;
     return @idkeys;
 }
@@ -389,7 +379,8 @@ sub reabsorb {
             q^$^ . 'unset' => { locked => 1 }
         }
     );
-    warn "Reabsorb executed, count modified: " . $r->modified_count unless $empty;
+    warn "Reabsorb executed, count modified: " . $r->modified_count
+        unless $empty;
     return $r;
 }
 
