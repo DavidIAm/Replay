@@ -190,7 +190,8 @@ sub relock_expired {
         { idkey => $idkey->cubby, locked => { q^$^ . 'exists' => 1 }, },
         { locked => 1, lockExpireEpoch => 1 } )->all;
     if ( $record->{lockExpireEpoch} && $record->{lockExpireEpoch} > time ) {
-        warn "Attempted to relock_expired an unexpired lock (".$record->{lockExpireEpoch}.")";
+        warn "Attempted to relock_expired an unexpired lock ("
+            . $record->{lockExpireEpoch} . ")";
         return Replay::StorageEngine::Lock->notlocked($idkey);
     }
     if ( $record->{locked} ) {
@@ -211,18 +212,19 @@ sub relock_expired {
         }
     );
     if ( $r->modified_count && $r->acknowledged ) {
-        warn "Successfully relocked document (".($r->modified_count).").  Updating boxes.";
+        warn "Successfully relocked document ("
+            . ( $r->modified_count )
+            . ").  Updating boxes.";
         my $ur = $self->BOXES->update_many(
             { idkey => $idkey->full_spec },
-            {   q^$^
-                    . 'set' => {
-                    state           => 'desktop', # reenforce state
-                    locked          => $relock->locked, # new lock
-                    },
+            {   q^$^ . 'set' => {
+                    state  => 'desktop',          # reenforce state
+                    locked => $relock->locked,    # new lock
+                },
             }
         );
-        if ( $ur->modified_count && $r->acknowledged ) {
-            warn "Successfully relocked " . $ur->modified_count . " records.";
+        if ( $ur->modified_count > 0 && $r->acknowledged ) {
+            warn "Successfully relocked " . $ur->modified_count . " atoms.";
         }
         else {
             warn "zero desktop moved back to inbox!";

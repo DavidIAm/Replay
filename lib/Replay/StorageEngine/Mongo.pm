@@ -105,6 +105,7 @@ sub revert_this_record {
         if $lock->is_expired;
 
     # reabsorb all of the desktop atoms into the document
+    warn "revert with locked $lock->locked key $lock->idkey->full_spec";
     my $r = $self->reabsorb($lock);
 
     my $unlock = $self->just_unlock($lock);

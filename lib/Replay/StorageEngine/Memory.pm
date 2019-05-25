@@ -40,8 +40,10 @@ sub desktop_cursor {
 sub inbox_to_desktop {
     my ( $self, $lock ) = @_;
     return
-        scalar map { $_->{state} = 'desktop' }
-        @{ $self->BOXES( $lock->idkey ) };
+        scalar map {
+          $_->{state} = 'desktop';
+          $_->{locked} = $lock->locked;
+        } @{ $self->BOXES( $lock->idkey ) };
 }
 
 # State transition = add new atom to inbox
@@ -155,7 +157,13 @@ sub ensure_locked {
 
 sub reabsorb {
     my ( $self, $lock ) = @_;
-    foreach ( @{ $self->BOXES( $lock->idkey ) } ) { $_->{state} = 'inbox'; }
+    foreach (
+        grep { $_->{state} eq 'desktop' && $_->{locked} eq $lock->locked }
+        @{ $self->BOXES( $lock->idkey ) } )
+    {
+        $_->{state} = 'inbox';
+        delete $_->{locked};
+    }
 }
 
 sub revert_this_record {
