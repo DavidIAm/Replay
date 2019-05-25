@@ -211,7 +211,7 @@ sub relock_expired {
                 },
         }
     );
-    if ( $r->modified_count && $r->acknowledged ) {
+    if ( $r->modified_count > 0 && $r->acknowledged ) {
         warn "Successfully relocked document ("
             . ( $r->modified_count )
             . ").  Updating boxes.";
@@ -308,12 +308,24 @@ sub window_all {
             )->all
     };
 }
-
+   
 sub list_locked_keys {
     my ($self) = @_;
     my %keys
         = map { $_->{idkey} => $_ }
         ($self->BOXES->find( { locked => { q^$^ . 'exists' => 1 } },
+        { idkey => 1 } )->all);
+    my @idkeys
+        = map { Replay::IdKey->from_full_spec( $_->{idkey} ) } values %keys;
+    return @idkeys;
+}
+
+
+sub list_expired_locked_keys {
+    my ($self,$now) = @_;
+    my %keys 
+        = map { $_->{idkey} => $_ }
+        ($self->BOXES->find( { locked => { q^$^ . 'exists' => 1 }, lockExpireEpoch=>$now},
         { idkey => 1 } )->all);
     my @idkeys
         = map { Replay::IdKey->from_full_spec( $_->{idkey} ) } values %keys;
