@@ -27,7 +27,8 @@ sub BUILD {
         interval => $self->interval,
         cb => sub {
           warn "Janitor is reverting all expired locks";
-          $self->storageEngine->revert_all_expired_locks() 
+          $self->storageEngine->revert_all_expired_locks();
+          $self->storageEngine->reduce_all_inboxes();
         },
     );
 }

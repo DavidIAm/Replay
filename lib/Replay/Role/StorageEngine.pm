@@ -190,15 +190,11 @@ sub expired_lock_recover {
     my ( $self, $idkey, $timeout ) = @_;
 
     my $relock = Replay::StorageEngine::Lock->prospective( $idkey, $timeout );
+    warn "elr: prospective " . $relock->locked;
     my $expire_relock = $self->relock_expired($relock);
+    warn "elr: result relock " . $expire_relock->locked;
 
-    if ( $expire_relock->matches($relock) && $expire_relock->is_locked() ) {
-        $self->revert_this_record($expire_relock);
-        $self->eventSystem->control->emit(
-            Replay::Message::NoLock::PostRevert->new( $idkey->marshall ),
-        );
-    }
-    else {
+    if (!$expire_relock->is_locked) {
         carp 'Unable to relock expired! ' . $idkey->cubby . qq(\n);
         return;
     }

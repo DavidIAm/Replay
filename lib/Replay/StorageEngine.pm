@@ -109,6 +109,13 @@ sub find_keys_active_checkout {
     return @need;
 }
 
+sub reduce_all_inboxes {
+    my ($self, @args ) = @_;
+    foreach my $idkey($self->find_keys_need_reduce(@args))  {
+      $self->engine->emit_reducable_if_needed($idkey);
+    }
+}
+
 sub _build_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ( $self, @args ) = @_;
     my $classname = $self->mode;
