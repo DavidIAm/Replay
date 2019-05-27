@@ -1,10 +1,10 @@
 package Replay::Role::StorageEngine;
 
 use Moose::Role;
-requires qw(absorb retrieve find_keys_need_reduce find_keys_active_checkout
+requires qw(absorb retrieve find_keys_need_reduce
     ensure_locked window_all checkin desktop_cursor clear_desktop
     reabsorb inbox_to_desktop relock_expired list_locked_keys
-    just_unlock purge expire_all_locks );
+    unlock_cubby purge expire_all_locks );
 use Digest::MD5 qw/md5_hex/;
 use feature 'current_sub';
 use Data::Dumper;
@@ -160,7 +160,7 @@ sub store_new_canonical_state {
     $cubby->{canonical} = [@atoms];
     $cubby->{canonSignature}
         = $self->state_signature( $idkey, $cubby->{canonical} );
-    my $newstate = $self->checkin( $lock, $cubby );
+    $self->checkin( $lock, $cubby );
     $emitter->release;
 
     foreach my $atom ( @{ $emitter->atomsToDefer } ) {
@@ -172,7 +172,7 @@ sub store_new_canonical_state {
     $self->eventSystem->report->emit($new_conical_msg);
     $self->eventSystem->control->emit($new_conical_msg);
     $self->emit_reducable_if_needed($idkey);
-    return $newstate;    # release pending messages
+    # release pending messages
 }
 
 # accessor - how to get the rule for an idkey
@@ -287,6 +287,14 @@ after 'absorb' => sub {
   #       carp('Replay::BaseStorageEnginee  after absorb '.$self.', .'$idkey);
     my $reduce_msg = Replay::Message::Reducable->new( $idkey->marshall );
     return $self->eventSystem->reduce->emit($reduce_msg);
+};
+
+after 'purge' => sub {
+    my ( $self, $idkey ) = @_;
+
+  #       carp('Replay::BaseStorageEnginee  after purge '.$self.', .'$idkey);
+    my $purge_msg = Replay::Message::Cleared::State->new( $idkey->marshall );
+    return $self->eventSystem->control->emit($purge_msg);
 };
 
 sub revert {
@@ -537,11 +545,6 @@ specified window, in a hash keyed by the key within the window
 
 returns a list of idkey objects which represent all of the keys in the replay
 system that appear to have outstanding absorptions that need reduced.
-
-=head2 objectlist = find_keys_active_checkout()
-
-returns a list of idkey objects which represent all of the keys in the replay
-system that appear to be in progress.
 
 =head1 INTERNAL METHODS
 

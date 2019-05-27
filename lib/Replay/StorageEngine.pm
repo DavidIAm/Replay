@@ -103,12 +103,6 @@ sub find_keys_need_reduce {
     return @need;
 }
 
-sub find_keys_active_checkout {
-    my ( $self, @args ) = @_;
-    my @need = $self->engine->find_keys_active_checkout(@args);
-    return @need;
-}
-
 sub reduce_all_inboxes {
     my ($self, @args ) = @_;
     foreach my $idkey($self->find_keys_need_reduce(@args))  {
@@ -122,7 +116,7 @@ sub _build_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
 
     if ( !$classname->does('Replay::Role::StorageEngine') ) {
         croak $classname
-            . q( -->Must use the Replay::Role::StorageEngin 'Role' );
+            . q( -->Must use the Replay::Role::StorageEngine 'Role' );
 
     }
 
@@ -312,10 +306,6 @@ see BaseStorageEngine store_new_canonical_state
 =head2 window_all(idkey)
 
 see BaseStorageEngine window_all
-
-=head2 find_keys_active_checkout(idkey)
-
-see Replay::Role::StorageEngine::find_keys_active_checkout
 
 =head2 find_keys_need_reduce(idkey)
 

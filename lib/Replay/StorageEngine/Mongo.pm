@@ -53,7 +53,7 @@ sub ensure_locked {
     my ( $self, $lock ) = @_;
 
     my ( $package, $filename, $line ) = caller;
-    my $curlock = $self->lockreport( $lock->idkey );
+    my $curlock = $self->current_lock( $lock->idkey );
     warn " $$ "
         . $curlock->matches($lock)
         . 'This document '
@@ -83,7 +83,7 @@ sub checkin {
 
     # warn('Replay::StorageEngine::Mongo checkin' );
     my $result = $self->update_and_unlock( $lock, $state );
-    $self->purge($lock);
+    $self->purge($lock->idkey);
 
     return if not defined $result;
     return $result;
@@ -92,7 +92,7 @@ sub checkin {
 sub revert_this_record {
     my ( $self, $lock, $empty ) = @_;
 
-    my $current = $self->lockreport( $lock->idkey );
+    my $current = $self->current_lock( $lock->idkey );
     croak " $$ cannot revert record is not locked" if !$lock->locked;
     croak " $$  cannot revert because this is not my lock - sig "
         . $current->locked
@@ -107,7 +107,7 @@ sub revert_this_record {
     # reabsorb all of the desktop atoms into the document
     my $r = $self->reabsorb($lock, $empty);
 
-    my $unlock = $self->just_unlock($lock);
+    my $unlock = $self->unlock_cubby($lock);
     return $lock;
 }
 
@@ -207,23 +207,11 @@ return the document indicated by the idkey
 
 create and return a new uuid
 
-=head2 checkout_record(idkey, signature)
-
-This will return the uuid and document, when the state it is trying to open is unlocked and unexpired
-
-otherwise, it returns undef.
-
 =head2 relock(idkey, oldsignature, newsignature)
 
 Given a valid oldsignature, updates the lock time and installs the new signature
 
 returns the state document, or undef if signature doesn't match or it is not locked
-
-=head2 update_and_unlock(idkey, signature)
-
-updates the state document, and unlocks the record.
-
-returns the state document, or undef if the state is not locked with that signature
 
 =head1 AUTHOR
 

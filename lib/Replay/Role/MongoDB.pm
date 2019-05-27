@@ -1,6 +1,6 @@
 package Replay::Role::MongoDB;
 
-#all you need to get a Mogo up and running from blank unauthed
+#all you need to get a Mongo up and running from blank unauthed
 # - create a myUserAdmin
 # use admin
 # db.createUser( {
@@ -29,7 +29,10 @@ requires(
         _build_dbname
         _build_dbauthdb
         _build_dbuser
-        _build_dbpass)
+        _build_dbpass
+        new_document
+        retrieve
+        )
 );
 
 our $VERSION = q(0.01);
@@ -57,89 +60,18 @@ sub _build_mongo {    ## no critic (ProhibitUnusedPrivateSubroutines)
     return $db;
 }
 
+sub assert_index {
+    my ( $self, $idkey ) = @_;
+    $self->collection($idkey)
+        ->indexes->create_one( [ idkey => 1 ], { unique => 1 } );
+}
+
 sub checkout_record {
     my ( $self, $lock ) = @_;
     my $idkey = $lock->idkey;
 
-    # try to get lock
-    # # right record: idkey matches
-    # # unlocked OR expired
-    # # # unlocked - locked element does not exist
-    # # # expired - locked is the signature
-    # # #         - lock expire epoch is gt current time
-    # # #        OR lockExpireEpoch does not exist
-    # make sure we have an index for this collection
-
-    $self->collection($idkey)
-        ->indexes->create_one( [ idkey => 1 ], { unique => 1 } );
-
-    # not sure about the above Dave can you check??
-
-    # Happy path - cleanly grab the lock
-    try {
-        my $lockresult = $self->collection($idkey)->update_one(
-            {   idkey => $idkey->cubby,
-                q^$^
-                    . 'or' => [
-                    { locked => { q^$^ . 'exists' => 0 } },
-                    { locked => $lock->locked }
-                    ]
-            },
-            {   q^$^
-                    . 'set' => {
-                    locked          => $lock->locked,
-                    lockExpireEpoch => $lock->lockExpireEpoch,
-                    },
-                q^$^ . 'setOnInsert' => { IdKey => $idkey->marshall },
-            },
-            { upsert => 1, returnNewDocument => 1, },
-        );
-    }
-    catch {
-        # Unhappy - didn't get it.  Let somebody else handle the situation
-        if ( $_->isa('MongoDB::DuplicateKeyError') ) {
-            my $relock = $self->relock_expired(
-                Replay::StorageEngine::Lock->prospective(
-                    $idkey, $lock->timeout
-                )
-            );
-
-            my $current = $self->lockreport( $lock->idkey );
-
-#Dave it appears that when in a try catch a return gets out out of the
-#catch and retruns to the end of the try.  In this case it returns to line 123 returns $lock
-            if ( $relock->matches($current) && !$relock->is_expired ) {
-                $lock = $relock;
-            }
-            else {
-                $lock = Replay::StorageEngine::Lock->empty( $lock->idkey );
-            }
-        }
-        else {
-            croak $_;
-        }
-    };
-
-    return $lock;
-
-    # boxes collection
-    #
-    # absorb:
-    # create new document in boxes: {idkey:, atom:, state:'inbox'}
-    #
-    # checkout:
-    # lock the record
-    # update boxes {idkey: , state:'inbox'} to { {idkey: # , state: 'desktop'}
-    # }
-    #
-    # reduce:
-    # retrieve list { idkey: , state: 'desktop' }
-    #
-    # checkin:
-    # update canonical
-    # delete boxes {idkey: , state:'desktop'}
-    # unlock the record
-
+    $self->assert_index($idkey);
+    return $self->lock_cubby( lock => $lock, only_if_unlocked => 1 );
 }
 
 sub collection {
@@ -157,74 +89,133 @@ sub document {
     return $document;
 }
 
-sub lockreport {
+sub current_lock {
     my ( $self, $idkey ) = @_;
-    croak 'idkey for lockreport must be passed' if !$idkey;
+    croak 'idkey for current_lock must be passed' if !$idkey;
 
-    my $found
+    my $report
         = $self->db->get_collection( $idkey->collection )
         ->find_one( { idkey => $idkey->cubby },
-        { locked => 1, lockExpireEpoch => 1, } )
-        || {};
+        { locked => 1, lockExpireEpoch => 1, } );
 
-    my $new = Replay::StorageEngine::Lock->new(
-        idkey => $idkey,
-        (   $found->{locked}
-            ? ( locked          => $found->{locked},
-                lockExpireEpoch => $found->{lockExpireEpoch}
-                )
-            : ()
-        ),
+    if ($report) {
+        if ( $report->{locked} && $report->{lockExpireEpoch} ) {
+            return Replay::StorageEngine::Lock->new(
+                idkey           => $idkey,
+                locked          => $report->{locked},
+                lockExpireEpoch => $report->{lockExpireEpoch}
+            );
+        }
+        else {
+            return Replay::StorageEngine::Lock->empty( idkey => $idkey, );
+        }
+    }
+    else {
+        return Replay::StorageEngine::Lock->empty($idkey);
+    }
+}
+
+# Mongo query: relock cubby document
+sub lock_cubby {
+    my ( $self, %args ) = @_;
+    my $outlock = Replay::StorageEngine::Lock->empty( $args{lock}->idkey );
+    my @onlyunlocked = (
+        $args{only_if_unlocked}
+        ? ( q^$or^ => [
+                { locked => { q^$exists^ => 0 } },
+                { locked => $args{lock}->locked }
+            ]
+            )
+        : ()
     );
-    return $new;
+
+    # up front check to see if its already locked.
+    # If it is, check to see if its expired.
+    # If it is, try to relock it.
+    my $current = $self->current_lock( $args{lock}->idkey );
+    if ( $current->is_locked ) {
+        if ( $current->is_expired ) {
+            # locked, expired, attempt relock
+            $outlock = $self->relock_expired( $args{lock}->idkey,
+                $args{lock}->timeout );
+        }
+    }
+    else {
+        try {
+            my $r = $self->collection( $args{lock}->idkey )->update_one(
+                { idkey => $args{lock}->idkey->cubby, @onlyunlocked, },
+                {   q^$set^ => {
+                        locked          => $args{lock}->locked,
+                        lockExpireEpoch => $args{lock}->lockExpireEpoch,
+                    },
+                    q^$setOnInsert^ =>
+                        { IdKey => $args{lock}->idkey->marshall },
+                },
+                { upsert => 1, returnNewDocument => 1, },
+            );
+            if ( $r->modified_count + $r->matched_count > 0 || $r->upserted_id) {
+                $outlock = $args{lock};
+            }
+        }
+        catch {
+            # Unhappy - Duplicate key errors mean the above query
+            # didn't match so tried to insert but the unique constraint
+            # was hit, meaning it was already checked out, but precheck
+            # didn't see that.
+            # Warn out about it.
+            if ( $_->isa('MongoDB::DuplicateKeyError') ) {
+                warn "Duplicate key despite precheck! "
+                    . $args{lock}->idkey->full_spec;
+            }
+            else {
+                croak $_;
+            }
+        }
+    }
+    return $outlock;
+}
+
+# Mongo query: relock desktop
+sub relock_desktop {
+    my ( $self, $lock ) = @_;
+    my $ur = $self->BOXES->update_many(
+        { idkey => $lock->idkey->full_spec },
+        {   q^$set^ => {
+                state  => 'desktop',        # reenforce state
+                locked => $lock->locked,    # new lock
+            },
+        }
+    );
+    return $ur->modified_count;
 }
 
 sub relock_expired {
-    my ( $self, $relock ) = @_;
-    my $idkey = $relock->idkey;
+    my ( $self, $idkey, $timeout ) = @_;
+    my $relock = Replay::StorageEngine::Lock->prospective( $idkey, $timeout );
+    my $current = $self->current_lock($idkey);
 
-    # Lets try to get an expire lock, if it has timed out
-    my ($record)
-        = $self->collection($idkey)
-        ->find(
-        { idkey => $idkey->cubby, locked => { q^$^ . 'exists' => 1 }, },
-        { locked => 1, lockExpireEpoch => 1 } )->all;
-    if ( $record->{lockExpireEpoch} && $record->{lockExpireEpoch} > time ) {
+    if ( !$current->is_expired ) {
         warn "Attempted to relock_expired an unexpired lock ("
-            . ( time - $record->{lockExpireEpoch} ) . ")";
+            . ( time - $current->lockExpireEpoch )
+            . ") seconds left";
         return Replay::StorageEngine::Lock->notlocked($idkey);
     }
-    if ( $record->{locked} ) {
+    if ( $current->locked ) {
         warn "Attempt to relock_expired an expired locked key ("
-            . ( $record->{locked} )
+            . ( $current->locked )
             . "), lock pending.";
     }
     else {
         warn "Attempt to relock_expired an unlocked key, lock pending.";
     }
-    my $r = $self->collection($idkey)->update_one(
-        { idkey => $idkey->cubby },
-        {   q^$^
-                . 'set' => {
-                locked          => $relock->locked,
-                lockExpireEpoch => $relock->lockExpireEpoch,
-                },
-        }
-    );
-    if ( $r->modified_count > 0 && $r->acknowledged ) {
+    my $locked = $self->lock_cubby( lock => $relock, only_if_unlocked => 0 );
+    if ( $locked > 0 ) {
         warn "Successfully relocked document ("
-            . ( $r->modified_count )
+            . ($locked)
             . ").  Updating boxes.";
-        my $ur = $self->BOXES->update_many(
-            { idkey => $idkey->full_spec },
-            {   q^$^ . 'set' => {
-                    state  => 'desktop',          # reenforce state
-                    locked => $relock->locked,    # new lock
-                },
-            }
-        );
-        if ( $ur->modified_count > 0 && $r->acknowledged ) {
-            warn "Successfully relocked " . $ur->modified_count . " atoms.";
+        my $desktop_count = $self->relock_desktop($relock);
+        if ($desktop_count) {
+            warn "Successfully relocked " . $desktop_count . " atoms.";
         }
         else {
             warn "zero desktop moved back to inbox!";
@@ -249,59 +240,48 @@ sub count_inbox_outstanding {
     }
 }
 
-sub just_unlock {
+sub unlock_cubby {
     my ( $self, $lock ) = @_;
 
     my $unlock = $self->collection( $lock->idkey )->update_one(
         { idkey => $lock->idkey->cubby, locked => $lock->locked },
-        { q^$^ . 'unset' => { locked => 1, lockExpireEpoch => 1, } },
+        { q^$unset^ => { locked => 1, lockExpireEpoch => 1, } },
     );
 
     return $unlock;
 }
 
 sub purge {
-    my ( $self, $lock ) = @_;
-    if ($self->collection( $lock->idkey )->delete_one(
-            {   idkey     => $lock->idkey->cubby,
-                canonical => { q^$^ . 'exists' => 0 }
-            }
-        )
-        )
-    {
-        $self->eventSystem->control->emit(
-            Replay::Message::Cleared::State->new( $lock->idkey->marshall ),
-        );
-    }
+    my ( $self, $idkey) = @_;
+    $self->collection( $idkey )
+        ->delete_one(
+        { idkey => $idkey->cubby, canonical => { q^$exists^ => 0 } } );
 }
 
 sub update_and_unlock {
     my ( $self, $lock, $state ) = @_;
     my @unsetcanon = ();
+    my @setstate   = ();
     if ($state) {
-        delete $state->{_id};    # cannot set _id!
-        delete $state->{lockExpireEpoch}
-            ;                    # there is no more expire time on checkin
-        delete $state->{locked}
-            ;    # there is no more locked signature on checkin
+        delete $state->{_id};
+        delete $state->{lockExpireEpoch};
+        delete $state->{locked};
         if ( @{ $state->{canonical} || [] } == 0 ) {
             delete $state->{canonical};
             @unsetcanon = ( canonical => 1 );
         }
         $self->clear_desktop($lock);
+        @setstate = ( q^$set^ => $state );
     }
     my ( $package, $filename, $line ) = caller;
     my $newstate = $self->collection( $lock->idkey )->update_one(
         { idkey => $lock->idkey->cubby, locked => $lock->locked },
-        {   ( $state ? ( q^$^ . 'set' => $state ) : () ),
-            q^$^
-                . 'unset' =>
-                { lockExpireEpoch => 1, locked => 1, @unsetcanon }
+        {   @setstate,
+            q^$unset^ => { lockExpireEpoch => 1, locked => 1, @unsetcanon }
         },
         { upsert => 0 }
     );
-    my $retrieve = $self->retrieve( $lock->idkey );
-    return $retrieve;
+    return Replay::StorageEngine::Lock->empty($lock->idkey);
 }
 
 sub window_all {
@@ -311,7 +291,7 @@ sub window_all {
         map { $_->{IdKey}->{key} => $_->{canonical} || [] }
             grep { defined $_->{IdKey}->{key} }
             $self->collection($idkey)->find(
-            { idkey => { q^$^ . 'regex' => q(^) . $idkey->window_prefix } }
+            { idkey => { q^$regex^ => q(^) . $idkey->window_prefix } }
             )->all
     };
 }
@@ -319,7 +299,7 @@ sub window_all {
 sub list_locked_keys {
     my ($self) = @_;
     my %keys = map { $_->{idkey} => $_ } (
-        $self->BOXES->find( { locked => { q^$^ . 'exists' => 1 } },
+        $self->BOXES->find( { locked => { q^$exists^ => 1 } },
             { idkey => 1 } )->all
     );
     my @idkeys
@@ -332,14 +312,6 @@ sub find_keys_need_reduce {
 
     my @idkeys = map { Replay::IdKey->from_full_spec( $_->{idkey} ) }
         $self->BOXES->find( { state => 'inbox' }, { idkey => 1 } )->all;
-    return @idkeys;
-}
-
-sub find_keys_active_checkout {
-    my ($self) = @_;
-
-    my @idkeys = map { Replay::IdKey->from_full_spec( $_->{idkey} ) }
-        $self->BOXES->find( { state => 'desktop' }, { idkey => 1 } )->all;
     return @idkeys;
 }
 
@@ -375,9 +347,7 @@ sub reabsorb {
             state  => 'desktop',
             locked => $lock->locked
         },
-        {   q^$^ . 'set'   => { state  => 'inbox' },
-            q^$^ . 'unset' => { locked => 1 }
-        }
+        { q^$set^ => { state => 'inbox' }, q^$unset^ => { locked => 1 } }
     );
     warn "Reabsorb executed, count modified: " . $r->modified_count
         unless $empty;
@@ -407,17 +377,17 @@ sub inbox_to_desktop {
     my @idsToProcess = map { $_->{'_id'} } $self->BOXES->find(
         {   idkey  => $lock->idkey->full_spec,
             state  => 'inbox',
-            locked => { q^$^ . 'exists' => 0 }
+            locked => { q^$exists^ => 0 }
         }
     )->fields( { _id => 1 } )->limit($capacity)->all;
 
     return $self->BOXES->update_many(
         {   idkey  => $lock->idkey->full_spec,
             state  => 'inbox',
-            locked => { q^$^ . 'exists' => 0 },
-            _id    => { q^$^ . 'in' => [@idsToProcess] }
+            locked => { q^$exists^ => 0 },
+            _id    => { q^$in^ => [@idsToProcess] }
         },
-        { q^$^ . 'set' => { state => 'desktop', locked => $lock->locked, } }
+        { q^$set^ => { state => 'desktop', locked => $lock->locked, } }
     )->{modified_count};
 }
 
@@ -480,9 +450,9 @@ given an IdKey, return the collection it will be found in
 
 given an IdKey, retrieve the document
 
-=head2 lockreport
+=head2 current_lock
 
-given an IdKey, return a summary of its lock state
+given an IdKey, return a lock object
 
 =head2 relock
 

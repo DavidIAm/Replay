@@ -16,9 +16,10 @@ sub a_replay_config : Test(startup) {
     my $self = shift;
     $self->{storedir} = '/tmp/testscript-02-' . $ENV{USER};
     mkpath $self->{storedir};
-    $self->{config}   = {
+    $self->{config} = {
         timeout       => 40,
         stage         => 'testscript-02-' . $ENV{USER},
+        WORM          => { Directory => './log', },
         StorageEngine => {
             Mode      => 'Mongo',
             MongoUser => 'replayuser',
@@ -26,10 +27,13 @@ sub a_replay_config : Test(startup) {
         },
         EventSystem   => { Mode         => 'Null' },
         Defaults      => { ReportEngine => 'Filesystemtest' },
-        ReportEngines => [{ Mode =>'Filesystem',
-                            Root => $self->{storedir},
-                            Name => 'Filesystemtest',
-                            Access => 'public' } ]
+        ReportEngines => [
+            {   Mode   => 'Filesystem',
+                Root   => $self->{storedir},
+                Name   => 'Filesystemtest',
+                Access => 'public'
+            }
+        ]
     };
 }
 

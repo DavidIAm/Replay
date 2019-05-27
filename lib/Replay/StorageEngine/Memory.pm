@@ -174,11 +174,11 @@ sub revert_this_record {
     # reabsorb all of the desktop atoms into the document
     $self->reabsorb($lock);
 
-    $self->just_unlock($lock);
+    $self->unlock_cubby($lock);
     return;
 }
 
-sub just_unlock {
+sub unlock_cubby {
     my ( $self, $lock ) = @_;
 
     $self->ensure_locked($lock);
@@ -199,7 +199,7 @@ sub update_and_unlock {
     if ( @{ $state->{canonical} || [] } == 0 ) {
         delete $state->{canonical};
     }
-    $self->just_unlock($lock);
+    $self->unlock_cubby($lock);
     return $state;
 }
 
