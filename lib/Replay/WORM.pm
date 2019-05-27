@@ -17,8 +17,8 @@ has eventSystem => ( is => 'ro', required => 1, );
 has directory =>
     ( is => 'ro', required => 0, lazy => 1, builder => '_build_log_dir' );
 has filehandles => ( is => 'ro', isa => 'HashRef', default => sub { {} } );
-has UUID => ( is => 'ro', isa => 'Data::UUID', builder => '_build_uuid',   );
-has config => ( is => 'ro', required => 1,  );
+has UUID => ( is => 'ro', isa => 'Data::UUID', builder => '_build_uuid', );
+has config => ( is => 'ro', required => 1, );
 
 # dummy implimentation - Log them to a file
 sub BUILD {
@@ -70,7 +70,7 @@ sub serialize {
 sub log {    ## no critic (ProhibitBuiltinHomonyms)
     my $self    = shift;
     my $message = shift;
-    
+
     return $self->filehandle->print( $self->serialize($message) . qq(\n) );
 }
 

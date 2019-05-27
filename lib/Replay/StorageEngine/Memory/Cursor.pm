@@ -35,7 +35,7 @@ sub batch {
 
 sub has_next {
     my ($self) = @_;
-   return $self->{index} <= $#{ $self->{list} };
+    return $self->{index} <= $#{ $self->{list} };
 }
 
 1;

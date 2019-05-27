@@ -47,7 +47,7 @@ sub map {    ## no critic (ProhibitBuiltinHomonyms)
     croak q(I CANNOT MAP UNDEF) if not defined $message;
     my $domain = $self->eventSystem->domain();
     while ( my $rule = $self->ruleSource->next ) {
-        next if not $rule->match($message,$domain);
+        next if not $rule->match( $message, $domain );
         my @all = $rule->key_value_set($message);
         croak q(key value list from key value set must be even)
             if scalar @all % 2;
@@ -66,18 +66,17 @@ sub map {    ## no critic (ProhibitBuiltinHomonyms)
                 . q( OUT OF MESSAGE )
                 . Dumper $message
                 if not defined $key;
-            my $new_key =   Replay::IdKey->new(
-                    {   name    => $rule->name,
-                        version => $rule->version,
-                        window  => $window,
-                        key     => $key
-                    }
-                );
+            my $new_key = Replay::IdKey->new(
+                {   name    => $rule->name,
+                    version => $rule->version,
+                    window  => $window,
+                    key     => $key
+                }
+            );
             my $domain = $self->eventSystem->domain;
             croak q(unable to store)
                 if not $self->storageEngine->absorb(
-                $new_key,
-                $atom,
+                $new_key, $atom,
                 {   Timeblocks   => $message->{Timeblocks},
                     Domain       => $domain,
                     Ruleversions => [

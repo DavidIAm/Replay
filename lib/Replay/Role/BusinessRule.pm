@@ -5,21 +5,21 @@ use Moose::Util::TypeConstraints;
 
 our $VERSION = '0.02';
 
-has eventSystem  => ( is => 'ro', isa => 'Replay::EventSystem',  );
+has eventSystem  => ( is => 'ro', isa => 'Replay::EventSystem', );
 has reportEngine => ( is => 'ro', isa => 'Str', );
 
 # mapper
 # [string]
-has name => ( is => 'ro', required => 1,   );
+has name => ( is => 'ro', required => 1, );
 
 # [string]
-has version => ( is => 'ro', isa => 'Str', default => '1',  );
+has version => ( is => 'ro', isa => 'Str', default => '1', );
 
-has capacity =>  ( is => 'ro', isa => 'Int',  default=> 1000  );
+has capacity => ( is => 'ro', isa => 'Int', default => 1000 );
 
 requires qw/match key_value_set window compare reduce/;
 
-has report_disposition => ( is => 'ro', default => 0 ,  );
+has report_disposition => ( is => 'ro', default => 0, );
 
 # [boolean] function match ( message )
 # [timeWindowIdentifier] function window ( message )
@@ -35,7 +35,7 @@ has report_disposition => ( is => 'ro', default => 0 ,  );
 #
 # used by bureaucrat
 # [diff report] function fullDiff ( ruleA, Version, ruleB, Version )
-has fullDiff => ( is => 'ro', isa => 'CodeRef', required => 0,   );
+has fullDiff => ( is => 'ro', isa => 'CodeRef', required => 0, );
 
 # used by clerk
 # [formatted Report] function delivery ( rule, [ keyA => arrayrefOfMessage, ... ] )

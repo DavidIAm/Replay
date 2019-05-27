@@ -135,6 +135,7 @@ sub lock_cubby {
     my $current = $self->current_lock( $args{lock}->idkey );
     if ( $current->is_locked ) {
         if ( $current->is_expired ) {
+
             # locked, expired, attempt relock
             $outlock = $self->relock_expired( $args{lock}->idkey,
                 $args{lock}->timeout );
@@ -153,7 +154,9 @@ sub lock_cubby {
                 },
                 { upsert => 1, returnNewDocument => 1, },
             );
-            if ( $r->modified_count + $r->matched_count > 0 || $r->upserted_id) {
+            if (   $r->modified_count + $r->matched_count > 0
+                || $r->upserted_id )
+            {
                 $outlock = $args{lock};
             }
         }
@@ -252,8 +255,8 @@ sub unlock_cubby {
 }
 
 sub purge {
-    my ( $self, $idkey) = @_;
-    $self->collection( $idkey )
+    my ( $self, $idkey ) = @_;
+    $self->collection($idkey)
         ->delete_one(
         { idkey => $idkey->cubby, canonical => { q^$exists^ => 0 } } );
 }
@@ -281,7 +284,7 @@ sub update_and_unlock {
         },
         { upsert => 0 }
     );
-    return Replay::StorageEngine::Lock->empty($lock->idkey);
+    return Replay::StorageEngine::Lock->empty( $lock->idkey );
 }
 
 sub window_all {

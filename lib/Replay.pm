@@ -92,13 +92,13 @@ has storageEngine => (
 has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, );
 
 sub _build_janitor {    ## no critic (ProhibitUnusedPrivateSubroutines)
-    my $self         = shift;
-    my $event_system = $self->eventSystem;
+    my $self           = shift;
+    my $event_system   = $self->eventSystem;
     my $storage_engine = $self->storageEngine;
-    my $janitor = Replay::Janitor->new(
-      eventSystem => $event_system,
-      storageEngine => $storage_engine,
-      config      => $self->config
+    my $janitor        = Replay::Janitor->new(
+        eventSystem   => $event_system,
+        storageEngine => $storage_engine,
+        config        => $self->config
     );
     return $janitor;
 }

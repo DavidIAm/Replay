@@ -16,10 +16,10 @@ our $VERSION = '0.03';
 has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1 );
 
 has eventSystem =>
-    ( is => 'ro', isa => 'Replay::EventSystem', required => 1);
+    ( is => 'ro', isa => 'Replay::EventSystem', required => 1 );
 
 has reportEngine =>
-    ( is => 'ro', isa => 'Replay::ReportEngine', required => 1);
+    ( is => 'ro', isa => 'Replay::ReportEngine', required => 1 );
 
 sub BUILD {
     my $self = shift;
@@ -28,13 +28,13 @@ sub BUILD {
             $self->report_wrapper(@_);
         }
     );
-    
+
 }
 
 # accessor - how to get the rule for an idkey
 sub rule {
     my ( $self, $idkey ) = @_;
-    my $rule =  $self->ruleSource->by_idkey($idkey);
+    my $rule = $self->ruleSource->by_idkey($idkey);
     return $rule;
 }
 
@@ -98,29 +98,30 @@ sub report_wrapper {
             $meta = $self->reportEngine->update_globsummary($idkey);
         }
         my @hash_list = $idkey->hash_list;
-        my $reaction_uuid = blessed $envelope ? $envelope->UUID : $envelope->{UUID};
-        my $message =  Replay::Message::Reported->new(
-                @hash_list,
-                inReactionToType => $type,
-                inReactionToUUID => ($reaction_uuid
-                ),
-            );
-        $self->eventSystem->control->emit($message
-           
+        my $reaction_uuid
+            = blessed $envelope ? $envelope->UUID : $envelope->{UUID};
+        my $message = Replay::Message::Reported->new(
+            @hash_list,
+            inReactionToType => $type,
+            inReactionToUUID => ( $reaction_uuid ),
+        );
+        $self->eventSystem->control->emit(
+            $message
+
         );
     }
     catch {
         carp "REPORTING EXCEPTION: $_";
-        
+
         my $message = Replay::Message::Exception::Reporter->new(
-                ( $idkey ? $idkey->hash_list : () ),
-                exception => (
-                    blessed $_
-                        && $_->can('trace') ? $_->trace->as_string : $_
-                ),
-            );
-        $self->eventSystem->control->emit($message
-            
+            ( $idkey ? $idkey->hash_list : () ),
+            exception => (
+                blessed $_ && $_->can('trace') ? $_->trace->as_string : $_
+            ),
+        );
+        $self->eventSystem->control->emit(
+            $message
+
         );
     };
     return;

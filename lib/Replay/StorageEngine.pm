@@ -104,9 +104,9 @@ sub find_keys_need_reduce {
 }
 
 sub reduce_all_inboxes {
-    my ($self, @args ) = @_;
-    foreach my $idkey($self->find_keys_need_reduce(@args))  {
-      $self->engine->emit_reducable_if_needed($idkey);
+    my ( $self, @args ) = @_;
+    foreach my $idkey ( $self->find_keys_need_reduce(@args) ) {
+        $self->engine->emit_reducable_if_needed($idkey);
     }
 }
 

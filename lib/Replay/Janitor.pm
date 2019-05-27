@@ -17,18 +17,17 @@ has storageEngine =>
 has eventSystem =>
     ( is => 'ro', isa => 'Replay::EventSystem', required => 1, );
 
-has interval =>
-    ( is => 'ro', builder => '_build_interval', lazy => 1 );
+has interval => ( is => 'ro', builder => '_build_interval', lazy => 1 );
 
 sub BUILD {
     my ($self) = @_;
     warn "Janitor is initializing";
     $self->eventSystem->register_cleanup_timer(
         interval => $self->interval,
-        cb => sub {
-          warn "Janitor is reverting all expired locks";
-          $self->storageEngine->revert_all_expired_locks();
-          $self->storageEngine->reduce_all_inboxes();
+        cb       => sub {
+            warn "Janitor is reverting all expired locks";
+            $self->storageEngine->revert_all_expired_locks();
+            $self->storageEngine->reduce_all_inboxes();
         },
     );
 }

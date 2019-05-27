@@ -202,7 +202,7 @@ sub hash {
 sub hash_list {
     my ($self) = @_;
     my @list = (
-        ( $self->has_domain   ? ( window   => $self->domain . q{} )   : () ),
+        ( $self->has_domain ? ( window => $self->domain . q{} ) : () ),
         name    => $self->name . q{},
         version => $self->version . q{},
         ( $self->has_window   ? ( window   => $self->window . q{} )   : () ),

@@ -21,26 +21,26 @@ Readonly my $CURRENTFILE  => 'CURRENT';
 Readonly my $WRITABLEFILE => 'WRITABLE';
 
 has 'Root' => (
-    is       => 'ro',
-    isa      => 'Str',
-    builder  => '_build_root',
-    lazy     => 1,
-    
+    is      => 'ro',
+    isa     => 'Str',
+    builder => '_build_root',
+    lazy    => 1,
+
 );
 
 has 'Name' => (
-    is       => 'ro',
-    isa      => 'Str',
-    builder  => '_build_name',
-    lazy     => 1,
-    
+    is      => 'ro',
+    isa     => 'Str',
+    builder => '_build_name',
+    lazy    => 1,
+
 );
 
 has 'thisConfig' => ( is => 'ro', isa => 'HashRef', required => 1, );
 
 with 'Replay::Role::ReportEngine';
 
-has '+mode' => ( default => 'Filesystem',  );
+has '+mode' => ( default => 'Filesystem', );
 
 my $store = {};
 

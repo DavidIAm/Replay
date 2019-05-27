@@ -12,38 +12,39 @@ use Scalar::Util qw/blessed/;
 use Try::Tiny;
 use Time::HiRes qw/gettimeofday/;
 
-has eventSystem   => (is => 'ro', required => 1);
-has storageEngine => (is => 'ro', required => 1);
-has reportEngine  => (is => 'ro', required => 1);
-has ruleSource    => (is => 'ro', required => 1);
+has eventSystem   => ( is => 'ro', required => 1 );
+has storageEngine => ( is => 'ro', required => 1 );
+has reportEngine  => ( is => 'ro', required => 1 );
+has ruleSource    => ( is => 'ro', required => 1 );
 
 # dummy implimentation - Log them to a file
 sub BUILD {
     my $self = shift;
-    if (not -d $self->directory) {
+    if ( not -d $self->directory ) {
         mkdir $self->directory;
     }
-    
+
     $self->eventSystem->report->subscribe(
         sub {
             my $message = shift;
 
-            if ($message->{MessageType} eq 'NewCanonical') {
-                $self->deliver(Replay::IdKey->new($message->{Message}));
+            if ( $message->{MessageType} eq 'NewCanonical' ) {
+                $self->deliver( Replay::IdKey->new( $message->{Message} ) );
             }
-            if ($message->{MessageType} eq 'NewCanonical') {
-                $self->summarize(Replay::IdKey->new($message->{Message}));
+            if ( $message->{MessageType} eq 'NewCanonical' ) {
+                $self->summarize( Replay::IdKey->new( $message->{Message} ) );
             }
         }
     );
 }
 
 sub deliver {
-    my ($self, $idkey) = @_;
+    my ( $self, $idkey ) = @_;
     my $state = $self->storageEngine->retrieve($idkey);
-    my $rs = $self->ruleSource->by_idkey($idkey)->delivery($state->{canonical});
+    my $rs    = $self->ruleSource->by_idkey($idkey)
+        ->delivery( $state->{canonical} );
     my $delivery = $self->reportEngine->newReportVersion(
-        report => $rs,
+        report       => $rs,
         Ruleversions => $state->Ruleversions,
         Timeblocks   => $state->Timeblocks,
         Windows      => $state->Windows,
@@ -52,18 +53,19 @@ sub deliver {
 }
 
 sub summarize {
-    my ($self, $idkey) = @_;
-    my $reports = $self->reportEngine->window_all($idkey);
-    my $rule_summary =  $self->ruleSource->by_idkey($idkey)->summary(
-            reports => $reports,
-            Ruleversions =>
-                Replay::Meta::union(map { $_->Ruleversions } values %{$reports}),
-            Timeblocks => Replay::Meta::union(map { $_->Timeblocks } values %{$reports}),
-            Windows    => Replay::Meta::union(map { $_->Windows } values %{$reports}),
-        );
-    my $summary = $self->reportEngine->newSummary(
-       $rule_summary
+    my ( $self, $idkey ) = @_;
+    my $reports      = $self->reportEngine->window_all($idkey);
+    my $rule_summary = $self->ruleSource->by_idkey($idkey)->summary(
+        reports      => $reports,
+        Ruleversions => Replay::Meta::union(
+            map { $_->Ruleversions } values %{$reports}
+        ),
+        Timeblocks =>
+            Replay::Meta::union( map { $_->Timeblocks } values %{$reports} ),
+        Windows =>
+            Replay::Meta::union( map { $_->Windows } values %{$reports} ),
     );
+    my $summary = $self->reportEngine->newSummary( $rule_summary );
     return $summary;
 }
 

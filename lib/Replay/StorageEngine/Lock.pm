@@ -60,8 +60,8 @@ sub matches {
 }
 
 sub notlocked {
-  my ($class, $idkey)  = @_;
-  my $lock = $class->new( {   idkey           => $idkey, })
+    my ( $class, $idkey ) = @_;
+    my $lock = $class->new( { idkey => $idkey, } );
 }
 
 sub prospective {

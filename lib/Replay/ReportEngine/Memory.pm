@@ -27,7 +27,7 @@ has file_typer =>
 sub _build_file_typer {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my ($self) = @_;
     my $file_type = File::Type->new();
-    return  $file_type;
+    return $file_type;
 }
 
 my $store = {};

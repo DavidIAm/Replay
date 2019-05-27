@@ -11,7 +11,7 @@ with(qw(Replay::Types::Messages Replay::Role::Envelope));
 
 has name => ( is => 'ro', isa => 'Str', );
 
-has version => ( is => 'ro', isa => 'Str'  );
+has version => ( is => 'ro', isa => 'Str' );
 
 1;
 

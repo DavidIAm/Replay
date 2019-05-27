@@ -15,8 +15,8 @@ use Carp qw/croak carp confess/;
 
 our $VERSION = '0.02';
 
-Readonly my $LTYEAR         => 1900;
-Readonly my $SECS_IN_MINUTE => 60;
+Readonly my $LTYEAR                           => 1900;
+Readonly my $SECS_IN_MINUTE                   => 60;
 Readonly my $DEFAULT_CLEANUP_INTERVAL_SECONDS => 90;
 
 #my $quitting = 0;
@@ -182,14 +182,15 @@ sub run {
 }
 
 sub register_cleanup_timer {
-    my ($self, %options) = @_;
+    my ( $self, %options ) = @_;
     warn "Registering cleanup timer (EventSystem) %options";
-    push @{$self->{cleanuptimer}}, AnyEvent->timer(
-      after => 0,
-      interval => $DEFAULT_CLEANUP_INTERVAL_SECONDS,
-      cb => sub { warn "Default cleanup noop" },
-      %options
-    );
+    push @{ $self->{cleanuptimer} },
+        AnyEvent->timer(
+        after    => 0,
+        interval => $DEFAULT_CLEANUP_INTERVAL_SECONDS,
+        cb       => sub { warn "Default cleanup noop" },
+        %options
+        );
 }
 
 sub stop {

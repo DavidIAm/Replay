@@ -6,9 +6,9 @@ use Carp qw/confess/;
 our $VERSION = '0.02';
 
 has eventSystem =>
-    ( is => 'ro', isa => 'Replay::EventSystem', required => 1,  );
-has Timeblocks   => ( is => 'rw', isa => 'ArrayRef', required => 1,  );
-has Ruleversions => ( is => 'rw', isa => 'ArrayRef', required => 1,  );
+    ( is => 'ro', isa => 'Replay::EventSystem', required => 1, );
+has Timeblocks   => ( is => 'rw', isa => 'ArrayRef', required => 1, );
+has Ruleversions => ( is => 'rw', isa => 'ArrayRef', required => 1, );
 has messagesToSend =>
     ( is => 'rw', isa => 'ArrayRef', default => sub { [] } );
 has atomsToDefer => ( is => 'rw', isa => 'ArrayRef', default => sub { [] } );
@@ -28,7 +28,7 @@ has map => (
 
 sub _build_map {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    my $map = Replay::DelayedEmitter::Channeled->new(
+    my $map  = Replay::DelayedEmitter::Channeled->new(
         channel => 'map',
         emitter => $self
     );
@@ -42,7 +42,7 @@ has reduce => (
 );
 
 sub _build_reduce {    ## no critic (ProhibitUnusedPrivateSubroutines)
-    my $self = shift;
+    my $self   = shift;
     my $reduce = Replay::DelayedEmitter::Channeled->new(
         channel => 'reduce',
         emitter => $self
@@ -57,7 +57,7 @@ has report => (
 );
 
 sub _build_report {    ## no critic (ProhibitUnusedPrivateSubroutines)
-    my $self = shift;
+    my $self   = shift;
     my $report = Replay::DelayedEmitter::Channeled->new(
         channel => 'report',
         emitter => $self
@@ -72,7 +72,7 @@ has control => (
 );
 
 sub _build_control {    ## no critic (ProhibitUnusedPrivateSubroutines)
-    my $self = shift;
+    my $self    = shift;
     my $control = Replay::DelayedEmitter::Channeled->new(
         channel => 'control',
         emitter => $self
@@ -87,7 +87,7 @@ has origin => (
 );
 
 sub _build_origin {    ## no critic (ProhibitUnusedPrivateSubroutines)
-    my $self = shift;
+    my $self   = shift;
     my $origin = Replay::DelayedEmitter::Channeled->new(
         channel => 'origin',
         emitter => $self

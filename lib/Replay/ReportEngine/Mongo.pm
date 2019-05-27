@@ -12,7 +12,7 @@ our $VERSION = q(0.03);
 has 'Name' =>
     ( is => 'ro', isa => 'Str', builder => '_build_name', lazy => 1 );
 
-has 'thisConfig' => ( is => 'ro', isa => 'HashRef', required => 1,  );
+has 'thisConfig' => ( is => 'ro', isa => 'HashRef', required => 1, );
 
 my $store = {};
 with( 'Replay::Role::MongoDB', 'Replay::Role::ReportEngine' );
@@ -27,7 +27,7 @@ sub _build_name {    ## no critic (ProhibitUnusedPrivateSubroutines)
 
 sub _build_dbpass {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
-    my $pass =  $self->thisConfig->{Pass};
+    my $pass = $self->thisConfig->{Pass};
     return $pass;
 }
 

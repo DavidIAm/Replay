@@ -8,20 +8,20 @@ use English qw/-no_match_vars/;
 
 our $VERSION = '0.03';
 
-has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1,    );
+has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, );
 
-has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1,);
+has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1, );
 has eventSystem =>
     ( is => 'ro', isa => 'Replay::EventSystem', required => 1, );
 has storageEngine =>
-    ( is => 'ro', isa => 'Replay::StorageEngine', required => 1,   );
+    ( is => 'ro', isa => 'Replay::StorageEngine', required => 1, );
 
 has selectorClass => (
     is      => 'ro',
     isa     => 'Str',
-    lazy => 1,
+    lazy    => 1,
     builder => '_build_selector_class',
-    
+
 );
 
 has reportEngineSelector => (
@@ -29,7 +29,7 @@ has reportEngineSelector => (
     isa     => 'Replay::ReportEngine::Selector',
     builder => '_build_report_selector',
     lazy    => 1,
-  
+
 );
 
 # Delegate the api points
@@ -65,32 +65,29 @@ sub summary_data {
 
 sub globsummary_data {
     my ( $self, $idkey ) = @_;
-    my $summary = $self->engine($idkey)->globsummary_data( $idkey->globsummary );
+    my $summary
+        = $self->engine($idkey)->globsummary_data( $idkey->globsummary );
     return $summary;
 }
 
 sub update_delivery {
     my ( $self, $idkey ) = @_;
     my @state = $self->storageEngine->fetch_canonical_state($idkey);
-    my $update = $self->engine($idkey)
-        ->update_delivery( $idkey,
-       @state  );
+    my $update = $self->engine($idkey)->update_delivery( $idkey, @state );
     return $update;
 }
 
 sub update_summary {
     my ( $self, $idkey ) = @_;
-    my @data =  $self->get_all_delivery_data($idkey);
-    my $update =  $self->engine($idkey)
-        ->update_summary( $idkey, @data);
+    my @data = $self->get_all_delivery_data($idkey);
+    my $update = $self->engine($idkey)->update_summary( $idkey, @data );
     return $update;
 }
 
 sub update_globsummary {
     my ( $self, $idkey ) = @_;
     my @summay = $self->get_all_summary_data($idkey);
-    my $update = $self->engine($idkey)
-        ->update_globsummary( $idkey, @summay );
+    my $update = $self->engine($idkey)->update_globsummary( $idkey, @summay );
     return $update;
 }
 
@@ -148,15 +145,16 @@ sub engine {
 }
 
 sub _build_selector_class {
-  my ($self) = @_;
-  my $class = $self->config->{Defaults}->{ReportEngineSelector} || 'Replay::ReportEngine::Selector';
-  return $class;
+    my ($self) = @_;
+    my $class = $self->config->{Defaults}->{ReportEngineSelector}
+        || 'Replay::ReportEngine::Selector';
+    return $class;
 }
 
 sub _build_report_selector {   ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self = shift;
 
-    my $class = $self->selectorClass;
+    my $class     = $self->selectorClass;
     my $new_class = $class->new(
         config        => $self->config,
         ruleSource    => $self->ruleSource,

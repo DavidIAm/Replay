@@ -172,6 +172,7 @@ sub store_new_canonical_state {
     $self->eventSystem->report->emit($new_conical_msg);
     $self->eventSystem->control->emit($new_conical_msg);
     $self->emit_reducable_if_needed($idkey);
+
     # release pending messages
 }
 
@@ -194,7 +195,7 @@ sub expired_lock_recover {
     my $expire_relock = $self->relock_expired($relock);
     warn "elr: result relock " . $expire_relock->locked;
 
-    if (!$expire_relock->is_locked) {
+    if ( !$expire_relock->is_locked ) {
         carp 'Unable to relock expired! ' . $idkey->cubby . qq(\n);
         return;
     }
@@ -292,7 +293,7 @@ after 'absorb' => sub {
 after 'purge' => sub {
     my ( $self, $idkey ) = @_;
 
-  #       carp('Replay::BaseStorageEnginee  after purge '.$self.', .'$idkey);
+   #       carp('Replay::BaseStorageEnginee  after purge '.$self.', .'$idkey);
     my $purge_msg = Replay::Message::Cleared::State->new( $idkey->marshall );
     return $self->eventSystem->control->emit($purge_msg);
 };
@@ -343,9 +344,8 @@ sub revert_all_expired_locks {
         warn "found locked key " . $key->full_spec . ' recover pending';
         my $expireLock
             = $self->expired_lock_recover( $key, $DEFAULT_RELOCK_TIMEOUT );
-        next 
-		  unless(ref($expireLock));
-		warn "expire lock is " . $expireLock->is_locked
+        next unless ( ref($expireLock) );
+        warn "expire lock is " . $expireLock->is_locked
             ? "Locked, continuing revert"
             : "Unlocked, skipping";
         next unless $expireLock->is_locked;

@@ -39,11 +39,10 @@ sub desktop_cursor {
 
 sub inbox_to_desktop {
     my ( $self, $lock ) = @_;
-    return
-        scalar map {
-          $_->{state} = 'desktop';
-          $_->{locked} = $lock->locked;
-        } @{ $self->BOXES( $lock->idkey ) };
+    return scalar map {
+        $_->{state}  = 'desktop';
+        $_->{locked} = $lock->locked;
+    } @{ $self->BOXES( $lock->idkey ) };
 }
 
 # State transition = add new atom to inbox
@@ -253,12 +252,10 @@ sub find_keys_need_reduce {
 sub find_keys_active_checkout {
     my ($self) = @_;
 
-    my @idkeys
-        = map { Replay::IdKey->from_full_spec( $_->spec ) }
-        grep {
+    my @idkeys = map { Replay::IdKey->from_full_spec( $_->spec ) } grep {
         grep { $_->{state} eq 'desktop' }
             @{ $self->{BOXES}{$_} || [] }
-        } keys %{ $self->{BOXES} };
+    } keys %{ $self->{BOXES} };
     return @idkeys;
 }
 

@@ -36,10 +36,10 @@ sub cursor_each {
 
 sub expire_all_locks {
     my ($self) = @_;
-    my %locks =
-        map { ( $_->{idkey}, $_ ) }
-            $self->BOXES->find( { locked => { q^$^ . 'exists' => 1 } },
-            { idkey => 1, locked => 1 } )->all;
+    my %locks
+        = map { ( $_->{idkey}, $_ ) }
+        $self->BOXES->find( { locked => { q^$^ . 'exists' => 1 } },
+        { idkey => 1, locked => 1 } )->all;
     foreach ( values %locks ) {
         my $key = Replay::IdKey->from_full_spec( $_->{idkey} );
         my ($lock) = $self->expired_lock_recover($key);
@@ -83,7 +83,7 @@ sub checkin {
 
     # warn('Replay::StorageEngine::Mongo checkin' );
     my $result = $self->update_and_unlock( $lock, $state );
-    $self->purge($lock->idkey);
+    $self->purge( $lock->idkey );
 
     return if not defined $result;
     return $result;
@@ -105,7 +105,7 @@ sub revert_this_record {
         if $lock->is_expired;
 
     # reabsorb all of the desktop atoms into the document
-    my $r = $self->reabsorb($lock, $empty);
+    my $r = $self->reabsorb( $lock, $empty );
 
     my $unlock = $self->unlock_cubby($lock);
     return $lock;

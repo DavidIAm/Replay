@@ -16,8 +16,6 @@ our $VERSION = '0.02';
 
 has subscribers => ( is => 'ro', isa => 'ArrayRef', default => sub { [] }, );
 
-
-
 sub poll {
     my $self = shift;
     my $c    = 0;
