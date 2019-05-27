@@ -343,7 +343,9 @@ sub revert_all_expired_locks {
         warn "found locked key " . $key->full_spec . ' recover pending';
         my $expireLock
             = $self->expired_lock_recover( $key, $DEFAULT_RELOCK_TIMEOUT );
-        warn "expire lock is " . $expireLock->is_locked
+        next 
+		  unless(ref($expireLock));
+		warn "expire lock is " . $expireLock->is_locked
             ? "Locked, continuing revert"
             : "Unlocked, skipping";
         next unless $expireLock->is_locked;
