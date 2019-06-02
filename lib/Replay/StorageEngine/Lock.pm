@@ -59,11 +59,6 @@ sub matches {
         && $self->idkey->full_spec eq $otherlock->idkey->full_spec;
 }
 
-sub notlocked {
-    my ( $class, $idkey ) = @_;
-    my $lock = $class->new( { idkey => $idkey, } );
-}
-
 sub prospective {
     my ( $class, $idkey, $timeout ) = @_;
     my $lock = $class->new(
@@ -79,8 +74,7 @@ sub prospective {
 sub empty {
     my ( $class, $idkey ) = @_;
     confess 'idkey required for empty lock' if !$idkey;
-    my $l = $class->new( { idkey => $idkey } );
-    return $l;
+    return $class->new( { idkey => $idkey } );
 }
 
 1;

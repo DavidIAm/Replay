@@ -1,0 +1,134 @@
+happy hacker composition
+
+arrogance in computer science is measured in nano-djikstras
+
+Important thing about smalltalk and similar
+
+Nothing to do with syntax or accumulated library - which are taken as being thelanguage as though issued from gods on olympus.
+
+Doghouse programming - anybody with a hammer and a nail and some boards can make a doghouse. 
+
+But you can't just scale that up 100 times bigger mass expands by 1,000,000 and its strength gos up by 10,000.  So its 1/100th as weak.  the doghousee will just collapse.  then what - 'well, that is what we were TRYING to do!' (popular) put more garbage and some limestone and say "we were tryign to do pyramids not gothic cathedrals".  (accounts for structure of modern operating systems?)
+
+Come up with a new concept - ARCHITECTURE - non-obvious non-linear interaction between simple materials to give you synergy and multiplication of material capability.
+
+the amount of material in sharp cathedral - is less than that put into the parthenon - its almost all air and glass.
+
+Architecture will always dominate material.
+
+People only interested in architecture now because internet scale is forcing it.
+
+"The act oof creation" by author kessler  (a cognitive scientist)
+What might creativity be? - Learning
+
+plane pink (normal context) and blue (perpendicular to it)
+
+Creative acts don't stay in the same context they're in. 
+
+Every once in awhile you have a blue idea - despite your programming by society.
+
+Emotional reaction 
+- joke - haha
+- science - ah hah
+- art - ahh!
+
+
+Card images - tape - data being moved - somebody came up with idea - in the third part, we'll put records of a particular type.  The second part will have the procedures that know how to deal with the format of those types. In the first part, we'll put pointers into the procedures. - we'll make the first ten or so points standard (reading/writing fields, trying to print, etc)
+
+
+REPLAY ENVELOPE - identifier, meta-information, common bits 
+
+Is it a bad idea that the browser understands formats?  I not really thinking so. What is he suggesting, encoding variants being shipped along?  Arbitrary code that gets executed?  
+
+
+THe STATE involved in a bacteria is like, 100 gigs.
+
+
+ENCAPSULATED A COMPUTER 
+
+bug in data and procedure languages - perniciously they think they're helping by looking like the old thing but they're hurting it terribly by making it difficult to understand waht's really powerful about this new metaphor.
+
+time sharing systems had figured this out - 1965 thesis - what you want to give a person on time share is a virtual machine - unix did this - the biggest problem is that unix process had overhead of 2000 bytes to have a process - difficult to have a unix process be the number three - problem with scaling.
+
+Commit to this concept so that it is practical at all of the levels of scale that we need
+
+objects should be servers
+
+polymorphism is a way of thinking about classees of these servers
+
+Now we have to construct -a nd then grow it.
+
+its easy to grow a baby 6 inches - they do ita bout 10 times in tehir lives and never down for maintenance.
+
+The only artifact has been to make the artifact in the first place, not to fix, change make it last a 
+
+
+Replay - every object has a url
+
+Objects are like servers - the notion of polymorphism (generic procedures) is a way of thinking about classes of these servers.
+
+One we haven't faced up to much yet now we have to construct it and then we'll be required to grow it.
+
+Its very easy to grow a baby 6 inches, they do it about 10 times in their lives and you never have to take it down for maintenance.
+
+Try to grow a 747 and you have this unbelievable problem - because its in this simple minded mechanical world in which teh olnly object has been to make the artifact in the first place not to fix it, not to change it, not to let it live for 100 years.
+
+How many people still use a language that forces to develop outside of the language compile and reload - even if its fast - like virtual cafe - we can have a revival later.
+
+This cannot be more than a dead end for buidling complex systems - much of the building of complex systems are going to be in understanding waht the possibilities are, for the interoperability with things that already exist.
+
+
+I was part of designing arpanet -from the time the internet started running - about 1969 or so - to this day - has expanded by a factor of 100 million - that's pretty good - 8 orders of magnitude - and as far as anybody can tell - there's not one physical atom in the original arpanet in the internet today - and not one line of code that was in teh original arpanet - if we'd have ibm mainfram3es in arpanet that wouldn't have been true. Its expanded by 100 million, every atom and every bit changed and has never had to stop
+
+That is the metaphor we must apply to what we think are smaller things.  When we think of programming as small - that's why your programs are so big - they become pyramids instead of gothic cathedrals.
+
+The other big source - certainly the greatest isingle language along with simula of the 60s I think one with as many profound insights- LISP - on page 13 of this 1962 book there's a half page of code which is the reflective model of lisp written in itself - all the important details of semantics and how to make a lisp interpreter are in that half page.
+
+It is this meta-reflective aspect that is the saddest about what is happening with Java.  When it happened, I thought well, its legitimizing this bytecode approach of being multiplatform like xerox parc (not new, back into 1960s) - but wshen I looked at it I said, oh my goodness, how coudl it possibly...  how do they hope to survive all the changes modifications adaptations and interoperability requirements without meta system - without being able to load new things in while you're running?  People adopted it as a great hope is very distressing. It is a real failure of people to understand what the large picture is and is going to be.
+
+metaprogramming
+
+any particular implementation makes pragmatic choices that are unable to cover the cases at the efficiency and richness required - standard oop lore why we encapsulate - we need to hide messes, different ways of dealing with same concepts in ways that don't distract the programmer - but also applicable (like at LISP and xerox parc) apply it to the building of the language itself - the more it can see its own structures the more liberated you can be from a single implementation - its critical but people aren't worrying abou tit.
+
+this meta is important is the question of how do we really interoperate on the internet five and ten years from now?  I don't believe microsoft is going to be able to capture the internet - too big, too many ideas and people - and people will realize that an ibm or microsoft solution is neither called for nor p ossible.
+
+There will be dozens and dozens of different object systems - all with similar semantics - but different pragmatic details - if you think of what a URL is, what HTTP message is - what an object is - what an OO pointer is - it should be pretty clear that any object oriented language can internalize its own internal pointers to any object in the world ever made.
+
+A symantic interoperability is possible almost immediately by taking that stance.  That will change everything - Java beans and Corba are not going to suffice - at some point one is going to have to start discovering what objects think they can do.  A universal interface language - not a programming language - more like a prototyping language - that allows an interchange of deep information about what objects think they can do.
+
+??OPENAPI??
+
+A great book  The art of the metaobject protocol.  Best book written in ten years but why did you write it LISP centric closed club way?  This is hard book to read.
+
+most of the world has abstract data types - assignment centered way of thinking about programming.
+
+there's nothing more inefficient than spending 10 years on an operating system that never works - or worse - appear to work.
+
+Swift
+
+First its denounced as the work of mad men
+
+Later, its remarked as being totally obvious the whole time
+
+Last, the original denouncers claim to have invented it
+
+
+When smalltalk came out of xerox parc it stopped changing.  There were four completely different versions of the language over 10 year period - and dozens of significant releases within those versions.
+
+REPLAY
+
+What we liked the most about smalltalk was not what it could do, but that it was a good vehicle for bootstrapping the next set of ideas we had about how to do systems building.
+
+What we need to do is think and think and thinka bout whats important - our systems have to let us get to the next level of abstraction as we come to them.
+
+The proud thing of smalltalk is that it has been so good about getting rid of previous versions of itself until it came out into the public.
+
+squeak project - not a free smalltalk - a bootstrapping mechanism for something better than smalltalk.
+
+Just Play It Grand.
+
+The way to stay with the future as it moves is to play your systems more grand than they seem to be right now.
+
+
+
+

@@ -65,6 +65,7 @@ sub fetch_transitional_state {
 
     my $cursor = $self->desktop_cursor($lock);
     if ( !$cursor->has_next ) {
+        warn "Reverting because desktop cursor has no entries";
         $self->revert( $lock, 1 );
         return;
     }
@@ -238,9 +239,14 @@ sub checkout {
     }
 
     if ( $self->ensure_locked($lock) ) {
-        $self->inbox_to_desktop($lock);
-        $self->emit_reducable_if_needed( $lock->idkey );
-        return $lock;
+        if ( $self->inbox_to_desktop($lock) > 0 ) {
+            $self->emit_reducable_if_needed( $lock->idkey );
+            return $lock;
+        }
+        else {
+            $self->unlock_cubby($lock);
+            return Replay::StorageEngine::Lock->empty($idkey);
+        }
     }
 
     if ( $lock->is_expired ) {

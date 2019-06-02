@@ -136,9 +136,15 @@ sub lock_cubby {
     if ( $current->is_locked ) {
         if ( $current->is_expired ) {
 
+            warn
+                "during lock of cubby found current document locked and expired";
+
             # locked, expired, attempt relock
             $outlock = $self->relock_expired( $args{lock}->idkey,
                 $args{lock}->timeout );
+        }
+        else {
+            warn "during lock of cubby found current document locked";
         }
     }
     else {
@@ -201,7 +207,7 @@ sub relock_expired {
         warn "Attempted to relock_expired an unexpired lock ("
             . ( time - $current->lockExpireEpoch )
             . ") seconds left";
-        return Replay::StorageEngine::Lock->notlocked($idkey);
+        return Replay::StorageEngine::Lock->empty($idkey);
     }
     if ( $current->locked ) {
         warn "Attempt to relock_expired an expired locked key ("
@@ -226,7 +232,7 @@ sub relock_expired {
     }
     else {
         warn "Failed to relock document!";
-        return Replay::StorageEngine::Lock->notlocked($idkey);
+        return Replay::StorageEngine::Lock->empty($idkey);
     }
     return $relock;
 }
@@ -465,11 +471,6 @@ the timeout doesn't expire
 =head2 relock_expired
 
 given an IdKey to a lock with an expired record, take over the lock
-
-=head2 revert_this_record
-
-given an idkey to a locked record and its uuid key, revert this to its
-unchecked out, unchanged state
 
 =head2 update_and_unlock
 
