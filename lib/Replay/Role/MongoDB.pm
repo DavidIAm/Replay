@@ -119,6 +119,10 @@ sub current_lock {
 sub lock_cubby {
     my ( $self, %args ) = @_;
     my $outlock = Replay::StorageEngine::Lock->empty( $args{lock}->idkey );
+    my @onlyiflocked
+        = ( $args{only_if_locked_with}
+        ? ( { locked => $args{only_if_locked_with}->locked } )
+        : () );
     my @onlyunlocked = (
         $args{only_if_unlocked}
         ? ( q^$or^ => [
@@ -141,7 +145,7 @@ sub lock_cubby {
 
             # locked, expired, attempt relock
             $outlock = $self->relock_expired( $args{lock}->idkey,
-                $args{lock}->timeout );
+                $args{lock}->timeout, $current );
         }
         else {
             warn "during lock of cubby found current document locked";
@@ -150,7 +154,9 @@ sub lock_cubby {
     else {
         try {
             my $r = $self->collection( $args{lock}->idkey )->update_one(
-                { idkey => $args{lock}->idkey->cubby, @onlyunlocked, },
+                {   idkey => $args{lock}->idkey->cubby,
+                    @onlyunlocked, @onlyiflocked
+                },
                 {   q^$set^ => {
                         locked          => $args{lock}->locked,
                         lockExpireEpoch => $args{lock}->lockExpireEpoch,
@@ -199,9 +205,8 @@ sub relock_desktop {
 }
 
 sub relock_expired {
-    my ( $self, $idkey, $timeout ) = @_;
+    my ( $self, $idkey, $timeout, $current ) = @_;
     my $relock = Replay::StorageEngine::Lock->prospective( $idkey, $timeout );
-    my $current = $self->current_lock($idkey);
 
     if ( !$current->is_expired ) {
         warn "Attempted to relock_expired an unexpired lock ("
@@ -217,7 +222,11 @@ sub relock_expired {
     else {
         warn "Attempt to relock_expired an unlocked key, lock pending.";
     }
-    my $locked = $self->lock_cubby( lock => $relock, only_if_unlocked => 0 );
+    my $locked = $self->lock_cubby(
+        lock                => $relock,
+        only_if_unlocked    => 0,
+        only_if_locked_with => $current
+    );
     if ( $locked > 0 ) {
         warn "Successfully relocked document ("
             . ($locked)
