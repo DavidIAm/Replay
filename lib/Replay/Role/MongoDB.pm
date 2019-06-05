@@ -121,23 +121,18 @@ sub lock_cubby {
     my $outlock = Replay::StorageEngine::Lock->empty( $args{lock}->idkey );
     my @onlyiflocked
         = ( $args{only_if_locked_with}
-        ? ( { locked => $args{only_if_locked_with}->locked } )
+        ? ( locked => $args{only_if_locked_with}->locked )
         : () );
     my @onlyunlocked = (
-        $args{only_if_unlocked}
-        ? ( q^$or^ => [
-                { locked => { q^$exists^ => 0 } },
-                { locked => $args{lock}->locked }
-            ]
-            )
-        : ()
-    );
+        $args{only_if_unlocked} ? ( locked => { q^$exists^ => 0 } ) : () );
 
     # up front check to see if its already locked.
     # If it is, check to see if its expired.
     # If it is, try to relock it.
     my $current = $self->current_lock( $args{lock}->idkey );
-    if ( $current->is_locked ) {
+    if ( $current->is_locked
+        && !$current->matches( $args{only_if_locked_with} ) )
+    {
         if ( $current->is_expired ) {
 
             warn

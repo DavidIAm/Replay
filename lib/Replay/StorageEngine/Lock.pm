@@ -55,7 +55,8 @@ sub is_expired {
 
 sub matches {
     my ( $self, $otherlock ) = @_;
-    return $self->is_mine( $otherlock->locked )
+    return UNIVERSAL::isa($otherlock, 'Replay::StorageEngine::Lock')
+        && $self->is_mine( $otherlock->locked )
         && $self->idkey->full_spec eq $otherlock->idkey->full_spec;
 }
 
