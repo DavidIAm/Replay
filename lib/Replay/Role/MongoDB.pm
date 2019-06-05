@@ -189,9 +189,8 @@ sub lock_cubby {
 sub relock_desktop {
     my ( $self, $lock ) = @_;
     my $ur = $self->BOXES->update_many(
-        { idkey => $lock->idkey->full_spec },
+        { idkey => $lock->idkey->full_spec, state => 'desktop' },
         {   q^$set^ => {
-                state  => 'desktop',        # reenforce state
                 locked => $lock->locked,    # new lock
             },
         }
@@ -231,7 +230,7 @@ sub relock_expired {
             warn "Successfully relocked " . $desktop_count . " atoms.";
         }
         else {
-            warn "zero desktop moved back to inbox!";
+            warn "zero desktop atoms relocked!";
         }
     }
     else {
@@ -356,10 +355,7 @@ sub reabsorb {
     my ( $self, $lock, $empty ) = @_;
     $self->ensure_locked($lock);
     my $r = $self->BOXES->update_many(
-        {   idkey  => $lock->idkey->full_spec,
-            state  => 'desktop',
-            locked => $lock->locked
-        },
+        { idkey => $lock->idkey->full_spec, state => 'desktop', },
         { q^$set^ => { state => 'inbox' }, q^$unset^ => { locked => 1 } }
     );
     warn "Reabsorb executed, count modified: " . $r->modified_count
