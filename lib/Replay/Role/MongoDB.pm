@@ -143,7 +143,7 @@ sub lock_cubby {
                 $args{lock}->timeout, $current );
         }
         else {
-            warn "during lock of cubby found current document locked";
+            # warn "during lock of cubby found current document locked";
         }
     }
     else {
