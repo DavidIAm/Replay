@@ -1,10 +1,30 @@
 package Replay::Role::StorageEngine;
 
 use Moose::Role;
-requires qw(absorb retrieve find_keys_need_reduce
-    ensure_locked window_all checkin desktop_cursor clear_desktop
-    reabsorb inbox_to_desktop relock_expired list_locked_keys
-    unlock_cubby purge expire_all_locks );
+
+requires qw(absorb
+  BOXES
+  clear_desktop
+  checkin
+  checkout_record
+  count_inbox_outstanding
+  desktop_cursor
+  ensure_locked
+  expire_all_locks
+  find_keys_need_reduce
+  inbox_to_desktop
+  list_locked_keys
+  lock_cubby
+  purge
+  reabsorb
+  relock_desktop
+  relock_expired
+  retrieve
+  unlock_cubby
+  update_and_unlock
+  window_all
+);
+
 use Digest::MD5 qw/md5_hex/;
 use feature 'current_sub';
 use Data::Dumper;
@@ -47,8 +67,7 @@ has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1 );
 
 has ruleSource => ( is => 'ro', isa => 'Replay::RuleSource', required => 1 );
 
-has eventSystem =>
-    ( is => 'ro', isa => 'Replay::EventSystem', required => 1 );
+has eventSystem => ( is => 'ro', isa => 'Replay::EventSystem', required => 1 );
 
 has uuid => ( is => 'ro', builder => '_build_uuid', lazy => 1 );
 
@@ -79,7 +98,8 @@ sub fetch_transitional_state {
             $idkey,
             $cursor->all,
             map {
-                {   idkey => ( $idkey->cubby || q^^ ),
+                {
+                    idkey => ( $idkey->cubby || q^^ ),
                     meta => {
                         Domain       => ( $cubby->{Domain}       || [] ),
                         Timeblocks   => ( $cubby->{Timeblocks}   || [] ),
@@ -87,12 +107,12 @@ sub fetch_transitional_state {
                     },
                     atom => $_,
                 }
-            } @{ $cubby->{canonical} || [] }
+              } @{ $cubby->{canonical} || [] }
         );
     }
     catch {
         carp 'Reverting because doing the merge caused an exception ' . $_
-            . "\n";
+          . "\n";
         $self->revert($lock);
         return;
     };
@@ -113,30 +133,29 @@ sub fetch_transitional_state {
 sub merge {
     my ( $self, $idkey, @list ) = @_;
     my $meta = {};
-    foreach my $k (
-        Set::Object->new( map { keys %{ $_->{meta} } } @list )->members )
+    foreach
+      my $k ( Set::Object->new( map { keys %{ $_->{meta} } } @list )->members )
     {
-        $meta->{$k}
-            = Set::Object->new( map { $_->{meta}->{$k} } @list )->members,;
+        $meta->{$k} =
+          Set::Object->new( map { $_->{meta}->{$k} } @list )->members,;
     }
 
     # for each rule involved
-    foreach (
-        Set::Scalar->new( map { $_->{rule} } @{ $meta->{Ruleversions} } )
+    foreach ( Set::Scalar->new( map { $_->{rule} } @{ $meta->{Ruleversions} } )
         ->members )
     {
-        if (scalar Set::Scalar->new(
+        if (
+            scalar Set::Scalar->new(
                 map { $_->{version} } @{ $meta->{Ruleversions} }
             )->size > 1
-            )
+          )
         {
             croak 'data model integrity error! '
-                . 'More than one version of the same rule reffed!';
+              . 'More than one version of the same rule reffed!';
         }
     }
-    return $meta,
-        sort { $self->rule($idkey)->compare( $a, $b ) }
-        map { $_->{atom} } @list;
+    return $meta, sort { $self->rule($idkey)->compare( $a, $b ) }
+      map { $_->{atom} } @list;
 }
 
 sub fetch_canonical_state {
@@ -144,8 +163,7 @@ sub fetch_canonical_state {
 
     my $cubby = $self->retrieve($idkey);
 
-    my $e
-        = $self->state_signature( $idkey, $cubby->{canonical} || [] ) || q();
+    my $e = $self->state_signature( $idkey, $cubby->{canonical} || [] ) || q();
     if ( ( $cubby->{canonSignature} || q() ) ne ( $e || q() ) ) {
         carp q^canon signature didn't match. Don't worry about it.^;
     }
@@ -159,8 +177,8 @@ sub store_new_canonical_state {
     my $cubby = $self->retrieve($idkey);
     $cubby->{canonVersion}++;
     $cubby->{canonical} = [@atoms];
-    $cubby->{canonSignature}
-        = $self->state_signature( $idkey, $cubby->{canonical} );
+    $cubby->{canonSignature} =
+      $self->state_signature( $idkey, $cubby->{canonical} );
     $self->checkin( $lock, $cubby );
     $emitter->release;
 
@@ -168,8 +186,8 @@ sub store_new_canonical_state {
         carp 'ABSORB DEFERRED ATOM';
         $self->absorb( $idkey, $atom, {} );
     }
-    my $new_conical_msg
-        = Replay::Message::NewCanonical->new( $idkey->marshall );
+    my $new_conical_msg =
+      Replay::Message::NewCanonical->new( $idkey->marshall );
     $self->eventSystem->report->emit($new_conical_msg);
     $self->eventSystem->control->emit($new_conical_msg);
     $self->emit_reducable_if_needed($idkey);
@@ -191,8 +209,8 @@ sub rule {
 sub expired_lock_recover {
     my ( $self, $idkey, $timeout ) = @_;
 
-    my $expire_relock = $self->relock_expired( $idkey, $timeout,
-        $self->current_lock($idkey) );
+    my $expire_relock =
+      $self->relock_expired( $idkey, $timeout, $self->current_lock($idkey) );
     warn "elr: result relock " . $expire_relock->locked;
 
     if ( !$expire_relock->is_locked ) {
@@ -205,9 +223,9 @@ sub expired_lock_recover {
 sub emit_lock_error {
     my ( $self, $lock ) = @_;
     carp q(Unable to obtain lock because the current )
-        . q(one is locked and unexpired ())
-        . $lock->idkey->cubby
-        . qq(\)\n);
+      . q(one is locked and unexpired ())
+      . $lock->idkey->cubby
+      . qq(\)\n);
     $self->eventSystem->control->emit(
         Replay::Message::NoLock->new( $lock->idkey->marshall ),
     );
@@ -228,8 +246,7 @@ sub emit_lock_error {
 sub checkout {
     my ( $self, $idkey, $timeout ) = @_;
     $timeout ||= $self->timeout;
-    my $prelock
-        = Replay::StorageEngine::Lock->prospective( $idkey, $timeout );
+    my $prelock = Replay::StorageEngine::Lock->prospective( $idkey, $timeout );
 
     my $lock = $self->checkout_record($prelock);
 
@@ -260,10 +277,10 @@ sub checkout {
     }
 
     carp q(checkout after revert and relock failed. )
-        . q(Mangled state in COLLECTION \()
-        . $lock->idkey->collection
-        . q(\) IDKEY \()
-        . $lock->idkey->cubby . q(\));
+      . q(Mangled state in COLLECTION \()
+      . $lock->idkey->collection
+      . q(\) IDKEY \()
+      . $lock->idkey->cubby . q(\));
 
     my $empty_lock = Replay::StorageEngine::Lock->empty( $lock->idkey );
     return $empty_lock;
@@ -290,7 +307,7 @@ before 'retrieve' => sub {
 after 'absorb' => sub {
     my ( $self, $idkey ) = @_;
 
-  #       carp('Replay::BaseStorageEnginee  after absorb '.$self.', .'$idkey);
+    #       carp('Replay::BaseStorageEnginee  after absorb '.$self.', .'$idkey);
     my $reduce_msg = Replay::Message::Reducable->new( $idkey->marshall );
     return $self->eventSystem->reduce->emit($reduce_msg);
 };
@@ -298,7 +315,7 @@ after 'absorb' => sub {
 after 'purge' => sub {
     my ( $self, $idkey ) = @_;
 
-   #       carp('Replay::BaseStorageEnginee  after purge '.$self.', .'$idkey);
+    #       carp('Replay::BaseStorageEnginee  after purge '.$self.', .'$idkey);
     my $purge_msg = Replay::Message::Cleared::State->new( $idkey->marshall );
     return $self->eventSystem->control->emit($purge_msg);
 };
@@ -306,10 +323,10 @@ after 'purge' => sub {
 sub revert {
     my ( $self,    $lock,     $empty ) = @_;
     my ( $package, $filename, $line )  = caller;
-    warn(     "Looping on this revert from $package, $filename, $line lock="
-            . $lock->locked . " = "
-            . $lock->idkey->full_spec )
-        unless $empty;
+    warn(   "Looping on this revert from $package, $filename, $line lock="
+          . $lock->locked . " = "
+          . $lock->idkey->full_spec )
+      unless $empty;
     $self->revert_this_record( $lock, $empty );
     my $revert_msg = Replay::Message::Reverted->new( $lock->idkey->marshall );
     $self->eventSystem->control->emit($revert_msg);
@@ -347,12 +364,12 @@ sub revert_all_expired_locks {
     warn "Scannign for locked keys...";
     foreach my $key ( $self->list_locked_keys(time) ) {
         warn "found locked key " . $key->full_spec . ' recover pending';
-        my $expireLock
-            = $self->expired_lock_recover( $key, $DEFAULT_RELOCK_TIMEOUT );
+        my $expireLock =
+          $self->expired_lock_recover( $key, $DEFAULT_RELOCK_TIMEOUT );
         next unless ( ref($expireLock) );
         warn "expire lock is " . $expireLock->is_locked
-            ? "Locked, continuing revert"
-            : "Unlocked, skipping";
+          ? "Locked, continuing revert"
+          : "Unlocked, skipping";
         next unless $expireLock->is_locked;
         $self->revert( $expireLock, 0 );
         warn "Done revert.";
