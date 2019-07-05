@@ -15,6 +15,7 @@ requires qw(absorb
   find_keys_need_reduce
   inbox_to_desktop
   list_locked_keys
+  list_unlocked_keys
   lock_cubby
   purge
   reabsorb
@@ -57,12 +58,12 @@ use Carp qw/croak carp/;
 
 our $VERSION = '0.02';
 
-Readonly my $REDUCE_TIMEOUT => 60;
 
 $Storable::canonical = 1;    ## no critic (ProhibitPackageVars)
 
 Readonly my $READONLY               => 1;
 Readonly my $DEFAULT_RELOCK_TIMEOUT => 20;
+Readonly my $REDUCE_TIMEOUT         => 60;
 
 has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1 );
 

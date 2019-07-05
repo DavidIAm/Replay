@@ -1,14 +1,14 @@
-package Replay::Janitor;
+package Replay::Monitor;
 
 use Moose;
 use Try::Tiny;
 use English '-no_match_vars';
 use Carp qw/croak/;
 use Readonly;
-
+use Data::Dumper;
 our $VERSION = '0.01';
 
-Readonly my $DEFAULT_INTERVAL => 90;
+Readonly my $DEFAULT_INTERVAL => 60;
 
 has config => ( is => 'ro', isa => 'HashRef[Item]', required => 1, );
 
@@ -21,21 +21,28 @@ has interval => ( is => 'ro', builder => '_build_interval', lazy => 1 );
 
 sub BUILD {
     my ($self) = @_;
-    warn "Janitor is initializing";
+    warn "Monitor is initializing";
     $self->eventSystem->register_timer(
-        name     =>'janitor',
+        name     => 'monitor',
         interval => $self->interval,
         cb       => sub {
-            warn "Janitor is reverting all expired locks";
-            $self->storageEngine->revert_all_expired_locks();
-            $self->storageEngine->reduce_all_inboxes();
+            my @locked      = $self->storageEngine->list_locked_keys();
+            warn("locked =".Dumper(\@locked));
+            my @unlocked    = $self->storageEngine->list_unlocked_keys();
+             warn("unlocked =".Dumper(\@unlocked));
+            my @outstanding_count = map $self->storageEngine->count_inbox_outstanding($_), @locked;
+            warn("locked outstanding_count =".Dumper(\@outstanding_count));
+            @outstanding_count = map $self->storageEngine->count_inbox_outstanding($_), @unlocked;
+            warn("un locked outstanding_count =".Dumper(\@outstanding_count));
+
+            warn("Monitor Report Outstanding=".scalar(@outstanding_count).", Locked=".scalar(@locked).", unlocked=".scalar(@unlocked));
         },
     );
 }
 
 sub _build_interval {
     my ($self) = @_;
-    return $self->config->{Janitor}->{interval} || $DEFAULT_INTERVAL;
+    return $self->config->{Monitor}->{interval} || $DEFAULT_INTERVAL;
 }
 
 1;
@@ -46,11 +53,12 @@ __END__
 
 =head1 NAME
 
-Replay::Janitor
+Replay::Monitor
 
 =head1 NAME
 
-Replay::Janitor - the janitor component of the system to keep things clean
+Replay::Monitor - the monitor component of the system reports on state of 
+Storage Engine BOXES and Rule state
 
 =head1 VERSION
 
@@ -58,7 +66,7 @@ Version 0.01
 
 =head1 SYNOPSIS
 
- my $janitor = Replay::Janitor->new(
+ my $monitor = Replay::Monitor->new(
    eventSystem => $eventSystem,
    storageEngine => $storageEngine,
  );
@@ -71,8 +79,7 @@ Implied by context
 
 =head1 DESCRIPTION
 
-The janitor periodically runs the revert_all_expired_locks function of the
-storageEngine interface, to keep any lost pieces from being neglected.
+The monitor periodically runs and reports on the state of BOXES
 
 =head1 SUBROUTINES/METHODS
 
@@ -85,7 +92,7 @@ wants a repeating interval callback to be run.
 
 =head1 AUTHOR
 
-David Ihnen, C<< <davidihnen at gmail.com> >>
+John Scoles, C<< <byterock at hotmail.com> >>
 
 =head1 DIAGNOSTICS
 

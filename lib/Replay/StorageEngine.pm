@@ -38,9 +38,21 @@ sub expire_all_locks {
     my @expired = $self->engine->expire_all_locks(@args);
 }
 
+sub count_inbox_outstanding {
+    my ( $self, @args ) = @_;
+    my @keys = $self->engine->count_inbox_outstanding(@args);
+}
+     
+
+
 sub list_locked_keys {
     my ( $self, @args ) = @_;
-    my @expired = $self->engine->list_locked_keys(@args);
+    my @keys = $self->engine->list_locked_keys(@args);
+}
+
+sub list_unlocked_keys {
+    my ( $self, @args ) = @_;
+    my @keys = $self->engine->list_unlocked_keys(@args);
 }
 
 sub revert_all_expired_locks {

@@ -32,6 +32,9 @@ sub relock_desktop { #stub
    return 1
 }
 
+sub list_unlocked_keys { #stub
+   return 1
+}
 
 
 sub retrieve {

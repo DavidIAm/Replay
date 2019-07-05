@@ -13,6 +13,7 @@ use Replay::EventSystem 0.02;
 use Replay::RuleSource 0.02;
 use Replay::Reporter 0.03;
 use Replay::Janitor 0.01;
+use Replay::Monitor 0.01;
 use Replay::Reducer 0.02;
 use Replay::Mapper 0.02;
 use Replay::Types::Types 0.02;
@@ -103,6 +104,19 @@ sub _build_janitor {    ## no critic (ProhibitUnusedPrivateSubroutines)
     return $janitor;
 }
 
+
+sub _build_monitor {    ## no critic (ProhibitUnusedPrivateSubroutines)
+    my $self           = shift;
+    my $event_system   = $self->eventSystem;
+    my $storage_engine = $self->storageEngine;
+    my $monitor        = Replay::Monitor->new(
+        eventSystem   => $event_system,
+        storageEngine => $storage_engine,
+        config        => $self->config
+    );
+    return $monitor;
+}
+
 sub _build_storage_engine {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self         = shift;
     my $config       = $self->config;
@@ -121,6 +135,13 @@ has janitor => (
     is      => 'ro',
     isa     => 'Replay::Janitor',
     builder => '_build_janitor',
+    lazy    => 1
+);
+
+has monitor => (
+    is      => 'ro',
+    isa     => 'Replay::Monitor',
+    builder => '_build_monitor',
     lazy    => 1
 );
 
