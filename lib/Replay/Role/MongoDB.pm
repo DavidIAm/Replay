@@ -22,7 +22,6 @@ use Data::Dumper;
 use MongoDB;
 use MongoDB::OID;
 use JSON;
-use Try::Tiny;
 requires(
     qw(_build_mongo
         _build_db
@@ -83,62 +82,7 @@ sub document {
     return $document;
 }
 
-sub current_lock {
-    my ( $self, $idkey ) = @_;
-    croak 'idkey for current_lock must be passed' if !$idkey;
-
-    my $report
-        = $self->db->get_collection( $idkey->collection )
-        ->find_one( { idkey => $idkey->cubby },
-        { locked => 1, lockExpireEpoch => 1, } );
-
-    if ($report) {
-        if ( $report->{locked} && $report->{lockExpireEpoch} ) {
-            return Replay::StorageEngine::Lock->new(
-                idkey           => $idkey,
-                locked          => $report->{locked},
-                lockExpireEpoch => $report->{lockExpireEpoch}
-            );
-        }
-        else {
-            return Replay::StorageEngine::Lock->empty( idkey => $idkey, );
-        }
-    }
-    else {
-        return Replay::StorageEngine::Lock->empty($idkey);
-    }
-}
-
-
-
-
-
-sub purge {
-    my ( $self, $idkey ) = @_;
-    $self->collection($idkey)
-        ->delete_one(
-        { idkey => $idkey->cubby, canonical => { q^$exists^ => 0 } } );
-}
-
-
-
-sub window_all {
-    my ( $self, $idkey ) = @_;
-
-    return {
-        map { $_->{IdKey}->{key} => $_->{canonical} || [] }
-            grep { defined $_->{IdKey}->{key} }
-            $self->collection($idkey)->find(
-            { idkey => { q^$regex^ => q(^) . $idkey->window_prefix } }
-            )->all
-    };
-}
-
-
-
-
-
-
+# Mongo query: relock cubby document
 
 1;
 

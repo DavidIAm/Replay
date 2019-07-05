@@ -18,6 +18,22 @@ our $VERSION = q(0.02);
 
 my $store = {};
 
+
+sub count_inbox_outstanding { #stub
+   return 1
+}
+sub current_lock { #stub
+   return 1
+}
+sub lock_cubby { #stub
+   return 1
+}
+sub relock_desktop { #stub
+   return 1
+}
+
+
+
 sub retrieve {
     my ( $self, $idkey ) = @_;
     return $self->collection($idkey)->{ $idkey->cubby }

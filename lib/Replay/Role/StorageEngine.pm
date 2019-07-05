@@ -8,6 +8,7 @@ requires qw(absorb
   checkin
   checkout_record
   count_inbox_outstanding
+  current_lock
   desktop_cursor
   ensure_locked
   expire_all_locks
